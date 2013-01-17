@@ -6,7 +6,9 @@
 
 
 // uncomment to disable texture reads
-//#define DIRECT_ACCESS_BLAS
+#ifdef FERMI_NO_DBLE_TEX
+#define DIRECT_ACCESS_BLAS
+#endif
 
 namespace quda {
 
@@ -111,7 +113,7 @@ namespace quda {
 
 
 #define DEF_ALL(id)				\
-  DECL_TEX(id)					\
+    DECL_TEX(id)				\
     DEF_BIND_UNBIND_FETCH(float2, short2, id)	\
     DEF_BIND_UNBIND_FETCH(float4, short4, id)	\
     DEF_BIND_UNBIND_FETCH(float, float, id)	\
@@ -124,7 +126,7 @@ namespace quda {
 
 
   // Declare the textures and define the member functions of the corresponding templated classes.
-  DEF_ALL(0)
+    DEF_ALL(0)
     DEF_ALL(1)
     DEF_ALL(2)
     DEF_ALL(3)
