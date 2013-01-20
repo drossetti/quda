@@ -203,11 +203,11 @@ def def_output_spinor():
     for s in range(0,4):
         for c in range(0,3):
             i = 3*s+c
-            if 2*i < sharedFloats and not sharedDslash:
+            if 2*i < sharedFloatsPerFlavor and not sharedDslash:
                 str += "#define "+out1_re(s,c)+" s["+`(2*i+0)`+"*SHARED_STRIDE]\n"
             else:
                 str += "VOLATILE spinorFloat "+out1_re(s,c)+";\n"
-            if 2*i+1 < sharedFloats and not sharedDslash:
+            if 2*i+1 < sharedFloatsPerFlavor and not sharedDslash:
                 str += "#define "+out1_im(s,c)+" s["+`(2*i+1)`+"*SHARED_STRIDE]\n"
             else:
                 str += "VOLATILE spinorFloat "+out1_im(s,c)+";\n"
@@ -216,12 +216,12 @@ def def_output_spinor():
     for s in range(0,4):
         for c in range(0,3):
             i = 3*s+c
-            if 2*i < sharedFloats and not sharedDslash:
-                str += "#define "+out2_re(s,c)+" s["+`(2*i+0)`+"*SHARED_STRIDE]\n"
+            if 2*i < sharedFloatsPerFlavor and not sharedDslash:
+                str += "#define "+out2_re(s,c)+" s["+`(2*i+0)+sharedFloatsPerFlavor`+"*SHARED_STRIDE]\n"
             else:
                 str += "VOLATILE spinorFloat "+out2_re(s,c)+";\n"
-            if 2*i+1 < sharedFloats and not sharedDslash:
-                str += "#define "+out2_im(s,c)+" s["+`(2*i+1)`+"*SHARED_STRIDE]\n"
+            if 2*i+1 < sharedFloatsPerFlavor and not sharedDslash:
+                str += "#define "+out2_im(s,c)+" s["+`(2*i+1)+sharedFloatsPerFlavor`+"*SHARED_STRIDE]\n"
             else:
                 str += "VOLATILE spinorFloat "+out2_im(s,c)+";\n"
     return str
@@ -234,7 +234,7 @@ def prolog():
     if dslash:
         prolog_str= ("// *** CUDA NDEG TWISTED MASS DSLASH ***\n\n" if not dagger else "// *** CUDA NDEG TWISTED MASS DSLASH DAGGER ***\n\n")
         prolog_str+= ("// Arguments (double) mu, (double)eta and (double)delta \n")
-        prolog_str+= "#define SHARED_TMNDEG_FLOATS_PER_THREAD "+str(sharedFloats)+"\n\n"
+        prolog_str+= "#define SHARED_TMNDEG_FLOATS_PER_THREAD "+str(2*sharedFloatsPerFlavor)+"\n\n"
     else:
         print "Undefined prolog"
         exit
@@ -252,7 +252,7 @@ def prolog():
     if dslash == True: prolog_str+= def_gauge()
     prolog_str+= def_output_spinor()
 
-    if (sharedFloats > 0):
+    if (sharedFloatsPerFlavor > 0):
         if (arch >= 200):
             prolog_str+= (
 """
@@ -274,7 +274,8 @@ def prolog():
 
 
     # set the pointer if using shared memory for pseudo registers
-    if sharedFloats > 0 and not sharedDslash: 
+#    if sharedFloatsPerFlavor > 0 and not sharedDslash: 
+    if sharedFloatsPerFlavor > 0:
         prolog_str += (
 """
 extern __shared__ char s_data[];
@@ -283,16 +284,9 @@ extern __shared__ char s_data[];
         if dslash:
             prolog_str += (
 """
-VOLATILE spinorFloat *s = (spinorFloat*)s_data + DSLASH_SHARED_FLOATS_PER_THREAD*SHARED_STRIDE*(threadIdx.x/SHARED_STRIDE)
+VOLATILE spinorFloat *s = (spinorFloat*)s_data + SHARED_TMNDEG_FLOATS_PER_THREAD*SHARED_STRIDE*(threadIdx.x/SHARED_STRIDE)
                                   + (threadIdx.x % SHARED_STRIDE);
 """)
-        else:
-            prolog_str += (
-"""
-VOLATILE spinorFloat *s = (spinorFloat*)s_data + CLOVER_SHARED_FLOATS_PER_THREAD*SHARED_STRIDE*(threadIdx.x/SHARED_STRIDE)
-                                  + (threadIdx.x % SHARED_STRIDE);
-""")
-
 
     if dslash:
         prolog_str += (
@@ -1007,7 +1001,7 @@ case EXTERIOR_KERNEL_Y:
     if sharedDslash: 
         str += "#undef WRITE_SPINOR_SHARED\n"
         str += "#undef READ_SPINOR_SHARED\n"
-    if sharedFloats > 0: str += "#undef SHARED_STRIDE\n\n"
+    if sharedFloatsPerFlavor > 0: str += "#undef SHARED_STRIDE\n\n"
 
     if dslash:
         for m in range(0,3):
@@ -1027,9 +1021,9 @@ case EXTERIOR_KERNEL_Y:
     for s in range(0,4):
         for c in range(0,3):
             i = 3*s+c
-            if 2*i < sharedFloats:
+            if 2*i < sharedFloatsPerFlavor:
                 str += "#undef "+out1_re(s,c)+"\n"
-                if 2*i+1 < sharedFloats:
+                if 2*i+1 < sharedFloatsPerFlavor:
                     str += "#undef "+out1_im(s,c)+"\n"
     str += "\n"
 
@@ -1047,27 +1041,28 @@ def generate_dslash():
 def generate_dslash_kernels(arch):
     print "Generating dslash kernel for sm" + str(arch/10)
 
-    global sharedFloats
+    global sharedFloatsPerFlavor
     global sharedDslash
     global dslash
     global dagger
     global twist
 
-    sharedFloats = 0
+    sharedFloatsPerFlavor = 0
     if arch >= 200:
-        sharedFloats = 24
-        sharedDslash = True    
+        sharedFloatsPerFlavor = 0
+        #sharedDslash = True
+        sharedDslash = False    
         name = "fermi"
     elif arch >= 120:
-        sharedFloats = 0
+        sharedFloatsPerFlavor = 0
         sharedDslash = False
         name = "gt200"
     else:
-        sharedFloats = 19
+        sharedFloatsPerFlavor = 19
         sharedDslash = False
         name = "g80"
 
-    print "Shared floats set to " + str(sharedFloats)
+    print "Shared floats set to " + str(sharedFloatsPerFlavor)
 
     dslash = True
     twist = False
@@ -1097,14 +1092,14 @@ def generate_dslash_kernels(arch):
 dslash = False
 dagger = False
 twist = False
-sharedFloats = 0
+sharedFloatsPerFlavor = 0
 sharedDslash = False
 
 # generate dslash kernels
 #arch = 200
 #generate_dslash_kernels(arch)
 
-arch = 130
+arch = 200
 generate_dslash_kernels(arch)
 
 #arch = 100
