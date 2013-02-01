@@ -92,25 +92,25 @@ cudaStream_t *streams;
 static bool initialized = false;
 
 //!< Profiler for initQuda
-TimeProfile profileInit("initQuda");
+static TimeProfile profileInit("initQuda");
 
 //!< Profile for loadGaugeQuda / saveGaugeQuda
-TimeProfile profileGauge("loadGaugeQuda");
+static TimeProfile profileGauge("loadGaugeQuda");
 
 //!< Profile for loadCloverQuda
-TimeProfile profileClover("loadCloverQuda");
+static TimeProfile profileClover("loadCloverQuda");
 
 //!< Profiler for invertQuda
-TimeProfile profileInvert("invertQuda");
+static TimeProfile profileInvert("invertQuda");
 
 //!< Profiler for invertMultiShiftQuda
-TimeProfile profileMulti("invertMultiShiftQuda");
+static TimeProfile profileMulti("invertMultiShiftQuda");
 
 //!< Profiler for invertMultiShiftMixedQuda
-TimeProfile profileMultiMixed("invertMultiShiftMixedQuda");
+static TimeProfile profileMultiMixed("invertMultiShiftMixedQuda");
 
 //!< Profiler for endQuda
-TimeProfile profileEnd("endQuda");
+static TimeProfile profileEnd("endQuda");
 
 int getGpuCount()
 {
@@ -162,7 +162,6 @@ void initQuda(int dev)
   }
 
   for(int i=0; i<deviceCount; i++) {
-    cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, i);
     checkCudaErrorNoSync(); // "NoSync" for correctness in HOST_DEBUG mode
     if (getVerbosity() >= QUDA_SUMMARIZE) {
@@ -810,13 +809,11 @@ void dslashQuda(void *h_out, void *h_in, QudaInvertParam *inv_param, QudaParity 
 
 void MatQuda(void *h_out, void *h_in, QudaInvertParam *inv_param)
 {
+  pushVerbosity(inv_param->verbosity);
 
   if (inv_param->dslash_type == QUDA_DOMAIN_WALL_DSLASH) setKernelPackT(true);
 //!ndegtm:
   if (inv_param->twist_flavor == QUDA_TWIST_NONDEG_DOUBLET) setKernelPackT(true);
-
-  pushVerbosity(inv_param->verbosity);
-
   if (gaugePrecise == NULL) errorQuda("Gauge field not allocated");
   if (cloverPrecise == NULL && inv_param->dslash_type == QUDA_CLOVER_WILSON_DSLASH) 
     errorQuda("Clover field not allocated");
@@ -883,12 +880,11 @@ void MatQuda(void *h_out, void *h_in, QudaInvertParam *inv_param)
 
 void MatDagMatQuda(void *h_out, void *h_in, QudaInvertParam *inv_param)
 {
+  pushVerbosity(inv_param->verbosity);
 
   if (inv_param->dslash_type == QUDA_DOMAIN_WALL_DSLASH) setKernelPackT(true);
 //!ndegtm:
   if (inv_param->twist_flavor == QUDA_TWIST_NONDEG_DOUBLET) setKernelPackT(true);
-
-  pushVerbosity(inv_param->verbosity);
 
   if (!initialized) errorQuda("QUDA not initialized");
   if (gaugePrecise == NULL) errorQuda("Gauge field not allocated");
@@ -1053,7 +1049,7 @@ void invertQuda(void *hp_x, void *hp_b, QudaInvertParam *param)
 {
 
   if (param->dslash_type == QUDA_DOMAIN_WALL_DSLASH) setKernelPackT(true);
-//!ndegtm:
+//!ndeg tm:
   if (param->twist_flavor == QUDA_TWIST_NONDEG_DOUBLET) setKernelPackT(true);
 
   profileInvert[QUDA_PROFILE_TOTAL].Start();
@@ -1266,12 +1262,11 @@ void invertQuda(void *hp_x, void *hp_b, QudaInvertParam *param)
  */
 void invertMultiShiftQuda(void **_hp_x, void *_hp_b, QudaInvertParam *param)
 {
+  profileMulti[QUDA_PROFILE_TOTAL].Start();
 
   if (param->dslash_type == QUDA_DOMAIN_WALL_DSLASH) setKernelPackT(true);
-//!ndegtm:
+//!ndeg tm:
   if (param->twist_flavor == QUDA_TWIST_NONDEG_DOUBLET) setKernelPackT(true);
-
-  profileMulti[QUDA_PROFILE_TOTAL].Start();
 
   if (!initialized) errorQuda("QUDA not initialized");
   // check the gauge fields have been created

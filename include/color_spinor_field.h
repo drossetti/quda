@@ -1,11 +1,11 @@
+#ifndef _COLOR_SPINOR_FIELD_H
+#define _COLOR_SPINOR_FIELD_H
+
 #include <quda_internal.h>
 #include <quda.h>
 
 #include <iostream>
 #include <complex>
-
-#ifndef _COLOR_SPINOR_FIELD_H
-#define _COLOR_SPINOR_FIELD_H
 
 // Probably want some checking for this limit
 #define QUDA_MAX_DIM 6
@@ -179,7 +179,13 @@ namespace quda {
     int real_length; // physical length only
     int length; // length including pads, but not ghost zone - used for BLAS
 
+    void *v; // the field elements
+    void *norm; // the normalization field
+
     // multi-GPU parameters
+    void* ghost[QUDA_MAX_DIM]; // pointers to the ghost regions - NULL by default
+    void* ghostNorm[QUDA_MAX_DIM]; // pointers to ghost norms - NULL by default
+    
     int ghostFace[QUDA_MAX_DIM];// the size of each face
     int ghostOffset[QUDA_MAX_DIM]; // offsets to each ghost zone
     int ghostNormOffset[QUDA_MAX_DIM]; // offsets to each ghost zone for norm field
@@ -207,6 +213,7 @@ namespace quda {
     void reset(const ColorSpinorParam &);
     void fill(ColorSpinorParam &) const;
     static void checkField(const ColorSpinorField &, const ColorSpinorField &);
+    void clearGhostPointers();
 
   public:
     //ColorSpinorField();
@@ -245,6 +252,10 @@ namespace quda {
     const int *GhostFace() const { return ghostFace; }  
     int GhostOffset(const int i) const { return ghostOffset[i]; }  
     int GhostNormOffset(const int i ) const { return ghostNormOffset[i]; }  
+    void* Ghost(const int i);
+    const void* Ghost(const int i) const;
+    void* GhostNorm(const int i);
+    const void* GhostNorm(const int i) const;
 
     friend std::ostream& operator<<(std::ostream &out, const ColorSpinorField &);
     friend class ColorSpinorParam;
@@ -256,10 +267,19 @@ namespace quda {
     friend class cpuColorSpinorField;
 
   private:
-    void *v; // the field elements
-    void *norm; // the normalization field
+    //void *v; // the field elements
+    //void *norm; // the normalization field
     bool alloc; // whether we allocated memory
     bool init;
+
+    bool texInit; // whether a texture object has been created or not
+#ifdef USE_TEXTURE_OBJECTS
+    cudaTextureObject_t tex;
+    cudaTextureObject_t texNorm;
+    void createTexObject();
+    void destroyTexObject();
+#endif
+
     bool reference; // whether the field is a reference or not
 
     static void *buffer_h;// pinned memory
@@ -267,8 +287,9 @@ namespace quda {
     static bool bufferInit;
     static size_t bufferBytes;
 
-    static void* fwdGhostFaceBuffer[QUDA_MAX_DIM]; //gpu memory
-    static void* backGhostFaceBuffer[QUDA_MAX_DIM]; //gpu memory
+    static void* ghostFaceBuffer; // gpu memory
+    static void* fwdGhostFaceBuffer[QUDA_MAX_DIM]; // pointers to ghostFaceBuffer
+    static void* backGhostFaceBuffer[QUDA_MAX_DIM]; // pointers to ghostFaceBuffer
     static int initGhostFaceBuffer;
     static QudaPrecision facePrecision;
 
@@ -309,6 +330,11 @@ namespace quda {
     void* Norm(){return norm;}
     const void* Norm() const {return norm;}
 
+#ifdef USE_TEXTURE_OBJECTS
+    const cudaTextureObject_t& Tex() const { return tex; }
+    const cudaTextureObject_t& TexNorm() const { return texNorm; }
+#endif
+
     cudaColorSpinorField& Even() const;
     cudaColorSpinorField& Odd() const;
 
@@ -344,8 +370,8 @@ namespace quda {
     static int initGhostFaceBuffer;
 
   private:
-    void *v; // the field elements
-    void *norm; // the normalization field
+    //void *v; // the field elements
+    //void *norm; // the normalization field
     bool init;
     bool reference; // whether the field is a reference or not
 

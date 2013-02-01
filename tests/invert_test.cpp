@@ -116,7 +116,7 @@ int main(int argc, char **argv)
   gauge_param.X[3] = tdim;
   inv_param.Ls = (dslash_type == QUDA_DOMAIN_WALL_DSLASH) ? myLs : 1;
 
-  gauge_param.anisotropy = 2.38;
+  gauge_param.anisotropy = 1.0;
   gauge_param.type = QUDA_WILSON_LINKS;
   gauge_param.gauge_order = QUDA_QDP_GAUGE_ORDER;
   gauge_param.t_boundary = QUDA_ANTI_PERIODIC_T;
@@ -133,11 +133,11 @@ int main(int argc, char **argv)
   inv_param.dslash_type = dslash_type;
 
   double mass = -0.4125;
-  inv_param.kappa = 1.0 / (2.0 * (1 + 3/gauge_param.anisotropy + mass));
+  inv_param.kappa = 0.156361;//1.0 / (2.0 * (1 + 3/gauge_param.anisotropy + mass));
 
   if (dslash_type == QUDA_TWISTED_MASS_DSLASH) {
-    inv_param.mu = 0.1;
-    inv_param.epsilon = 0.003;
+    inv_param.mu = 0.12;
+    inv_param.epsilon = 0.1385;
 //!    
     inv_param.twist_flavor = QUDA_TWIST_NONDEG_DOUBLET;
     //inv_param.twist_flavor = QUDA_TWIST_MINUS;
@@ -153,7 +153,7 @@ int main(int argc, char **argv)
   double offset[QUDA_MAX_MULTI_SHIFT] = {0.01, 0.02, 0.03, 0.04};
   for (int i=0; i<inv_param.num_offset; i++) inv_param.offset[i] = offset[i];
 
-  inv_param.solution_type = QUDA_MATPC_SOLUTION;
+  inv_param.solution_type = QUDA_MAT_SOLUTION;
   inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN;
   inv_param.dagger = QUDA_DAG_NO;
   inv_param.mass_normalization = QUDA_KAPPA_NORMALIZATION;
@@ -167,12 +167,12 @@ int main(int argc, char **argv)
   }
 
   inv_param.gcrNkrylov = 10;
-  inv_param.tol = 5e-7;
+  inv_param.tol = 1e-10;
   //inv_param.residual_type = QUDA_HEAVY_QUARK_RESIDUAL;
   // these can be set individually
   for (int i=0; i<inv_param.num_offset; i++) inv_param.tol_offset[i] = inv_param.tol;
-  inv_param.maxiter = 1000;
-  inv_param.reliable_delta = 1e-1; // ignored by multi-shift solver
+  inv_param.maxiter = 25000;
+  inv_param.reliable_delta = 1e-2; // ignored by multi-shift solver
 
   // domain decomposition preconditioner parameters
   inv_param.inv_type_precondition = QUDA_INVALID_INVERTER;
@@ -181,7 +181,7 @@ int main(int argc, char **argv)
   inv_param.tol_precondition = 1e-1;
   inv_param.maxiter_precondition = 10;
   inv_param.verbosity_precondition = QUDA_SILENT;
-  inv_param.prec_precondition = cuda_prec_precondition;
+  inv_param.cuda_prec_precondition = cuda_prec_precondition;
   inv_param.omega = 1.0;
 
   inv_param.cpu_prec = cpu_prec;
@@ -249,8 +249,9 @@ int main(int argc, char **argv)
   }
 
   if (strcmp(latfile,"")) {  // load in the command line supplied gauge field
-    read_gauge_field(latfile, gauge, gauge_param.cpu_prec, gauge_param.X, argc, argv);
-    construct_gauge_field(gauge, 2, gauge_param.cpu_prec, &gauge_param);
+    //read_gauge_field(latfile, gauge, gauge_param.cpu_prec, gauge_param.X, argc, argv);
+    //construct_gauge_field(gauge, 2, gauge_param.cpu_prec, &gauge_param);
+    read_custom_binary_gauge_field((double**)gauge, latfile, &gauge_param, &inv_param, gridsize_from_cmdline); 
   } else { // else generate a random SU(3) field
     construct_gauge_field(gauge, 1, gauge_param.cpu_prec, &gauge_param);
   }

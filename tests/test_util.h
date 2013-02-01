@@ -82,6 +82,29 @@ extern "C" {
   void stopwatchStart();
   double stopwatchReadSeconds();
 
+#define CUSTOM_FIELD
+
+// the following definitions are machine dependent: 
+typedef float  qcd_real_4;              // 4 byte, single precision
+typedef double qcd_real_8;              // 8 byte, double precision
+typedef char   qcd_int_1;               // signed 1 byte integer
+typedef short  qcd_int_2;               // signed 2 byte integer
+typedef int    qcd_int_4;               // signed 4 byte integer
+typedef long   qcd_int_8;               // signed 8 byte integer
+typedef unsigned char   qcd_uint_1;     // unsigned 1 byte integer
+typedef unsigned short  qcd_uint_2;     // unsigned 2 byte integer
+typedef unsigned int    qcd_uint_4;     // unsigned 4 byte integer
+typedef unsigned long   qcd_uint_8;     // unsigned 8 byte integer
+//------------------------------------------------------------------
+
+ typedef struct {
+   qcd_real_8 re;
+   qcd_real_8 im;
+ } qcd_complex_16; 
+
+
+  int read_custom_binary_gauge_field (double **gauge, char *fname, QudaGaugeParam *param, QudaInvertParam *inv_param, int gridSize[4]);
+
 #ifdef __cplusplus
 }
 #endif

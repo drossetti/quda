@@ -302,12 +302,18 @@ static inline __device__ void coordsFromFaceIndex(int &idx, int &cb_idx, Int &X,
   //printf("Global sid %d (%d, %d, %d, %d)\n", cb_int, x, y, z, t);
 }
 
+enum IndexType {
+  EVEN_X = 0,
+  EVEN_Y = 1,
+  EVEN_Z = 2,
+  EVEN_T = 3
+};
 
 // compute coordinates from index into the checkerboard (used by the interior Dslash kernels)
-template <typename Int>
-static __device__ __forceinline__ void coordsFromIndex(int &idx, Int &X, Int &Y, Int &Z, Int &T, const int &cb_idx, const int &parity)
+template <IndexType idxType, typename Int>
+static __device__ __forceinline__ void coordsFromIndex(int &idx, Int &X, Int &Y, Int &Z, Int &T, 
+						       const int &cb_idx, const int &parity)
 {
-
   int &LX = X1;
   int &LY = X2;
   int &LZ = X3;
@@ -318,7 +324,66 @@ static __device__ __forceinline__ void coordsFromIndex(int &idx, Int &X, Int &Y,
 
   int x, y, z, t;
 
-  if (!(LX & 1)) { // X even
+  // The full field index is 
+  // idx = x + y*X + z*X*Y + t*X*Y*Z
+  // The parity of lattice site (x,y,z,t) 
+  // is defined to be (x+y+z+t) & 1
+  // 0 => even parity 
+  // 1 => odd parity
+  // cb_idx runs over the half volume
+  // cb_idx = iidx/2 = (x + y*X + z*X*Y + t*X*Y*Z)/2
+  //
+  // We need to obtain idx from cb_idx + parity.
+  // 
+  // 1)  First, consider the case where X is even.
+  // Then, y*X + z*X*Y + t*X*Y*Z is even and
+  // 2*cb_idx = 2*(x/2) + y*X + z*X*Y + t*X*Y*Z
+  // Since, 2*(x/2) is even, if y+z+t is even
+  // (2*(x/2),y,z,t) is an even parity site.
+  // Similarly, if y+z+t is odd
+  // (2*(x/2),y,z,t) is an odd parity site. 
+  // 
+  // Note that (1+y+z+t)&1 = 1 for y+z+t even
+  //      and  (1+y+z+t)&1 = 0 for y+z+t odd
+  // Therefore, 
+  // (2*/(x/2) + (1+y+z+t)&1, y, z, t) is odd.
+  //
+  // 2)  Consider the case where X is odd but Y is even.
+  // Calculate 2*cb_idx
+  // t = 2*cb_idx/XYZ
+  // z = (2*cb_idx/XY) % Z
+  //
+  // Now, we  need to compute (x,y) for different parities.
+  // To select a site with even parity, consider (z+t).
+  // If (z+t) is even, this implies that (x+y) must also 
+  // be even in order that (x+y+z+t) is even. 
+  // Therefore,  x + y*X is even.
+  // Thus, 2*cb_idx = idx 
+  // and y =  (2*cb_idx/X) % Y
+  // and x =  (2*cb_idx) % X;
+  // 
+  // On the other hand, if (z+t) is odd, (x+y) must be 
+  // also be odd in order to get overall even parity. 
+  // Then x + y*X is odd (since X is odd and either x or y is odd)
+  // and 2*cb_idx = 2*(idx/2) = idx-1 =  x + y*X -1 + z*X*Y + t*X*Y*Z
+  // => idx = 2*cb_idx + 1
+  // and y = ((2*cb_idx + 1)/X) % Y
+  // and x = (2*cb_idx + 1) % X
+  //
+  // To select a site with odd parity if (z+t) is even,
+  // (x+y) must be odd, which, following the discussion above, implies that
+  // y = ((2*cb_idx + 1)/X) % Y
+  // x = (2*cb_idx + 1) % X
+  // Finally, if (z+t) is odd (x+y) must be even to get overall odd parity, 
+  // and 
+  // y = ((2*cb_idx)/X) % Y
+  // x = (2*cb_idx) % X
+  // 
+  // The code below covers these cases 
+  // as well as the cases where X, Y are odd and Z is even,
+  // and X,Y,Z are all odd
+
+  if (idxType == EVEN_X /*!(LX & 1)*/) { // X even
     //   t = idx / XYZ;
     //   z = (idx / XY) % Z;
     //   y = (idx / X) % Y;
@@ -334,13 +399,13 @@ static __device__ __forceinline__ void coordsFromIndex(int &idx, Int &X, Int &Y,
     aux1 = (parity + t + z + y) & 1;
     x += aux1;
     idx += aux1;
-  } else if (!(LY & 1)) { // Y even
+  } else if (idxType == EVEN_Y /*!(LY & 1)*/) { // Y even
     t = idx / XYZ;
     z = (idx / XY) % LZ;
     idx += (parity + t + z) & 1;
     y = (idx / LX) % LY;
     x = idx % LX;
-  } else if (!(LZ & 1)) { // Z even
+  } else if (idxType == EVEN_Z /*!(LZ & 1)*/) { // Z even
     t = idx / XYZ;
     idx += (parity + t) & 1;
     z = (idx / XY) % LZ;
@@ -352,6 +417,39 @@ static __device__ __forceinline__ void coordsFromIndex(int &idx, Int &X, Int &Y,
     z = (idx / XY) % LZ;
     y = (idx / LX) % LY;
     x = idx % LX;
+  }
+
+  X = x;
+  Y = y;
+  Z = z;
+  T = t;
+}
+
+// compute coordinates from index into the checkerboard (used by the interior Dslash kernels)
+// This is the variant used byt the shared memory wilson dslash
+template <IndexType idxType, typename Int>
+static __device__ __forceinline__ void coordsFromIndex3D(int &idx, Int &X, Int &Y, Int &Z, Int &T, 
+							 int &cb_idx, const int &parity)
+{
+  int &LX = X1;
+  int &LY = X2;
+  int &LZ = X3;
+
+  int x, y, z, t;
+
+  if (idxType == EVEN_X) { // X even
+    int xt = blockIdx.x*blockDim.x + threadIdx.x;
+    int aux = xt+xt;
+    t = aux / LX;
+    x = aux - t*LX;
+    y = blockIdx.y*blockDim.y + threadIdx.y;
+    z = blockIdx.z*blockDim.z + threadIdx.z;
+    x += (parity + t + z + y) &1;
+    idx = ((t*LZ + z)*LY + y)*LX + x;
+    cb_idx = idx >> 1; 
+  } else {
+    // Non-even X is not (yet) supported.
+    return;
   }
 
   X = x;
@@ -575,6 +673,7 @@ static inline __device__ void coordsFromDWFaceIndex(int &cb_idx, Int &X, Int &Y,
   //printf("Global sid %d (%d, %d, %d, %d)\n", cb_int, x, y, z, t);
 }
 
+
 //!ndeg tm:
 template <int dim, int nLayers>
 static inline __device__ int indexFromNdegTMFaceIndex(int face_idx, const int &face_volume,
@@ -677,6 +776,22 @@ static inline __device__ int indexFromNdegTMFaceIndex(int face_idx, const int &f
 
 #ifdef MULTI_GPU
 
+template <typename FloatN>
+struct PackParam {
+  
+  FloatN *out;
+  float *outNorm;
+
+  FloatN *in;
+  float *inNorm;
+
+  int parity;
+#ifdef USE_TEXTURE_OBJECTS
+  cudaTextureObject_t inTex;
+  cudaTextureObject_t inTexNorm;
+#endif
+};
+
 #if defined(GPU_WILSON_DIRAC) || defined(GPU_DOMAIN_WALL_DIRAC)
 
 // double precision
@@ -689,13 +804,18 @@ static inline __device__ int indexFromNdegTMFaceIndex(int face_idx, const int &f
 #define READ_SPINOR READ_SPINOR_DOUBLE_TEX
 #define READ_SPINOR_UP READ_SPINOR_DOUBLE_UP_TEX
 #define READ_SPINOR_DOWN READ_SPINOR_DOUBLE_DOWN_TEX
+#ifdef USE_TEXTURE_OBJECTS
+#define SPINORTEX param.inTex
+#else
 #define SPINORTEX spinorTexDouble
+#endif
 #endif
 #define WRITE_HALF_SPINOR WRITE_HALF_SPINOR_DOUBLE2
 #define SPINOR_DOUBLE
 template <int dim, int dagger>
 static inline __device__ void packFaceWilsonCore(double2 *out, float *outNorm, const double2 *in, const float *inNorm,
-						 const int &idx, const int &face_idx, const int &face_volume, const int &face_num)
+						 const int &idx, const int &face_idx, const int &face_volume, 
+						 const int &face_num, PackParam<double2> &param)
 {
 #if (__COMPUTE_CAPABILITY__ >= 130)
     if (dagger) {
@@ -723,12 +843,17 @@ static inline __device__ void packFaceWilsonCore(double2 *out, float *outNorm, c
 #define READ_SPINOR READ_SPINOR_SINGLE_TEX
 #define READ_SPINOR_UP READ_SPINOR_SINGLE_UP_TEX
 #define READ_SPINOR_DOWN READ_SPINOR_SINGLE_DOWN_TEX
+#ifdef USE_TEXTURE_OBJECTS
+#define SPINORTEX param.inTex
+#else
 #define SPINORTEX spinorTexSingle
+#endif
 #endif
 #define WRITE_HALF_SPINOR WRITE_HALF_SPINOR_FLOAT4
 template <int dim, int dagger>
 static inline __device__ void packFaceWilsonCore(float4 *out, float *outNorm, const float4 *in, const float *inNorm,
-						 const int &idx, const int &face_idx, const int &face_volume, const int &face_num)
+						 const int &idx, const int &face_idx, const int &face_volume, 
+						 const int &face_num, const PackParam<float4> &param)
 {
     if (dagger) {
 #include "wilson_pack_face_dagger_core.h"
@@ -753,12 +878,17 @@ static inline __device__ void packFaceWilsonCore(float4 *out, float *outNorm, co
 #define READ_SPINOR READ_SPINOR_HALF_TEX
 #define READ_SPINOR_UP READ_SPINOR_HALF_UP_TEX
 #define READ_SPINOR_DOWN READ_SPINOR_HALF_DOWN_TEX
+#ifdef USE_TEXTURE_OBJECTS
+#define SPINORTEX param.inTex
+#else
 #define SPINORTEX spinorTexHalf
+#endif
 #endif
 #define WRITE_HALF_SPINOR WRITE_HALF_SPINOR_SHORT4
 template <int dim, int dagger>
 static inline __device__ void packFaceWilsonCore(short4 *out, float *outNorm, const short4 *in, const float *inNorm,
-						 const int &idx, const int &face_idx, const int &face_volume, const int &face_num)
+						 const int &idx, const int &face_idx, const int &face_volume, 
+						 const int &face_num, const PackParam<short4> &param)
 {
     if (dagger) {
 #include "wilson_pack_face_dagger_core.h"
@@ -774,12 +904,11 @@ static inline __device__ void packFaceWilsonCore(short4 *out, float *outNorm, co
 
 
 template <int dim, int dagger, typename FloatN>
-__global__ void packFaceWilsonKernel(FloatN *out, float *outNorm, const FloatN *in, 
-				     const float *inNorm, const int parity)
+__global__ void packFaceWilsonKernel(PackParam<FloatN> param)
 {
   const int nFace = 1; // 1 face for Wilson
   const int Nint = 12; // output is spin projected
-  size_t faceBytes = nFace*ghostFace[dim]*Nint*sizeof(out->x);
+  size_t faceBytes = nFace*ghostFace[dim]*Nint*sizeof(param.out->x);
   if (sizeof(FloatN)==sizeof(short4)) faceBytes += nFace*ghostFace[dim]*sizeof(float);
 
   int face_volume = ghostFace[dim];
@@ -792,34 +921,30 @@ __global__ void packFaceWilsonKernel(FloatN *out, float *outNorm, const FloatN *
   face_idx -= face_num*nFace*face_volume;
 
   // compute an index into the local volume from the index into the face
-  const int idx = indexFromFaceIndex<dim, nFace>(face_idx, face_volume, face_num, parity);
+  const int idx = indexFromFaceIndex<dim, nFace>(face_idx, face_volume, face_num, param.parity);
 
-  if (face_num) {
-    out = (FloatN*)((char*)out + faceBytes);
-    outNorm = (float*)((char*)outNorm + faceBytes);
-  }
+  FloatN* out = (face_num) ? (FloatN*)((char*)param.out + faceBytes) : param.out;
+  float* outNorm = (face_num) ? (float*)((char*)param.outNorm + faceBytes) : param.outNorm;
 
   // read spinor, spin-project, and write half spinor to face
-  packFaceWilsonCore<dim, dagger>(out, outNorm, in, inNorm, idx, face_idx, face_volume, face_num);
+  packFaceWilsonCore<dim, dagger>(out, outNorm, param.in, param.inNorm, idx, face_idx, 
+				  face_volume, face_num, param);
 }
 
 #endif // GPU_WILSON_DIRAC || GPU_DOMAIN_WALL_DIRAC
 
 
-template <typename FloatN>
-class PackFaceWilson : public Tunable {
 
- private:
+template <typename FloatN>
+class PackFace : public Tunable {
+
+ protected:
   FloatN *faces;
   float *facesNorm;
-  const FloatN *in;
-  const float *inNorm;
+  const cudaColorSpinorField *in;
   const int dim;
   const int dagger;
   const int parity;
-  const int *X;
-  const int *ghostFace;
-  const int stride;
   const int nFace;
 
   int sharedBytesPerThread() const { return 0; }
@@ -828,66 +953,35 @@ class PackFaceWilson : public Tunable {
   bool advanceGridDim(TuneParam &param) const { return false; } // Don't tune the grid dimensions.
   bool advanceBlockDim(TuneParam &param) const {
     bool advance = Tunable::advanceBlockDim(param);
-    unsigned int threads = ghostFace[dim]*nFace*2; // 2 for forwards and backwards faces
+    unsigned int threads = in->GhostFace()[dim]*nFace*2; // 2 for forwards and backwards faces
     if (advance) param.grid = dim3( (threads+param.block.x-1) / param.block.x, 1, 1);
     return advance;
   }
 
  public:
-  PackFaceWilson(FloatN *faces, float *facesNorm, const FloatN *in, const float *inNorm, 
-		 const int dim, const int dagger, const int parity, const int *X, 
-		 const int *ghostFace, const int stride)
-    : faces(faces), facesNorm(facesNorm), in(in), inNorm(inNorm), dim(dim), dagger(dagger), 
-      parity(parity), X(X), ghostFace(ghostFace), stride(stride), nFace(1) { }
-  virtual ~PackFaceWilson() { }
+  PackFace(FloatN *faces, float *facesNorm, const cudaColorSpinorField *in, 
+	   const int dim, const int dagger, const int parity, const int nFace)
+    : faces(faces), facesNorm(facesNorm), in(in), dim(dim), dagger(dagger), parity(parity), nFace(nFace) { }
+  virtual ~PackFace() { }
   
-  TuneKey tuneKey() const {
+  virtual int tuningIter() const { return 100; }
+
+  virtual TuneKey tuneKey() const {
     std::stringstream vol, aux;
-    vol << X[0] << "x";
-    vol << X[1] << "x";
-    vol << X[2] << "x";
-    vol << X[3];    
-    aux << "dim=" << dim << ",stride=" << stride << ",prec=" << sizeof(((FloatN*)0)->x);
+    vol << in->X()[0] << "x";
+    vol << in->X()[1] << "x";
+    vol << in->X()[2] << "x";
+    vol << in->X()[3];    
+    aux << "dim=" << dim << ",stride=" << in->Stride() << ",prec=" << sizeof(((FloatN*)0)->x);
     return TuneKey(vol.str(), typeid(*this).name(), aux.str());
   }  
   
-  void apply(const cudaStream_t &stream) {
-    TuneParam tp = tuneLaunch(*this, dslashTuning, verbosity);
-
-#ifdef GPU_WILSON_DIRAC
-    if (dagger) {
-      switch (dim) {
-      case 0: packFaceWilsonKernel<0,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-      case 1: packFaceWilsonKernel<1,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-      case 2: packFaceWilsonKernel<2,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-      case 3: packFaceWilsonKernel<3,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-      }
-    } else {
-      switch (dim) {
-    case 0: packFaceWilsonKernel<0,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-      case 1: packFaceWilsonKernel<1,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-      case 2: packFaceWilsonKernel<2,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-      case 3: packFaceWilsonKernel<3,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-      }
-    }
-#else
-    errorQuda("Wilson face packing kernel is not built");
-#endif  
-  }
-
-  long long flops() const { return 12*ghostFace[dim]; }
-  long long bytes() const { 
-    int Nint = 36;
-    size_t faceBytes = 2*nFace*ghostFace[dim]*Nint*sizeof(((FloatN*)0)->x);
-    if (sizeof(((FloatN*)0)->x) == QUDA_HALF_PRECISION) 
-      faceBytes += nFace*ghostFace[dim]*sizeof(float);
-    return faceBytes;
-  }
+  virtual void apply(const cudaStream_t &stream) = 0;
 
   virtual void initTuneParam(TuneParam &param) const
   {
     Tunable::initTuneParam(param);
-    unsigned int threads = ghostFace[dim]*nFace*2; // 2 for forwards and backwards faces
+    unsigned int threads = in->GhostFace()[dim]*nFace*2; // 2 for forwards and backwards faces
     param.grid = dim3( (threads+param.block.x-1) / param.block.x, 1, 1);
   }
   
@@ -895,8 +989,65 @@ class PackFaceWilson : public Tunable {
   virtual void defaultTuneParam(TuneParam &param) const
   {
     Tunable::defaultTuneParam(param);
-    unsigned int threads = ghostFace[dim]*nFace*2; // 2 for forwards and backwards faces
+    unsigned int threads = in->GhostFace()[dim]*nFace*2; // 2 for forwards and backwards faces
     param.grid = dim3( (threads+param.block.x-1) / param.block.x, 1, 1);
+  }
+
+};
+
+template <typename FloatN>
+class PackFaceWilson : public PackFace<FloatN> {
+
+ private:
+
+ public:
+  PackFaceWilson(FloatN *faces, float *facesNorm, const cudaColorSpinorField *in, 
+		 const int dim, const int dagger, const int parity)
+    : PackFace<FloatN>(faces, facesNorm, in, dim, dagger, parity, 1) { }
+  virtual ~PackFaceWilson() { }
+  
+  void apply(const cudaStream_t &stream) {
+    TuneParam tp = tuneLaunch(*this, dslashTuning, verbosity);
+
+#ifdef GPU_WILSON_DIRAC
+    PackParam<FloatN> param;
+    param.out = this->faces;
+    param.outNorm = this->facesNorm;
+    param.in = (FloatN*)this->in->V();
+    param.inNorm = (float*)this->in->Norm();
+    param.parity = this->parity;
+#ifdef USE_TEXTURE_OBJECTS
+    param.inTex = this->in->Tex();
+    param.inTexNorm = this->in->TexNorm();
+#endif
+
+    if (this->dagger) {
+      switch (this->dim) {
+      case 0: packFaceWilsonKernel<0,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      case 1: packFaceWilsonKernel<1,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      case 2: packFaceWilsonKernel<2,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      case 3: packFaceWilsonKernel<3,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      }
+    } else {
+      switch (this->dim) {
+    case 0: packFaceWilsonKernel<0,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      case 1: packFaceWilsonKernel<1,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      case 2: packFaceWilsonKernel<2,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      case 3: packFaceWilsonKernel<3,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      }
+    }
+#else
+    errorQuda("Wilson face packing kernel is not built");
+#endif  
+  }
+
+  long long flops() const { return 12*this->in->GhostFace()[this->dim]; }
+  long long bytes() const { 
+    int Nint = 36; // input and output
+    size_t faceBytes = 2*this->nFace*this->in->GhostFace()[this->dim]*Nint*sizeof(((FloatN*)0)->x);
+    if (sizeof(((FloatN*)0)->x) == QUDA_HALF_PRECISION) 
+      faceBytes += 2*this->nFace*this->in->GhostFace()[this->dim]*sizeof(float);
+    return faceBytes;
   }
 
 };
@@ -905,10 +1056,6 @@ void packFaceWilson(void *ghost_buf, cudaColorSpinorField &in, const int dim, co
 		    const int parity, const cudaStream_t &stream) {
   const int nFace = 1; // 1 face for Wilson
 
-  unsigned int threads = in.GhostFace()[dim]*nFace*2;
-  dim3 blockDim(64, 1, 1); // TODO: make this a parameter for auto-tuning
-  dim3 gridDim( (threads+blockDim.x-1) / blockDim.x, 1, 1);
-
   // compute location of norm zone
   int Nint = in.Ncolor() * in.Nspin(); // assume spin projection
   float *ghostNorm = (float*)((char*)ghost_buf + Nint*nFace*in.GhostFace()[dim]*in.Precision());
@@ -916,22 +1063,19 @@ void packFaceWilson(void *ghost_buf, cudaColorSpinorField &in, const int dim, co
   switch(in.Precision()) {
   case QUDA_DOUBLE_PRECISION:
     {
-      PackFaceWilson<double2> pack((double2*)ghost_buf, ghostNorm, (double2*)in.V(), (float*)in.Norm(), 
-				   dim, dagger, parity, in.X(), in.GhostFace(), in.Stride());
+      PackFaceWilson<double2> pack((double2*)ghost_buf, ghostNorm, &in, dim, dagger, parity);
       pack.apply(stream);
     }
     break;
   case QUDA_SINGLE_PRECISION:
     {
-      PackFaceWilson<float4> pack((float4*)ghost_buf, ghostNorm, (float4*)in.V(), (float*)in.Norm(), 
-				  dim, dagger, parity, in.X(), in.GhostFace(), in.Stride());
+      PackFaceWilson<float4> pack((float4*)ghost_buf, ghostNorm, &in, dim, dagger, parity);
       pack.apply(stream);
     }
     break;
   case QUDA_HALF_PRECISION:
     {
-      PackFaceWilson<short4> pack((short4*)ghost_buf, ghostNorm, (short4*)in.V(), (float*)in.Norm(), 
-				  dim, dagger, parity, in.X(), in.GhostFace(), in.Stride());
+      PackFaceWilson<short4> pack((short4*)ghost_buf, ghostNorm, &in, dim, dagger, parity);
       pack.apply(stream);
     }
     break;
@@ -939,6 +1083,18 @@ void packFaceWilson(void *ghost_buf, cudaColorSpinorField &in, const int dim, co
 }
 
 #ifdef GPU_STAGGERED_DIRAC
+
+#ifdef USE_TEXTURE_OBJECTS
+#define SPINORTEXDOUBLE param.inTex
+#define SPINORTEXSINGLE param.inTex
+#define SPINORTEXHALF param.inTex
+#define SPINORTEXHALFNORM param.inTexNorm
+#else
+#define SPINORTEXDOUBLE spinorTexDouble
+#define SPINORTEXSINGLE spinorTexSingle2
+#define SPINORTEXHALF spinorTexHalf2
+#define SPINORTEXHALFNORM spinorTexHalf2Norm
+#endif
 
 #if (defined DIRECT_ACCESS_PACK) || (defined FERMI_NO_DBLE_TEX)
 template <typename Float2>
@@ -957,16 +1113,16 @@ template<> __device__ void packSpinor(short2 *out, float *outNorm, int out_idx, 
 }
 #else
 __device__ void packSpinor(double2 *out, float *outNorm, int out_idx, int out_stride, 
-			   const double2 *in, const float *inNorm, int in_idx, int in_stride) {
-  out[out_idx + 0*out_stride] = fetch_double2(spinorTexDouble, in_idx + 0*in_stride);
-  out[out_idx + 1*out_stride] = fetch_double2(spinorTexDouble, in_idx + 1*in_stride);
-  out[out_idx + 2*out_stride] = fetch_double2(spinorTexDouble, in_idx + 2*in_stride);
+			   const double2 *in, const float *inNorm, int in_idx, int in_stride, const PackParam<double2> &param) {
+  out[out_idx + 0*out_stride] = fetch_double2(SPINORTEXDOUBLE, in_idx + 0*in_stride);
+  out[out_idx + 1*out_stride] = fetch_double2(SPINORTEXDOUBLE, in_idx + 1*in_stride);
+  out[out_idx + 2*out_stride] = fetch_double2(SPINORTEXDOUBLE, in_idx + 2*in_stride);
 }	
 __device__ void packSpinor(float2 *out, float *outNorm, int out_idx, int out_stride, 
-			   const float2 *in, const float *inNorm, int in_idx, int in_stride) {
-  out[out_idx + 0*out_stride] = tex1Dfetch(spinorTexSingle2, in_idx + 0*in_stride);
-  out[out_idx + 1*out_stride] = tex1Dfetch(spinorTexSingle2, in_idx + 1*in_stride);
-  out[out_idx + 2*out_stride] = tex1Dfetch(spinorTexSingle2, in_idx + 2*in_stride);	
+			   const float2 *in, const float *inNorm, int in_idx, int in_stride, const PackParam<float2> &param) {
+  out[out_idx + 0*out_stride] = TEX1DFETCH(float2, SPINORTEXSINGLE, in_idx + 0*in_stride);
+  out[out_idx + 1*out_stride] = TEX1DFETCH(float2, SPINORTEXSINGLE, in_idx + 1*in_stride);
+  out[out_idx + 2*out_stride] = TEX1DFETCH(float2, SPINORTEXSINGLE, in_idx + 2*in_stride);	
 }
 
 // this is rather dumb: undoing the texture load because cudaNormalizedReadMode is used
@@ -976,24 +1132,20 @@ static inline __device__ short2 float22short2(float c, float2 a) {
 }
 
 __device__ void packSpinor(short2 *out, float *outNorm, int out_idx, int out_stride, 
-			   const short2 *in, const float *inNorm, int in_idx, int in_stride) {
-  out[out_idx + 0*out_stride] = float22short2(1.0f, tex1Dfetch(spinorTexHalf2, in_idx + 0*in_stride));
-  out[out_idx + 1*out_stride] = float22short2(1.0f, tex1Dfetch(spinorTexHalf2, in_idx + 1*in_stride));
-  out[out_idx + 2*out_stride] = float22short2(1.0f, tex1Dfetch(spinorTexHalf2, in_idx + 2*in_stride));
-  outNorm[out_idx] = tex1Dfetch(spinorTexHalfNorm, in_idx);
+			   const short2 *in, const float *inNorm, int in_idx, int in_stride, const PackParam<short2> &param) {
+  out[out_idx + 0*out_stride] = float22short2(1.0f,TEX1DFETCH(float2,SPINORTEXHALF,in_idx+0*in_stride));
+  out[out_idx + 1*out_stride] = float22short2(1.0f,TEX1DFETCH(float2,SPINORTEXHALF,in_idx+1*in_stride));
+  out[out_idx + 2*out_stride] = float22short2(1.0f,TEX1DFETCH(float2,SPINORTEXHALF,in_idx+2*in_stride));
+  outNorm[out_idx] = TEX1DFETCH(float, SPINORTEXHALFNORM, in_idx);
 }
 #endif
 
-//
-// TODO: add support for textured reads
-
-template <int dim, int ishalf, typename Float2>
-__global__ void packFaceAsqtadKernel(Float2 *out, float *outNorm, const Float2 *in, 
-				     const float *inNorm, const int parity)
+template <int dim, int ishalf, typename FloatN>
+__global__ void packFaceAsqtadKernel(const PackParam<FloatN> param)
 {
   const int nFace = 3; //3 faces for asqtad
   const int Nint = 6; // number of internal degrees of freedom
-  size_t faceBytes = nFace*ghostFace[dim]*Nint*sizeof(out->x);
+  size_t faceBytes = nFace*ghostFace[dim]*Nint*sizeof(param.out->x);
   if (ishalf) faceBytes += nFace*ghostFace[dim]*sizeof(float);
 
   int face_volume = ghostFace[dim];
@@ -1006,62 +1158,82 @@ __global__ void packFaceAsqtadKernel(Float2 *out, float *outNorm, const Float2 *
   face_idx -= face_num*nFace*face_volume;
 
   // compute an index into the local volume from the index into the face
-  const int idx = indexFromFaceIndexAsqtad<dim, nFace>(face_idx, face_volume, face_num, parity);
+  const int idx = indexFromFaceIndexAsqtad<dim, nFace>(face_idx, face_volume, face_num, param.parity);
   
-  if (face_num) {
-    out = (Float2*)((char*)out + faceBytes);
-    outNorm = (float*)((char*)outNorm + faceBytes);
-  }
+  FloatN* out = (face_num) ? (FloatN*)((char*)param.out + faceBytes) : param.out;
+  float* outNorm = (face_num) ? (float*)((char*)param.outNorm + faceBytes) : param.outNorm;
 
-  packSpinor(out, outNorm, face_idx, nFace*face_volume, in, inNorm, idx, sp_stride);
+  packSpinor(out, outNorm, face_idx, nFace*face_volume, param.in, param.inNorm, idx, sp_stride, param);
 
-  /*  Float2 tmp1 = in[idx + 0*sp_stride];
-  Float2 tmp2 = in[idx + 1*sp_stride];
-  Float2 tmp3 = in[idx + 2*sp_stride];
-
-  out[face_idx + 0*nFace*face_volume] = tmp1;
-  out[face_idx + 1*nFace*face_volume] = tmp2;
-  out[face_idx + 2*nFace*face_volume] = tmp3;
-
-  if (ishalf) outNorm[face_idx] = inNorm[idx];*/
 }
+
+#undef SPINORTEXDOUBLE
+#undef SPINORTEXSINGLE
+#undef SPINORTEXHALF
+
 #endif // GPU_STAGGERED_DIRAC
 
 
-template <typename Float2>
-void packFaceAsqtad(Float2 *faces, float *facesNorm, const Float2 *in, const float *inNorm, int dim,
-		    const int parity, const dim3 &gridDim, const dim3 &blockDim, 
-		    const cudaStream_t &stream)
-{
-#ifdef GPU_STAGGERED_DIRAC
-  if(typeid(Float2) != typeid(short2)){
-    switch (dim) {
-    case 0: packFaceAsqtadKernel<0,0><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 1: packFaceAsqtadKernel<1,0><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 2: packFaceAsqtadKernel<2,0><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 3: packFaceAsqtadKernel<3,0><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    }
-  }else{
-    switch(dim){
-    case 0: packFaceAsqtadKernel<0,1><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 1: packFaceAsqtadKernel<1,1><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 2: packFaceAsqtadKernel<2,1><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 3: packFaceAsqtadKernel<3,1><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    }
-  }
-#else
-  errorQuda("Asqtad face packing kernel is not built");
-#endif  
-}
+template <typename FloatN>
+class PackFaceAsqtad : public PackFace<FloatN> {
 
+ private:
+
+ public:
+  PackFaceAsqtad(FloatN *faces, float *facesNorm, const cudaColorSpinorField *in, 
+		 const int dim, const int dagger, const int parity)
+    : PackFace<FloatN>(faces, facesNorm, in, dim, dagger, parity, 3) { }
+  virtual ~PackFaceAsqtad() { }
+  
+  void apply(const cudaStream_t &stream) {
+    TuneParam tp = tuneLaunch(*this, dslashTuning, verbosity);
+    
+#ifdef GPU_STAGGERED_DIRAC
+    PackParam<FloatN> param;
+    param.out = this->faces;
+    param.outNorm = this->facesNorm;
+    param.in = (FloatN*)this->in->V();
+    param.inNorm = (float*)this->in->Norm();
+    param.parity = this->parity;
+#ifdef USE_TEXTURE_OBJECTS
+    param.inTex = this->in->Tex();
+    param.inTexNorm = this->in->TexNorm();
+#endif
+    
+    if(typeid(FloatN) != typeid(short2)){
+      switch (this->dim) {
+      case 0: packFaceAsqtadKernel<0,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      case 1: packFaceAsqtadKernel<1,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      case 2: packFaceAsqtadKernel<2,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      case 3: packFaceAsqtadKernel<3,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      }
+    }else{
+      switch(this->dim){
+      case 0: packFaceAsqtadKernel<0,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      case 1: packFaceAsqtadKernel<1,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      case 2: packFaceAsqtadKernel<2,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      case 3: packFaceAsqtadKernel<3,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+      }
+    }
+#else
+    errorQuda("Asqtad face packing kernel is not built");
+#endif  
+  }
+
+  long long flops() const { return 0; }
+  long long bytes() const { 
+    int Nint = 12; // input and output
+    size_t faceBytes = 2*this->nFace*this->in->GhostFace()[this->dim]*Nint*sizeof(((FloatN*)0)->x);
+    if (sizeof(((FloatN*)0)->x) == QUDA_HALF_PRECISION) 
+      faceBytes += 2*this->nFace*this->in->GhostFace()[this->dim]*sizeof(float);
+    return faceBytes;
+  }
+
+};
 
 void packFaceAsqtad(void *ghost_buf, cudaColorSpinorField &in, const int dim, const int dagger, 
 		    const int parity, const cudaStream_t &stream) {
   const int nFace = 3; //3 faces for asqtad
-
-  unsigned int threads = in.GhostFace()[dim]*nFace*2; 
-  dim3 blockDim(64, 1, 1); // TODO: make this a parameter for auto-tuning
-  dim3 gridDim( (threads+blockDim.x-1) / blockDim.x, 1, 1);
 
   // compute location of norm zone
   int Nint = 6;
@@ -1069,38 +1241,34 @@ void packFaceAsqtad(void *ghost_buf, cudaColorSpinorField &in, const int dim, co
 
   switch(in.Precision()) {
   case QUDA_DOUBLE_PRECISION:
-    packFaceAsqtad((double2*)ghost_buf, ghostNorm, (double2*)in.V(), (float*)in.Norm(), 
-		   dim, parity, gridDim, blockDim, stream);
+    {
+      PackFaceAsqtad<double2> pack((double2*)ghost_buf, ghostNorm, &in, dim, dagger, parity);
+      pack.apply(stream);
+    }
     break;
   case QUDA_SINGLE_PRECISION:
-    packFaceAsqtad((float2*)ghost_buf, ghostNorm, (float2*)in.V(), (float*)in.Norm(), 
-		   dim, parity, gridDim, blockDim, stream);
+    {
+      PackFaceAsqtad<float2> pack((float2*)ghost_buf, ghostNorm, &in, dim, dagger, parity);
+      pack.apply(stream);
+    }
     break;
   case QUDA_HALF_PRECISION:
-    packFaceAsqtad((short2*)ghost_buf, ghostNorm, (short2*)in.V(), (float*)in.Norm(), 
-		   dim, parity, gridDim, blockDim, stream);
+    {
+      PackFaceAsqtad<short2> pack((short2*)ghost_buf, ghostNorm, &in, dim, dagger, parity);
+      pack.apply(stream);
+    }
     break;
   }  
 
 }
 
-void packFace(void *ghost_buf, cudaColorSpinorField &in, const int dim, const int dagger, 
-	      const int parity, const cudaStream_t &stream)
-{
-  if(in.Nspin() == 1){
-    packFaceAsqtad(ghost_buf, in, dim, dagger, parity, stream);
-  }else{  
-    packFaceWilson(ghost_buf, in, dim, dagger, parity, stream);
-  }
-}
-
 #ifdef GPU_DOMAIN_WALL_DIRAC
 template <int dim, int dagger, typename FloatN>
-__global__ void packFaceDWKernel(FloatN *out, float *outNorm, const FloatN *in, const float *inNorm, const int parity)
+__global__ void packFaceDWKernel(PackParam<FloatN> param)
 {
   const int nFace = 1; // 1 face for Wilson
   const int Nint = 12; // output is spin projected
-  size_t faceBytes = nFace*Ls*ghostFace[dim]*Nint*sizeof(out->x);
+  size_t faceBytes = nFace*Ls*ghostFace[dim]*Nint*sizeof(param.out->x);
   if (sizeof(FloatN)==sizeof(short4)) faceBytes += nFace*Ls*ghostFace[dim]*sizeof(float);
 
   int face_volume = Ls*ghostFace[dim];
@@ -1113,82 +1281,122 @@ __global__ void packFaceDWKernel(FloatN *out, float *outNorm, const FloatN *in, 
   face_idx -= face_num*nFace*face_volume;
 
   // compute an index into the local volume from the index into the face
-  int idx = indexFromDWFaceIndex<dim, 1>(face_idx, face_volume, face_num, parity);
+  int idx = indexFromDWFaceIndex<dim, 1>(face_idx, face_volume, face_num, param.parity);
 
-  if (face_num) {
-    out = (FloatN*)((char*)out + faceBytes);
-    outNorm = (float*)((char*)outNorm + faceBytes);
-  }
+  FloatN* out = (face_num) ? (FloatN*)((char*)param.out + faceBytes) : param.out;
+  float* outNorm = (face_num) ? (float*)((char*)param.outNorm + faceBytes) : param.outNorm;
   
   // read spinor, spin-project, and write half spinor to face (the same kernel as for Wilson): 
-  packFaceWilsonCore<dim, dagger>(out, outNorm, in, inNorm, idx, face_idx, face_volume, face_num);
+  packFaceWilsonCore<dim, dagger>(out, outNorm, param.in, param.inNorm, idx, face_idx, 
+				  face_volume, face_num, param);
 }
 #endif
 
 template <typename FloatN>
-void packFaceDW(FloatN *faces, float *facesNorm, const FloatN *in, const float *inNorm, 
-		    const int dim, const int dagger, const int parity, 
-		    const dim3 &gridDim, const dim3 &blockDim, const cudaStream_t &stream){
-#ifdef GPU_DOMAIN_WALL_DIRAC  
-  if (dagger) {
-    switch (dim) {
-    case 0: packFaceDWKernel<0,1><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 1: packFaceDWKernel<1,1><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 2: packFaceDWKernel<2,1><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 3: packFaceDWKernel<3,1><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    }
+class PackFaceDW : public PackFace<FloatN> {
+
+ private:
+
+ public:
+  PackFaceDW(FloatN *faces, float *facesNorm, const cudaColorSpinorField *in, 
+		 const int dim, const int dagger, const int parity)
+    : PackFace<FloatN>(faces, facesNorm, in, dim, dagger, parity, 1) { }
+  virtual ~PackFaceDW() { }
+  
+  void apply(const cudaStream_t &stream) {
+    TuneParam tp = tuneLaunch(*this, dslashTuning, verbosity);
+    
+#ifdef GPU_DOMAIN_WALL_DIRAC
+    PackParam<FloatN> param;
+    param.out = this->faces;
+    param.outNorm = this->facesNorm;
+    param.in = (FloatN*)this->in->V();
+    param.inNorm = (float*)this->in->Norm();
+    param.parity = this->parity;
+#ifdef USE_TEXTURE_OBJECTS
+    param.inTex = this->in->Tex();
+    param.inTexNorm = this->in->TexNorm();
+#endif
+    
+  if (this->dagger) {
+    switch (this->dim) {
+    case 0: packFaceDWKernel<0,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+    case 1: packFaceDWKernel<1,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;    
+    case 2: packFaceDWKernel<2,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;	
+    case 3: packFaceDWKernel<3,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;    }
   } else {
-    switch (dim) {
-    case 0: packFaceDWKernel<0,0><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 1: packFaceDWKernel<1,0><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 2: packFaceDWKernel<2,0><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 3: packFaceDWKernel<3,0><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
+    switch (this->dim) {
+    case 0: packFaceDWKernel<0,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+    case 1: packFaceDWKernel<1,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+    case 2: packFaceDWKernel<2,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
+    case 3: packFaceDWKernel<3,0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param); break;
     }
   }
 #else
-  errorQuda("DW face packing kernel is not built");
+    errorQuda("DW face packing kernel is not built");
 #endif  
-  
-}
+  }
 
-void packFaceDW(void *ghost_buf, cudaColorSpinorField &in, const int dim, const int dagger,  const int parity, const cudaStream_t &stream) {
-#ifdef GPU_WILSON_DIRAC
+  long long flops() const { return 12*this->in->GhostFace()[this->dim]; }
+
+  long long bytes() const { 
+    int Nint = 36; // input and output
+    size_t faceBytes = 2*this->nFace*this->in->GhostFace()[this->dim]*Nint*sizeof(((FloatN*)0)->x);
+    if (sizeof(((FloatN*)0)->x) == QUDA_HALF_PRECISION) 
+      faceBytes += 2*this->nFace*this->in->GhostFace()[this->dim]*sizeof(float);
+    return faceBytes;
+  }
+
+};
+
+void packFaceDW(void *ghost_buf, cudaColorSpinorField &in, const int dim, const int dagger,  
+		const int parity, const cudaStream_t &stream) {
   const int nFace = 1; // 1 face for Wilson
-  dim3 blockDim(64, 1, 1); // TODO: make this a parameter for auto-tuning
-  dim3 gridDim( (2*in.GhostFace()[dim]+blockDim.x-1) / blockDim.x, 1, 1);
-
   int Nint = in.Ncolor() * in.Nspin(); // assume spin projection
   float *ghostNorm = (float*)((char*)ghost_buf + Nint*nFace*in.GhostFace()[dim]*in.Precision()); // norm zone
 
-  //printfQuda("Starting face packing: dimension = %d, direction = %d, face size = %d\n", dim, dir, in.ghostFace[dim]);
   switch(in.Precision()) {
   case QUDA_DOUBLE_PRECISION:
-    packFaceDW((double2*)ghost_buf, ghostNorm, (double2*)in.V(), (float*)in.Norm(), 
-		   dim, dagger, parity, gridDim, blockDim, stream);
+    {
+      PackFaceDW<double2> pack((double2*)ghost_buf, ghostNorm, &in, dim, dagger, parity);
+      pack.apply(stream);
+    }
     break;
   case QUDA_SINGLE_PRECISION:
-    packFaceDW((float4*)ghost_buf, ghostNorm, (float4*)in.V(), (float*)in.Norm(), 
-		   dim, dagger, parity, gridDim, blockDim, stream);
+    {
+      PackFaceDW<float4> pack((float4*)ghost_buf, ghostNorm, &in, dim, dagger, parity);
+      pack.apply(stream);
+    }
     break;
   case QUDA_HALF_PRECISION:
-    packFaceDW((short4*)ghost_buf, ghostNorm, (short4*)in.V(), (float*)in.Norm(), 
-		   dim, dagger, parity, gridDim, blockDim, stream);
+    {
+      PackFaceDW<short4> pack((short4*)ghost_buf, ghostNorm, &in, dim, dagger, parity);
+      pack.apply(stream);
+    }
     break;
   }  
-  //printfQuda("Completed face packing\n", dim, dir, ghostFace[dir]);
-#else
-  errorQuda("DW face parking routines are not built. Check that both GPU_WILSON_DIRAC and GPU_DOMAIN_WALL_DIRAC compiler flags are set.");
-#endif //GPU_WILSON_DIRAC
 }
 
+void packFace(void *ghost_buf, cudaColorSpinorField &in, const int dim, const int dagger, 
+	      const int parity, const cudaStream_t &stream)
+{
+  if (in.Nspin() == 1) {
+    packFaceAsqtad(ghost_buf, in, dim, dagger, parity, stream);
+  } else {  
+    packFaceWilson(ghost_buf, in, dim, dagger, parity, stream);
+  }
+}
+
+
 //!ndeg tm:
+#ifdef GPU_NDEG_TWISTED_MASS_DIRAC
 template <int dim, int dagger, typename FloatN>
-__global__ void packFaceNdegTMKernel(FloatN *out, float *outNorm, const FloatN *in, const float *inNorm, const int parity)
+__global__ void packFaceNdegTMKernel(PackParam<FloatN> param)
 {
   const int Nf = 2;
   const int nFace = 1; // 1 face for Wilson
   const int Nint = 12; // output is spin projected
-  size_t faceBytes = nFace*Nf*ghostFace[dim]*Nint*sizeof(out->x);
+  size_t faceBytes = nFace*Nf*ghostFace[dim]*Nint*sizeof(param.out->x);
   if (sizeof(FloatN)==sizeof(short4)) faceBytes += nFace*Nf*ghostFace[dim]*sizeof(float);
 
   int face_volume = Nf*ghostFace[dim];
@@ -1201,72 +1409,106 @@ __global__ void packFaceNdegTMKernel(FloatN *out, float *outNorm, const FloatN *
   face_idx -= face_num*nFace*face_volume;
 
   // compute an index into the local volume from the index into the face
-  int idx = indexFromNdegTMFaceIndex<dim, 1>(face_idx, face_volume, face_num, parity);
+  int idx = indexFromNdegTMFaceIndex<dim, 1>(face_idx, face_volume, face_num, param.parity);
 
-  if (face_num) {
-    out = (FloatN*)((char*)out + faceBytes);
-    outNorm = (float*)((char*)outNorm + faceBytes);
-  }
+  FloatN* out = (face_num) ? (FloatN*)((char*)param.out + faceBytes) : param.out;
+  float* outNorm = (face_num) ? (float*)((char*)param.outNorm + faceBytes) : param.outNorm;
   
   // read spinor, spin-project, and write half spinor to face (the same kernel as for Wilson): 
-  packFaceWilsonCore<dim, dagger>(out, outNorm, in, inNorm, idx, face_idx, face_volume, face_num);
+  packFaceWilsonCore<dim, dagger>(out, outNorm, param.in, param.inNorm, idx, face_idx, face_volume, face_num, param);
+
 }
+#endif
 
 template <typename FloatN>
-void packFaceNdegTM(FloatN *faces, float *facesNorm, const FloatN *in, const float *inNorm, 
-		    const int dim, const int dagger, const int parity, 
-		    const dim3 &gridDim, const dim3 &blockDim, const cudaStream_t &stream)
-{
+class PackFaceNdegTM : public PackFace<FloatN> {
+
+ private:
+
+ public:
+  PackFaceNdegTM(FloatN *faces, float *facesNorm, const cudaColorSpinorField *in, 
+		 const int dim, const int dagger, const int parity)
+    : PackFace<FloatN>(faces, facesNorm, in, dim, dagger, parity, 1) { }
+  virtual ~PackFaceNdegTM() { }
+  
+  void apply(const cudaStream_t &stream) {
+    
+    //TuneParam tp = tuneLaunch(*this, dslashTuning, verbosity);
+    unsigned int threads = this->in->GhostFace()[this->dim]*this->nFace*2;//WARNING: this corresponds to a flavor doublet!
+    dim3 blockDim(64, 1, 1); // TODO: make this a parameter for auto-tuning
+    dim3 gridDim( (threads+blockDim.x-1) / blockDim.x, 1, 1);
+    
 #ifdef GPU_NDEG_TWISTED_MASS_DIRAC
-  if (dagger) {
-    switch (dim) {
-    case 0: packFaceNdegTMKernel<0,1><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 1: packFaceNdegTMKernel<1,1><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 2: packFaceNdegTMKernel<2,1><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 3: packFaceNdegTMKernel<3,1><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    }
+    PackParam<FloatN> param;
+    param.out = this->faces;
+    param.outNorm = this->facesNorm;
+    param.in = (FloatN*)this->in->V();
+    param.inNorm = (float*)this->in->Norm();
+    param.parity = this->parity;
+#ifdef USE_TEXTURE_OBJECTS
+    param.inTex = this->in->Tex();
+    param.inTexNorm = this->in->TexNorm();
+#endif
+    
+  if (this->dagger) {
+    switch (this->dim) {
+    case 0:  packFaceNdegTMKernel<0,1><<<gridDim, blockDim, 0, stream>>>(param); break;
+    case 1:  packFaceNdegTMKernel<1,1><<<gridDim, blockDim, 0, stream>>>(param); break;    
+    case 2:  packFaceNdegTMKernel<2,1><<<gridDim, blockDim, 0, stream>>>(param); break;	
+    case 3:  packFaceNdegTMKernel<3,1><<<gridDim, blockDim, 0, stream>>>(param); break;    }
   } else {
-    switch (dim) {
-    case 0: packFaceNdegTMKernel<0,0><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 1: packFaceNdegTMKernel<1,0><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 2: packFaceNdegTMKernel<2,0><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
-    case 3: packFaceNdegTMKernel<3,0><<<gridDim, blockDim, 0, stream>>>(faces, facesNorm, in, inNorm, parity); break;
+    switch (this->dim) {
+    case 0:  packFaceNdegTMKernel<0,0><<<gridDim, blockDim, 0, stream>>>(param); break;
+    case 1:  packFaceNdegTMKernel<1,0><<<gridDim, blockDim, 0, stream>>>(param); break;
+    case 2:  packFaceNdegTMKernel<2,0><<<gridDim, blockDim, 0, stream>>>(param); break;
+    case 3:  packFaceNdegTMKernel<3,0><<<gridDim, blockDim, 0, stream>>>(param); break;
     }
   }
 #else
-  errorQuda("Non-degenerate twisted mass face packing kernel is not built");
+    errorQuda("Non-degenerate twisted mass face packing kernel is not built");
 #endif  
-}
+  }
+
+  long long flops() const { return 12*this->in->GhostFace()[this->dim]; }
+
+  long long bytes() const { 
+    int Nint = 36; // input and output
+    size_t faceBytes = 2*this->nFace*this->in->GhostFace()[this->dim]*Nint*sizeof(((FloatN*)0)->x);
+    if (sizeof(((FloatN*)0)->x) == QUDA_HALF_PRECISION) 
+      faceBytes += 2*this->nFace*this->in->GhostFace()[this->dim]*sizeof(float);
+    return faceBytes;
+  }
+
+};
 
 void packFaceNdegTM(void *ghost_buf, cudaColorSpinorField &in, const int dim, const int dagger, 
 		    const int parity, const cudaStream_t &stream) {
   const int nFace = 1; // 1 face for Wilson
-
-  unsigned int threads = in.GhostFace()[dim]*nFace*2;//WARNING: this corresponds to a flavor doublet!
-  dim3 blockDim(64, 1, 1); // TODO: make this a parameter for auto-tuning
-  dim3 gridDim( (threads+blockDim.x-1) / blockDim.x, 1, 1);
-
   // compute location of norm zone
   int Nint = in.Ncolor() * in.Nspin(); // assume spin projection
   float *ghostNorm = (float*)((char*)ghost_buf + Nint*nFace*in.GhostFace()[dim]*in.Precision());
 
   switch(in.Precision()) {
   case QUDA_DOUBLE_PRECISION:
-    packFaceNdegTM((double2*)ghost_buf, ghostNorm, (double2*)in.V(), (float*)in.Norm(), 
-		   dim, dagger, parity, gridDim, blockDim, stream);
+    {
+      PackFaceNdegTM<double2> pack((double2*)ghost_buf, ghostNorm, &in, dim, dagger, parity);
+      pack.apply(stream);
+    }
     break;
   case QUDA_SINGLE_PRECISION:
-    packFaceNdegTM((float4*)ghost_buf, ghostNorm, (float4*)in.V(), (float*)in.Norm(), 
-		   dim, dagger, parity, gridDim, blockDim, stream);
+    {
+      PackFaceNdegTM<float4> pack((float4*)ghost_buf, ghostNorm, &in, dim, dagger, parity);
+      pack.apply(stream);
+    }
     break;
   case QUDA_HALF_PRECISION:
-    packFaceNdegTM((short4*)ghost_buf, ghostNorm, (short4*)in.V(), (float*)in.Norm(), 
-		   dim, dagger, parity, gridDim, blockDim, stream);
+    {
+      PackFaceNdegTM<short4> pack((short4*)ghost_buf, ghostNorm, &in, dim, dagger, parity);
+      pack.apply(stream);
+    }
     break;
-  }  
+  } 
 }
 
 
 #endif // MULTI_GPU
-
-

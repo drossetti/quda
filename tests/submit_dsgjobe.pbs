@@ -1,0 +1,17 @@
+#!/bin/bash
+
+#PBS -S /bin/bash
+#PBS -N QUDA_test
+#PBS -j oe
+#PBS -o ./quda_n2_x1y1z1t2.out
+#PBS -m n
+#PBS -l nodes=1,walltime=00:30:00
+#PBS -A gaugeGPU
+#PBS -q test_gpu
+
+cd ${PBS_O_WORKDIR}
+
+mpirun -np 2 -npernode 2 ./invert_test dslash_type wilson --xdim 16 --ydim 16 --zdim 16 --tdim 32 --tgridsize 2
+
+#mpirun -np 2 -npernode 2 --byslot ./invert_test dslash_type wilson --xdim 16 --ydim 16 --zdim 16 --tdim 32 --tgridsize 2
+ 

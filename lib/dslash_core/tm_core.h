@@ -36,6 +36,12 @@ __device__ double2 operator*(const double &x, const double2 &y)
 #define tmp3_re tmp3.x
 #define tmp3_im tmp3.y
 
+#ifdef USE_TEXTURE_OBJECTS
+#define SPINORTEX param.inTex
+#else
+#define SPINORTEX spinorTexDouble
+#endif
+
 #if (__COMPUTE_CAPABILITY__ >= 130)
 __global__ void twistGamma5Kernel(double2 *spinor, float *null, double a, double b, 
 				  const double2 *in, const float *null2, DslashParam param)
@@ -46,18 +52,18 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, double a, double
    if (sid >= param.threads) return;
 
 #ifndef FERMI_NO_DBLE_TEX
-   double2 I0  = fetch_double2(spinorTexDouble, sid + 0 * sp_stride);   
-   double2 I1  = fetch_double2(spinorTexDouble, sid + 1 * sp_stride);   
-   double2 I2  = fetch_double2(spinorTexDouble, sid + 2 * sp_stride);   
-   double2 I3  = fetch_double2(spinorTexDouble, sid + 3 * sp_stride);   
-   double2 I4  = fetch_double2(spinorTexDouble, sid + 4 * sp_stride);   
-   double2 I5  = fetch_double2(spinorTexDouble, sid + 5 * sp_stride);   
-   double2 I6  = fetch_double2(spinorTexDouble, sid + 6 * sp_stride);   
-   double2 I7  = fetch_double2(spinorTexDouble, sid + 7 * sp_stride);   
-   double2 I8  = fetch_double2(spinorTexDouble, sid + 8 * sp_stride);   
-   double2 I9  = fetch_double2(spinorTexDouble, sid + 9 * sp_stride);   
-   double2 I10 = fetch_double2(spinorTexDouble, sid + 10 * sp_stride); 
-   double2 I11 = fetch_double2(spinorTexDouble, sid + 11 * sp_stride);
+   double2 I0  = fetch_double2(SPINORTEX, sid + 0 * sp_stride);   
+   double2 I1  = fetch_double2(SPINORTEX, sid + 1 * sp_stride);   
+   double2 I2  = fetch_double2(SPINORTEX, sid + 2 * sp_stride);   
+   double2 I3  = fetch_double2(SPINORTEX, sid + 3 * sp_stride);   
+   double2 I4  = fetch_double2(SPINORTEX, sid + 4 * sp_stride);   
+   double2 I5  = fetch_double2(SPINORTEX, sid + 5 * sp_stride);   
+   double2 I6  = fetch_double2(SPINORTEX, sid + 6 * sp_stride);   
+   double2 I7  = fetch_double2(SPINORTEX, sid + 7 * sp_stride);   
+   double2 I8  = fetch_double2(SPINORTEX, sid + 8 * sp_stride);   
+   double2 I9  = fetch_double2(SPINORTEX, sid + 9 * sp_stride);   
+   double2 I10 = fetch_double2(SPINORTEX, sid + 10 * sp_stride); 
+   double2 I11 = fetch_double2(SPINORTEX, sid + 11 * sp_stride);
 #else
    double2 I0  = in[sid + 0 * sp_stride];   
    double2 I1  = in[sid + 1 * sp_stride];   
@@ -181,8 +187,8 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, const double a, 
    //get the first color component for each flavor:   
 
 #ifndef FERMI_NO_DBLE_TEX   
-   tmp0  = fetch_double2(spinorTexDouble, flv1_idx + 0 * sp_stride);   
-   tmp1  = fetch_double2(spinorTexDouble, flv1_idx + 6 * sp_stride);   
+   tmp0  = fetch_double2(SPINORTEX, flv1_idx + 0 * sp_stride);   
+   tmp1  = fetch_double2(SPINORTEX, flv1_idx + 6 * sp_stride);   
 #else
    tmp0  = in[flv1_idx + 0 * sp_stride];   
    tmp1  = in[flv1_idx + 6 * sp_stride];   
@@ -202,8 +208,8 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, const double a, 
    
 
 #ifndef FERMI_NO_DBLE_TEX   
-   tmp0  = fetch_double2(spinorTexDouble, flv2_idx + 0 * sp_stride);   
-   tmp1  = fetch_double2(spinorTexDouble, flv2_idx + 6 * sp_stride);   
+   tmp0  = fetch_double2(SPINORTEX, flv2_idx + 0 * sp_stride);   
+   tmp1  = fetch_double2(SPINORTEX, flv2_idx + 6 * sp_stride);   
 #else
    tmp0  = in[flv2_idx + 0 * sp_stride];   
    tmp1  = in[flv2_idx + 6 * sp_stride];   
@@ -229,8 +235,8 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, const double a, 
    spinor[flv2_idx + 6  * sp_stride] = c * accum2_1;   
 
 #ifndef FERMI_NO_DBLE_TEX   
-   tmp0  = fetch_double2(spinorTexDouble, flv1_idx + 3 * sp_stride);   
-   tmp1  = fetch_double2(spinorTexDouble, flv1_idx + 9 * sp_stride);   
+   tmp0  = fetch_double2(SPINORTEX, flv1_idx + 3 * sp_stride);   
+   tmp1  = fetch_double2(SPINORTEX, flv1_idx + 9 * sp_stride);   
 #else
    tmp0  = in[flv1_idx + 3 * sp_stride];   
    tmp1  = in[flv1_idx + 9 * sp_stride];   
@@ -249,8 +255,8 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, const double a, 
    accum2_1.y = b * tmp1.y;
    
 #ifndef FERMI_NO_DBLE_TEX   
-   tmp0  = fetch_double2(spinorTexDouble, flv2_idx + 3 * sp_stride);   
-   tmp1  = fetch_double2(spinorTexDouble, flv2_idx + 9 * sp_stride);   
+   tmp0  = fetch_double2(SPINORTEX, flv2_idx + 3 * sp_stride);   
+   tmp1  = fetch_double2(SPINORTEX, flv2_idx + 9 * sp_stride);   
 #else
    tmp0  = in[flv2_idx + 3 * sp_stride];   
    tmp1  = in[flv2_idx + 9 * sp_stride];   
@@ -277,8 +283,8 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, const double a, 
    //get the second color component for each flavor:   
    
 #ifndef FERMI_NO_DBLE_TEX   
-   tmp0  = fetch_double2(spinorTexDouble, flv1_idx + 1 * sp_stride);   
-   tmp1  = fetch_double2(spinorTexDouble, flv1_idx + 7 * sp_stride);   
+   tmp0  = fetch_double2(SPINORTEX, flv1_idx + 1 * sp_stride);   
+   tmp1  = fetch_double2(SPINORTEX, flv1_idx + 7 * sp_stride);   
 #else
    tmp0  = in[flv1_idx + 1 * sp_stride];   
    tmp1  = in[flv1_idx + 7 * sp_stride];   
@@ -297,8 +303,8 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, const double a, 
    accum2_1.y = b * tmp1.y;
    
 #ifndef FERMI_NO_DBLE_TEX   
-   tmp0  = fetch_double2(spinorTexDouble, flv2_idx + 1 * sp_stride);   
-   tmp1  = fetch_double2(spinorTexDouble, flv2_idx + 7 * sp_stride);   
+   tmp0  = fetch_double2(SPINORTEX, flv2_idx + 1 * sp_stride);   
+   tmp1  = fetch_double2(SPINORTEX, flv2_idx + 7 * sp_stride);   
 #else
    tmp0  = in[flv2_idx + 1 * sp_stride];   
    tmp1  = in[flv2_idx + 7 * sp_stride];   
@@ -324,8 +330,8 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, const double a, 
    spinor[flv2_idx + 7  * sp_stride] = c * accum2_1; 
    
 #ifndef FERMI_NO_DBLE_TEX   
-   tmp0  = fetch_double2(spinorTexDouble, flv1_idx + 4 * sp_stride);   
-   tmp1  = fetch_double2(spinorTexDouble, flv1_idx + 10 * sp_stride);   
+   tmp0  = fetch_double2(SPINORTEX, flv1_idx + 4 * sp_stride);   
+   tmp1  = fetch_double2(SPINORTEX, flv1_idx + 10 * sp_stride);   
 #else
    tmp0  = in[flv1_idx + 4 * sp_stride];   
    tmp1  = in[flv1_idx + 10 * sp_stride];   
@@ -344,8 +350,8 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, const double a, 
    accum2_1.y = b * tmp1.y;
    
 #ifndef FERMI_NO_DBLE_TEX   
-   tmp0  = fetch_double2(spinorTexDouble, flv2_idx + 4 * sp_stride);   
-   tmp1  = fetch_double2(spinorTexDouble, flv2_idx + 10 * sp_stride);   
+   tmp0  = fetch_double2(SPINORTEX, flv2_idx + 4 * sp_stride);   
+   tmp1  = fetch_double2(SPINORTEX, flv2_idx + 10 * sp_stride);   
 #else
    tmp0  = in[flv2_idx + 4 * sp_stride];   
    tmp1  = in[flv2_idx + 10 * sp_stride];   
@@ -372,8 +378,8 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, const double a, 
    //get the second color component for each flavor:   
    
 #ifndef FERMI_NO_DBLE_TEX   
-   tmp0  = fetch_double2(spinorTexDouble, flv1_idx + 2 * sp_stride);   
-   tmp1  = fetch_double2(spinorTexDouble, flv1_idx + 8 * sp_stride);   
+   tmp0  = fetch_double2(SPINORTEX, flv1_idx + 2 * sp_stride);   
+   tmp1  = fetch_double2(SPINORTEX, flv1_idx + 8 * sp_stride);   
 #else
    tmp0  = in[flv1_idx + 2 * sp_stride];   
    tmp1  = in[flv1_idx + 8 * sp_stride];   
@@ -392,8 +398,8 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, const double a, 
    accum2_1.y = b * tmp1.y;
    
 #ifndef FERMI_NO_DBLE_TEX   
-   tmp0  = fetch_double2(spinorTexDouble, flv2_idx + 2 * sp_stride);   
-   tmp1  = fetch_double2(spinorTexDouble, flv2_idx + 8 * sp_stride);   
+   tmp0  = fetch_double2(SPINORTEX, flv2_idx + 2 * sp_stride);   
+   tmp1  = fetch_double2(SPINORTEX, flv2_idx + 8 * sp_stride);   
 #else
    tmp0  = in[flv2_idx + 2 * sp_stride];   
    tmp1  = in[flv2_idx + 8 * sp_stride];   
@@ -419,8 +425,8 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, const double a, 
    spinor[flv2_idx + 8  * sp_stride] = c * accum2_1; 
    
 #ifndef FERMI_NO_DBLE_TEX   
-   tmp0  = fetch_double2(spinorTexDouble, flv1_idx + 5 * sp_stride);   
-   tmp1  = fetch_double2(spinorTexDouble, flv1_idx + 11 * sp_stride);   
+   tmp0  = fetch_double2(SPINORTEX, flv1_idx + 5 * sp_stride);   
+   tmp1  = fetch_double2(SPINORTEX, flv1_idx + 11 * sp_stride);   
 #else
    tmp0  = in[flv1_idx + 5 * sp_stride];   
    tmp1  = in[flv1_idx + 11 * sp_stride];   
@@ -440,8 +446,8 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, const double a, 
    
 
 #ifndef FERMI_NO_DBLE_TEX   
-   tmp0  = fetch_double2(spinorTexDouble, flv2_idx + 5 * sp_stride);   
-   tmp1  = fetch_double2(spinorTexDouble, flv2_idx + 11 * sp_stride);   
+   tmp0  = fetch_double2(SPINORTEX, flv2_idx + 5 * sp_stride);   
+   tmp1  = fetch_double2(SPINORTEX, flv2_idx + 11 * sp_stride);   
 #else
    tmp0  = in[flv2_idx + 5 * sp_stride];   
    tmp1  = in[flv2_idx + 11 * sp_stride];   
@@ -469,9 +475,6 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, const double a, 
 #endif
 }
 
-#undef SPINOR_HOP
-
-
 #endif // (__COMPUTE_CAPABILITY__ >= 130)
 
 #undef tmp0_re
@@ -492,6 +495,14 @@ __global__ void twistGamma5Kernel(double2 *spinor, float *null, const double a, 
 #define tmp3_re tmp1.z
 #define tmp3_im tmp1.w
 
+#undef SPINORTEX
+#ifdef USE_TEXTURE_OBJECTS
+#define SPINORTEX param.inTex
+#else
+#define SPINORTEX spinorTexSingle
+#endif
+
+
 __global__ void twistGamma5Kernel(float4 *spinor, float *null, float a, float b, 
 				  const float4 *in, const float *null2, DslashParam param)
 {
@@ -499,12 +510,12 @@ __global__ void twistGamma5Kernel(float4 *spinor, float *null, float a, float b,
    int sid = blockIdx.x*blockDim.x + threadIdx.x;
    if (sid >= param.threads) return;
 
-   float4 I0 = tex1Dfetch(spinorTexSingle, sid + 0 * sp_stride);   
-   float4 I1 = tex1Dfetch(spinorTexSingle, sid + 1 * sp_stride);   
-   float4 I2 = tex1Dfetch(spinorTexSingle, sid + 2 * sp_stride);   
-   float4 I3 = tex1Dfetch(spinorTexSingle, sid + 3 * sp_stride);   
-   float4 I4 = tex1Dfetch(spinorTexSingle, sid + 4 * sp_stride);   
-   float4 I5 = tex1Dfetch(spinorTexSingle, sid + 5 * sp_stride);
+   float4 I0 = TEX1DFETCH(float4, SPINORTEX, sid + 0 * sp_stride);   
+   float4 I1 = TEX1DFETCH(float4, SPINORTEX, sid + 1 * sp_stride);   
+   float4 I2 = TEX1DFETCH(float4, SPINORTEX, sid + 2 * sp_stride);   
+   float4 I3 = TEX1DFETCH(float4, SPINORTEX, sid + 3 * sp_stride);   
+   float4 I4 = TEX1DFETCH(float4, SPINORTEX, sid + 4 * sp_stride);   
+   float4 I5 = TEX1DFETCH(float4, SPINORTEX, sid + 5 * sp_stride);
 
    volatile float4 tmp0, tmp1;
     
@@ -588,6 +599,192 @@ __global__ void twistGamma5Kernel(float4 *spinor, float *null, float a, float b,
 #endif 
 }
 
+__global__ void twistGamma5Kernel(float4 *spinor, float *null, float a, float b, float c,  const float4 *in,  const float *null2, DslashParam param)
+{
+#ifdef GPU_NDEG_TWISTED_MASS_DIRAC
+   int sid = blockIdx.x * blockDim.x + threadIdx.x;
+   if (sid >= param.threads) return;
+   
+   float4 accum1_0, accum1_1;
+   float4 accum2_0, accum2_1;
+   float4 tmp0, tmp1;
+
+   int flv1_idx = sid;
+   int flv2_idx = sid + fl_stride; 
+   
+   //apply (1 - i*a*gamma_5 * tau_3 + b * tau_1) 
+   
+   //get the first color component for each flavor: 
+   
+   tmp0 = TEX1DFETCH(float4, SPINORTEX, flv1_idx + 0 * sp_stride);   
+   tmp1 = TEX1DFETCH(float4, SPINORTEX, flv1_idx + 3 * sp_stride);     
+
+   accum1_0.x = tmp0.x + a * tmp1.y;
+   accum1_0.y = tmp0.y - a * tmp1.x;
+   accum1_0.z = tmp0.z + a * tmp1.w;
+   accum1_0.w = tmp0.w - a * tmp1.z;
+
+   accum2_0.x = b * tmp0.x;
+   accum2_0.y = b * tmp0.y;
+   accum2_0.z = b * tmp0.z;
+   accum2_0.w = b * tmp0.w;
+  
+   accum1_1.x = tmp1.x + a * tmp0.y;
+   accum1_1.y = tmp1.y - a * tmp0.x;
+   accum1_1.z = tmp1.z + a * tmp0.w;
+   accum1_1.w = tmp1.w - a * tmp0.z;
+
+   accum2_1.x = b * tmp1.x;
+   accum2_1.y = b * tmp1.y;
+   accum2_1.z = b * tmp1.z;
+   accum2_1.w = b * tmp1.w;
+
+   tmp0 = TEX1DFETCH(float4, SPINORTEX, flv2_idx + 0 * sp_stride);   
+   tmp1 = TEX1DFETCH(float4, SPINORTEX, flv2_idx + 3 * sp_stride);     
+   
+   accum2_0.x += tmp0.x - a * tmp1.y;
+   accum2_0.y += tmp0.y + a * tmp1.x;
+   accum2_0.z += tmp0.z - a * tmp1.w;
+   accum2_0.w += tmp0.w + a * tmp1.z;
+
+   accum1_0.x += b * tmp0.x;
+   accum1_0.y += b * tmp0.y;
+   accum1_0.z += b * tmp0.z;
+   accum1_0.w += b * tmp0.w;
+  
+   accum2_1.x += tmp1.x - a * tmp0.y;
+   accum2_1.y += tmp1.y + a * tmp0.x;
+   accum2_1.z += tmp1.z - a * tmp0.w;
+   accum2_1.w += tmp1.w + a * tmp0.z;
+
+   accum1_1.x += b * tmp1.x;
+   accum1_1.y += b * tmp1.y;
+   accum1_1.z += b * tmp1.z;
+   accum1_1.w += b * tmp1.w;
+   
+   spinor[flv1_idx + 0  * sp_stride] = c * accum1_0;   
+   spinor[flv1_idx + 3  * sp_stride] = c * accum1_1;   
+   spinor[flv2_idx + 0  * sp_stride] = c * accum2_0;   
+   spinor[flv2_idx + 3  * sp_stride] = c * accum2_1;   
+   
+   //get the second color component for each flavor: 
+   
+   tmp0 = TEX1DFETCH(float4, SPINORTEX, flv1_idx + 1 * sp_stride);   
+   tmp1 = TEX1DFETCH(float4, SPINORTEX, flv1_idx + 4 * sp_stride);     
+
+   accum1_0.x = tmp0.x + a * tmp1.y;
+   accum1_0.y = tmp0.y - a * tmp1.x;
+   accum1_0.z = tmp0.z + a * tmp1.w;
+   accum1_0.w = tmp0.w - a * tmp1.z;
+
+   accum2_0.x = b * tmp0.x;
+   accum2_0.y = b * tmp0.y;
+   accum2_0.z = b * tmp0.z;
+   accum2_0.w = b * tmp0.w;
+  
+   accum1_1.x = tmp1.x + a * tmp0.y;
+   accum1_1.y = tmp1.y - a * tmp0.x;
+   accum1_1.z = tmp1.z + a * tmp0.w;
+   accum1_1.w = tmp1.w - a * tmp0.z;
+
+   accum2_1.x = b * tmp1.x;
+   accum2_1.y = b * tmp1.y;
+   accum2_1.z = b * tmp1.z;
+   accum2_1.w = b * tmp1.w;
+
+   tmp0 = TEX1DFETCH(float4, SPINORTEX, flv2_idx + 1 * sp_stride);   
+   tmp1 = TEX1DFETCH(float4, SPINORTEX, flv2_idx + 4 * sp_stride);     
+   
+   accum2_0.x += tmp0.x - a * tmp1.y;
+   accum2_0.y += tmp0.y + a * tmp1.x;
+   accum2_0.z += tmp0.z - a * tmp1.w;
+   accum2_0.w += tmp0.w + a * tmp1.z;
+
+   accum1_0.x += b * tmp0.x;
+   accum1_0.y += b * tmp0.y;
+   accum1_0.z += b * tmp0.z;
+   accum1_0.w += b * tmp0.w;
+  
+   accum2_1.x += tmp1.x - a * tmp0.y;
+   accum2_1.y += tmp1.y + a * tmp0.x;
+   accum2_1.z += tmp1.z - a * tmp0.w;
+   accum2_1.w += tmp1.w + a * tmp0.z;
+
+   accum1_1.x += b * tmp1.x;
+   accum1_1.y += b * tmp1.y;
+   accum1_1.z += b * tmp1.z;
+   accum1_1.w += b * tmp1.w;
+   
+   spinor[flv1_idx + 1  * sp_stride] = c * accum1_0;   
+   spinor[flv1_idx + 4  * sp_stride] = c * accum1_1;   
+   spinor[flv2_idx + 1  * sp_stride] = c * accum2_0;   
+   spinor[flv2_idx + 4  * sp_stride] = c * accum2_1; 
+
+   //get the third color component for each flavor: 
+   
+   tmp0 = TEX1DFETCH(float4, SPINORTEX, flv1_idx + 2 * sp_stride);   
+   tmp1 = TEX1DFETCH(float4, SPINORTEX, flv1_idx + 5 * sp_stride);     
+
+   accum1_0.x = tmp0.x + a * tmp1.y;
+   accum1_0.y = tmp0.y - a * tmp1.x;
+   accum1_0.z = tmp0.z + a * tmp1.w;
+   accum1_0.w = tmp0.w - a * tmp1.z;
+
+   accum2_0.x = b * tmp0.x;
+   accum2_0.y = b * tmp0.y;
+   accum2_0.z = b * tmp0.z;
+   accum2_0.w = b * tmp0.w;
+  
+   accum1_1.x = tmp1.x + a * tmp0.y;
+   accum1_1.y = tmp1.y - a * tmp0.x;
+   accum1_1.z = tmp1.z + a * tmp0.w;
+   accum1_1.w = tmp1.w - a * tmp0.z;
+
+   accum2_1.x = b * tmp1.x;
+   accum2_1.y = b * tmp1.y;
+   accum2_1.z = b * tmp1.z;
+   accum2_1.w = b * tmp1.w;
+
+   tmp0 = TEX1DFETCH(float4, SPINORTEX, flv2_idx + 2 * sp_stride);   
+   tmp1 = TEX1DFETCH(float4, SPINORTEX, flv2_idx + 5 * sp_stride);     
+   
+   accum2_0.x += tmp0.x - a * tmp1.y;
+   accum2_0.y += tmp0.y + a * tmp1.x;
+   accum2_0.z += tmp0.z - a * tmp1.w;
+   accum2_0.w += tmp0.w + a * tmp1.z;
+
+   accum1_0.x += b * tmp0.x;
+   accum1_0.y += b * tmp0.y;
+   accum1_0.z += b * tmp0.z;
+   accum1_0.w += b * tmp0.w;
+  
+   accum2_1.x += tmp1.x - a * tmp0.y;
+   accum2_1.y += tmp1.y + a * tmp0.x;
+   accum2_1.z += tmp1.z - a * tmp0.w;
+   accum2_1.w += tmp1.w + a * tmp0.z;
+
+   accum1_1.x += b * tmp1.x;
+   accum1_1.y += b * tmp1.y;
+   accum1_1.z += b * tmp1.z;
+   accum1_1.w += b * tmp1.w;
+   
+   spinor[flv1_idx + 2  * sp_stride] = c * accum1_0;   
+   spinor[flv1_idx + 5  * sp_stride] = c * accum1_1;   
+   spinor[flv2_idx + 2  * sp_stride] = c * accum2_0;   
+   spinor[flv2_idx + 5  * sp_stride] = c * accum2_1;
+
+#endif 
+}
+
+#undef SPINORTEX
+#ifdef USE_TEXTURE_OBJECTS
+#define SPINORTEX param.inTex
+#define SPINORTEXNORM param.inTexNorm
+#else
+#define SPINORTEX spinorTexHalf
+#define SPINORTEXNORM spinorTexHalfNorm
+#endif
+
 
 __global__ void twistGamma5Kernel(short4* spinor, float *spinorNorm, float a, float b, 
 				  const short4 *in, const float *inNorm, DslashParam param)
@@ -596,14 +793,14 @@ __global__ void twistGamma5Kernel(short4* spinor, float *spinorNorm, float a, fl
    int sid = blockIdx.x*blockDim.x + threadIdx.x;
    if (sid >= param.threads) return;
 
-   float4 I0 = tex1Dfetch(spinorTexHalf, sid + 0 * sp_stride);   
-   float4 I1 = tex1Dfetch(spinorTexHalf, sid + 1 * sp_stride);   
-   float4 I2 = tex1Dfetch(spinorTexHalf, sid + 2 * sp_stride);   
-   float4 I3 = tex1Dfetch(spinorTexHalf, sid + 3 * sp_stride);   
-   float4 I4 = tex1Dfetch(spinorTexHalf, sid + 4 * sp_stride);   
-   float4 I5 = tex1Dfetch(spinorTexHalf, sid + 5 * sp_stride);
+   float4 I0 = TEX1DFETCH(float4, SPINORTEX, sid + 0 * sp_stride);   
+   float4 I1 = TEX1DFETCH(float4, SPINORTEX, sid + 1 * sp_stride);   
+   float4 I2 = TEX1DFETCH(float4, SPINORTEX, sid + 2 * sp_stride);   
+   float4 I3 = TEX1DFETCH(float4, SPINORTEX, sid + 3 * sp_stride);   
+   float4 I4 = TEX1DFETCH(float4, SPINORTEX, sid + 4 * sp_stride);   
+   float4 I5 = TEX1DFETCH(float4, SPINORTEX, sid + 5 * sp_stride);
    
-   float C = tex1Dfetch(spinorTexHalfNorm, sid);
+   float C = TEX1DFETCH(float, SPINORTEXNORM, sid);
    
    I0 = C * I0;
    I1 = C * I1;
@@ -729,184 +926,6 @@ __global__ void twistGamma5Kernel(short4* spinor, float *spinorNorm, float a, fl
 #endif 
 }
 
-#define SPINOR_HOP 6
-
-__global__ void twistGamma5Kernel(float4 *spinor, float *null, float a, float b, float c,  const float4 *in,  const float *null2, DslashParam param)
-{
-#ifdef GPU_NDEG_TWISTED_MASS_DIRAC
-   int sid = blockIdx.x * blockDim.x + threadIdx.x;
-   if (sid >= param.threads) return;
-   
-   float4 accum1_0, accum1_1;
-   float4 accum2_0, accum2_1;
-   float4 tmp0, tmp1;
-
-   int flv1_idx = sid;
-   int flv2_idx = sid + fl_stride; 
-   
-   //apply (1 - i*a*gamma_5 * tau_3 + b * tau_1) 
-   
-   //get the first color component for each flavor: 
-   
-   tmp0 = tex1Dfetch(spinorTexSingle, flv1_idx + 0 * sp_stride);   
-   tmp1 = tex1Dfetch(spinorTexSingle, flv1_idx + 3 * sp_stride);     
-
-   accum1_0.x = tmp0.x + a * tmp1.y;
-   accum1_0.y = tmp0.y - a * tmp1.x;
-   accum1_0.z = tmp0.z + a * tmp1.w;
-   accum1_0.w = tmp0.w - a * tmp1.z;
-
-   accum2_0.x = b * tmp0.x;
-   accum2_0.y = b * tmp0.y;
-   accum2_0.z = b * tmp0.z;
-   accum2_0.w = b * tmp0.w;
-  
-   accum1_1.x = tmp1.x + a * tmp0.y;
-   accum1_1.y = tmp1.y - a * tmp0.x;
-   accum1_1.z = tmp1.z + a * tmp0.w;
-   accum1_1.w = tmp1.w - a * tmp0.z;
-
-   accum2_1.x = b * tmp1.x;
-   accum2_1.y = b * tmp1.y;
-   accum2_1.z = b * tmp1.z;
-   accum2_1.w = b * tmp1.w;
-
-   tmp0 = tex1Dfetch(spinorTexSingle, flv2_idx + 0 * sp_stride);   
-   tmp1 = tex1Dfetch(spinorTexSingle, flv2_idx + 3 * sp_stride);     
-   
-   accum2_0.x += tmp0.x - a * tmp1.y;
-   accum2_0.y += tmp0.y + a * tmp1.x;
-   accum2_0.z += tmp0.z - a * tmp1.w;
-   accum2_0.w += tmp0.w + a * tmp1.z;
-
-   accum1_0.x += b * tmp0.x;
-   accum1_0.y += b * tmp0.y;
-   accum1_0.z += b * tmp0.z;
-   accum1_0.w += b * tmp0.w;
-  
-   accum2_1.x += tmp1.x - a * tmp0.y;
-   accum2_1.y += tmp1.y + a * tmp0.x;
-   accum2_1.z += tmp1.z - a * tmp0.w;
-   accum2_1.w += tmp1.w + a * tmp0.z;
-
-   accum1_1.x += b * tmp1.x;
-   accum1_1.y += b * tmp1.y;
-   accum1_1.z += b * tmp1.z;
-   accum1_1.w += b * tmp1.w;
-   
-   spinor[flv1_idx + 0  * sp_stride] = c * accum1_0;   
-   spinor[flv1_idx + 3  * sp_stride] = c * accum1_1;   
-   spinor[flv2_idx + 0  * sp_stride] = c * accum2_0;   
-   spinor[flv2_idx + 3  * sp_stride] = c * accum2_1;   
-   
-   //get the second color component for each flavor: 
-   
-   tmp0 = tex1Dfetch(spinorTexSingle, flv1_idx + 1 * sp_stride);   
-   tmp1 = tex1Dfetch(spinorTexSingle, flv1_idx + 4 * sp_stride);     
-
-   accum1_0.x = tmp0.x + a * tmp1.y;
-   accum1_0.y = tmp0.y - a * tmp1.x;
-   accum1_0.z = tmp0.z + a * tmp1.w;
-   accum1_0.w = tmp0.w - a * tmp1.z;
-
-   accum2_0.x = b * tmp0.x;
-   accum2_0.y = b * tmp0.y;
-   accum2_0.z = b * tmp0.z;
-   accum2_0.w = b * tmp0.w;
-  
-   accum1_1.x = tmp1.x + a * tmp0.y;
-   accum1_1.y = tmp1.y - a * tmp0.x;
-   accum1_1.z = tmp1.z + a * tmp0.w;
-   accum1_1.w = tmp1.w - a * tmp0.z;
-
-   accum2_1.x = b * tmp1.x;
-   accum2_1.y = b * tmp1.y;
-   accum2_1.z = b * tmp1.z;
-   accum2_1.w = b * tmp1.w;
-
-   tmp0 = tex1Dfetch(spinorTexSingle, flv2_idx + 1 * sp_stride);   
-   tmp1 = tex1Dfetch(spinorTexSingle, flv2_idx + 4 * sp_stride);     
-   
-   accum2_0.x += tmp0.x - a * tmp1.y;
-   accum2_0.y += tmp0.y + a * tmp1.x;
-   accum2_0.z += tmp0.z - a * tmp1.w;
-   accum2_0.w += tmp0.w + a * tmp1.z;
-
-   accum1_0.x += b * tmp0.x;
-   accum1_0.y += b * tmp0.y;
-   accum1_0.z += b * tmp0.z;
-   accum1_0.w += b * tmp0.w;
-  
-   accum2_1.x += tmp1.x - a * tmp0.y;
-   accum2_1.y += tmp1.y + a * tmp0.x;
-   accum2_1.z += tmp1.z - a * tmp0.w;
-   accum2_1.w += tmp1.w + a * tmp0.z;
-
-   accum1_1.x += b * tmp1.x;
-   accum1_1.y += b * tmp1.y;
-   accum1_1.z += b * tmp1.z;
-   accum1_1.w += b * tmp1.w;
-   
-   spinor[flv1_idx + 1  * sp_stride] = c * accum1_0;   
-   spinor[flv1_idx + 4  * sp_stride] = c * accum1_1;   
-   spinor[flv2_idx + 1  * sp_stride] = c * accum2_0;   
-   spinor[flv2_idx + 4  * sp_stride] = c * accum2_1; 
-
-   //get the third color component for each flavor: 
-   
-   tmp0 = tex1Dfetch(spinorTexSingle, flv1_idx + 2 * sp_stride);   
-   tmp1 = tex1Dfetch(spinorTexSingle, flv1_idx + 5 * sp_stride);     
-
-   accum1_0.x = tmp0.x + a * tmp1.y;
-   accum1_0.y = tmp0.y - a * tmp1.x;
-   accum1_0.z = tmp0.z + a * tmp1.w;
-   accum1_0.w = tmp0.w - a * tmp1.z;
-
-   accum2_0.x = b * tmp0.x;
-   accum2_0.y = b * tmp0.y;
-   accum2_0.z = b * tmp0.z;
-   accum2_0.w = b * tmp0.w;
-  
-   accum1_1.x = tmp1.x + a * tmp0.y;
-   accum1_1.y = tmp1.y - a * tmp0.x;
-   accum1_1.z = tmp1.z + a * tmp0.w;
-   accum1_1.w = tmp1.w - a * tmp0.z;
-
-   accum2_1.x = b * tmp1.x;
-   accum2_1.y = b * tmp1.y;
-   accum2_1.z = b * tmp1.z;
-   accum2_1.w = b * tmp1.w;
-
-   tmp0 = tex1Dfetch(spinorTexSingle, flv2_idx + 2 * sp_stride);   
-   tmp1 = tex1Dfetch(spinorTexSingle, flv2_idx + 5 * sp_stride);     
-   
-   accum2_0.x += tmp0.x - a * tmp1.y;
-   accum2_0.y += tmp0.y + a * tmp1.x;
-   accum2_0.z += tmp0.z - a * tmp1.w;
-   accum2_0.w += tmp0.w + a * tmp1.z;
-
-   accum1_0.x += b * tmp0.x;
-   accum1_0.y += b * tmp0.y;
-   accum1_0.z += b * tmp0.z;
-   accum1_0.w += b * tmp0.w;
-  
-   accum2_1.x += tmp1.x - a * tmp0.y;
-   accum2_1.y += tmp1.y + a * tmp0.x;
-   accum2_1.z += tmp1.z - a * tmp0.w;
-   accum2_1.w += tmp1.w + a * tmp0.z;
-
-   accum1_1.x += b * tmp1.x;
-   accum1_1.y += b * tmp1.y;
-   accum1_1.z += b * tmp1.z;
-   accum1_1.w += b * tmp1.w;
-   
-   spinor[flv1_idx + 2  * sp_stride] = c * accum1_0;   
-   spinor[flv1_idx + 5  * sp_stride] = c * accum1_1;   
-   spinor[flv2_idx + 2  * sp_stride] = c * accum2_0;   
-   spinor[flv2_idx + 5  * sp_stride] = c * accum2_1;
-
-#endif 
-}
 
 __global__ void twistGamma5Kernel(short4* spinor, float *spinorNorm, float a, float b, float c, const short4 *in, const float *inNorm, DslashParam param)
 {
@@ -917,8 +936,8 @@ __global__ void twistGamma5Kernel(short4* spinor, float *spinorNorm, float a, fl
    int flv1_idx = sid;
    int flv2_idx = sid + fl_stride; 
    
-   float C1 = tex1Dfetch(spinorTexHalfNorm, flv1_idx);
-   float C2 = tex1Dfetch(spinorTexHalfNorm, flv2_idx);
+   float C1 = TEX1DFETCH(float, SPINORTEXNORM, flv1_idx);
+   float C2 = TEX1DFETCH(float, SPINORTEXNORM, flv2_idx);
       
    float4 accum1_0, accum1_1, accum1_2, accum1_3, accum1_4, accum1_5;
    float4 accum2_0, accum2_1, accum2_2, accum2_3, accum2_4, accum2_5;
@@ -927,8 +946,8 @@ __global__ void twistGamma5Kernel(short4* spinor, float *spinorNorm, float a, fl
    
    C1 *= c, C2 *= c;
    
-   tmp0 = tex1Dfetch(spinorTexHalf, flv1_idx + 0 * sp_stride);   
-   tmp1 = tex1Dfetch(spinorTexHalf, flv1_idx + 3 * sp_stride); 
+   tmp0 = TEX1DFETCH(float4, SPINORTEX, flv1_idx + 0 * sp_stride);   
+   tmp1 = TEX1DFETCH(float4, SPINORTEX, flv1_idx + 3 * sp_stride); 
     
    tmp0 = C1 * tmp0; 
    tmp1 = C1 * tmp1;
@@ -953,8 +972,8 @@ __global__ void twistGamma5Kernel(short4* spinor, float *spinorNorm, float a, fl
    accum2_3.z = b * tmp1.z;
    accum2_3.w = b * tmp1.w;
 
-   tmp0 = tex1Dfetch(spinorTexHalf, flv2_idx + 0 * sp_stride);   
-   tmp1 = tex1Dfetch(spinorTexHalf, flv2_idx + 3 * sp_stride);     
+   tmp0 = TEX1DFETCH(float4, SPINORTEX, flv2_idx + 0 * sp_stride);   
+   tmp1 = TEX1DFETCH(float4, SPINORTEX, flv2_idx + 3 * sp_stride);     
 
    tmp0 = C2 * tmp0; 
    tmp1 = C2 * tmp1;
@@ -991,8 +1010,8 @@ __global__ void twistGamma5Kernel(short4* spinor, float *spinorNorm, float a, fl
    
    //get the second color component for each flavor: 
    
-   tmp0 = tex1Dfetch(spinorTexHalf, flv1_idx + 1 * sp_stride);   
-   tmp1 = tex1Dfetch(spinorTexHalf, flv1_idx + 4 * sp_stride); 
+   tmp0 = TEX1DFETCH(float4, SPINORTEX, flv1_idx + 1 * sp_stride);   
+   tmp1 = TEX1DFETCH(float4, SPINORTEX, flv1_idx + 4 * sp_stride); 
     
    tmp0 = C1 * tmp0; 
    tmp1 = C1 * tmp1;
@@ -1017,8 +1036,8 @@ __global__ void twistGamma5Kernel(short4* spinor, float *spinorNorm, float a, fl
    accum2_4.z = b * tmp1.z;
    accum2_4.w = b * tmp1.w;
 
-   tmp0 = tex1Dfetch(spinorTexHalf, flv2_idx + 1 * sp_stride);   
-   tmp1 = tex1Dfetch(spinorTexHalf, flv2_idx + 4 * sp_stride);     
+   tmp0 = TEX1DFETCH(float4, SPINORTEX, flv2_idx + 1 * sp_stride);   
+   tmp1 = TEX1DFETCH(float4, SPINORTEX, flv2_idx + 4 * sp_stride);     
 
    tmp0 = C2 * tmp0; 
    tmp1 = C2 * tmp1;
@@ -1055,8 +1074,8 @@ __global__ void twistGamma5Kernel(short4* spinor, float *spinorNorm, float a, fl
 
    //get the third color component for each flavor: 
       
-   tmp0 = tex1Dfetch(spinorTexHalf, flv1_idx + 2 * sp_stride);   
-   tmp1 = tex1Dfetch(spinorTexHalf, flv1_idx + 5 * sp_stride); 
+   tmp0 = TEX1DFETCH(float4, SPINORTEX, flv1_idx + 2 * sp_stride);   
+   tmp1 = TEX1DFETCH(float4, SPINORTEX, flv1_idx + 5 * sp_stride); 
     
    tmp0 = C1 * tmp0; 
    tmp1 = C1 * tmp1;
@@ -1081,8 +1100,8 @@ __global__ void twistGamma5Kernel(short4* spinor, float *spinorNorm, float a, fl
    accum2_5.z = b * tmp1.z;
    accum2_5.w = b * tmp1.w;
 
-   tmp0 = tex1Dfetch(spinorTexHalf, flv2_idx + 2 * sp_stride);   
-   tmp1 = tex1Dfetch(spinorTexHalf, flv2_idx + 5 * sp_stride);     
+   tmp0 = TEX1DFETCH(float4, SPINORTEX, flv2_idx + 2 * sp_stride);   
+   tmp1 = TEX1DFETCH(float4, SPINORTEX, flv2_idx + 5 * sp_stride);     
 
    tmp0 = C2 * tmp0; 
    tmp1 = C2 * tmp1;
@@ -1178,8 +1197,8 @@ __global__ void twistGamma5Kernel(short4* spinor, float *spinorNorm, float a, fl
 #endif
 }
 
-#undef SPINOR_HOP
-
+#undef SPINORTEX
+#undef SPINORTEXNORM
 
 
 #undef tmp0_re
