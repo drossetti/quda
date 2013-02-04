@@ -741,7 +741,7 @@ namespace quda {
 
 void dslashQuda(void *h_out, void *h_in, QudaInvertParam *inv_param, QudaParity parity)
 {
-  if (param->dslash_type == QUDA_DOMAIN_WALL_DSLASH || param->twist_flavor == QUDA_TWIST_NONDEG_DOUBLET) setKernelPackT(true);
+  if (inv_param->dslash_type == QUDA_DOMAIN_WALL_DSLASH || inv_param->twist_flavor == QUDA_TWIST_NONDEG_DOUBLET) setKernelPackT(true);
 
   if (gaugePrecise == NULL) errorQuda("Gauge field not allocated");
   if (cloverPrecise == NULL && inv_param->dslash_type == QUDA_CLOVER_WILSON_DSLASH) 
@@ -808,7 +808,7 @@ void MatQuda(void *h_out, void *h_in, QudaInvertParam *inv_param)
 {
   pushVerbosity(inv_param->verbosity);
 
-  if (param->dslash_type == QUDA_DOMAIN_WALL_DSLASH || param->twist_flavor == QUDA_TWIST_NONDEG_DOUBLET) setKernelPackT(true);
+  if (inv_param->dslash_type == QUDA_DOMAIN_WALL_DSLASH || inv_param->twist_flavor == QUDA_TWIST_NONDEG_DOUBLET) setKernelPackT(true);
   if (gaugePrecise == NULL) errorQuda("Gauge field not allocated");
   if (cloverPrecise == NULL && inv_param->dslash_type == QUDA_CLOVER_WILSON_DSLASH) 
     errorQuda("Clover field not allocated");
