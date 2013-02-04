@@ -1388,7 +1388,6 @@ void packFace(void *ghost_buf, cudaColorSpinorField &in, const int dim, const in
 }
 
 
-//!ndeg tm:
 #ifdef GPU_NDEG_TWISTED_MASS_DIRAC
 template <int dim, int dagger, typename FloatN>
 __global__ void packFaceNdegTMKernel(PackParam<FloatN> param)

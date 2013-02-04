@@ -234,7 +234,8 @@ def prolog():
     if dslash:
         prolog_str= ("// *** CUDA NDEG TWISTED MASS DSLASH ***\n\n" if not dagger else "// *** CUDA NDEG TWISTED MASS DSLASH DAGGER ***\n\n")
         prolog_str+= ("// Arguments (double) mu, (double)eta and (double)delta \n")
-        prolog_str+= "#define SHARED_TMNDEG_FLOATS_PER_THREAD "+str(2*sharedFloatsPerFlavor)+"\n\n"
+        prolog_str+= "#define SHARED_TMNDEG_FLOATS_PER_THREAD "+str(2*sharedFloatsPerFlavor)+"\n"
+        prolog_str+= "#define FLAVORS 2\n\n"
     else:
         print "Undefined prolog"
         exit
@@ -313,24 +314,11 @@ if (kernel_type == INTERIOR_KERNEL) {
 #endif
 
   // Inline by hand for the moment and assume even dimensions
-  //coordsFromIndex(X, x1, x2, x3, x4, sid, param.parity);
+  coordsFromIndex3D<EVEN_X>(X, x1, x2, x3, x4, sid, param.parity);
 
-  int xt = blockIdx.x*blockDim.x + threadIdx.x;
-  int aux = xt+xt;
-  if (aux >= X1*X4) return;
-
-  x4 = aux / X1;
-  x1 = aux - x4*X1;
-
-  x2 = blockIdx.y*blockDim.y + threadIdx.y;
+  // only need to check Y and Z dims currently since X and T set to match exactly
   if (x2 >= X2) return;
-
-  x3 = blockIdx.z*blockDim.z + threadIdx.z;
-  if (x3 >= X3) return;
-
-  x1 += (param.parity + x4 + x3 + x2) &1;
-  X = ((x4*X3 + x3)*X2 + x2)*X1 + x1;
-  sid = X >> 1; 
+  if (x3 >= X3) return; 
 
 """)
         else:
@@ -345,18 +333,7 @@ if (kernel_type == INTERIOR_KERNEL) {
   if (sid >= param.threads) return;
 
   // Inline by hand for the moment and assume even dimensions
-  //coordsFromIndex(X, x1, x2, x3, x4, sid, param.parity);
-
-  X = 2*sid;
-  int aux1 = X / X1;
-  x1 = X - aux1 * X1;
-  int aux2 = aux1 / X2;
-  x2 = aux1 - aux2 * X2;
-  x4 = aux2 / X3;
-  x3 = aux2 - x4 * X3;
-  aux1 = (param.parity + x4 + x3 + x2) & 1;
-  x1 += aux1;
-  X += aux1;
+  coordsFromIndex<EVEN_X>(X, x1, x2, x3, x4, sid, param.parity);
 
 """)
 
@@ -553,7 +530,7 @@ def gen(dir, pack_only=False):
 
 
     load_half_cond = ""
-    load_half_cond += "const int sp_stride_pad = 2*ghostFace[static_cast<int>(kernel_type)];\n"
+    load_half_cond += "const int sp_stride_pad = FLAVORS*ghostFace[static_cast<int>(kernel_type)];\n"
     #load_half += "#if (DD_PREC==2) // half precision\n"
     #load_half += "const int sp_norm_idx = sid + param.ghostNormOffset[static_cast<int>(kernel_type)];\n"
     #load_half += "#endif\n"
@@ -578,7 +555,7 @@ def gen(dir, pack_only=False):
           load_half_flv2 += "READ_HALF_SPINOR(SPINORTEX, sp_stride_pad, fl_idx, sp_norm_idx+ghostFace[static_cast<int>(kernel_type)]);\n\n"
     else: 
 #flavor offset: extra ghostFace[static_cast<int>(kernel_type)]
-          load_half_flv2 += "READ_HALF_SPINOR(SPINORTEX, sp_stride_pad, fl_idx + (SPINOR_HOP/2)*sp_stride_pad, sp_norm_idx+2*ghostFace[static_cast<int>(kernel_type)]);\n\n"
+          load_half_flv2 += "READ_HALF_SPINOR(SPINORTEX, sp_stride_pad, fl_idx + (SPINOR_HOP/2)*sp_stride_pad, sp_norm_idx+FLAVORS*ghostFace[static_cast<int>(kernel_type)]);\n\n"
 
 
     project = "// project spinor into half spinors\n"

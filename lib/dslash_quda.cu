@@ -190,7 +190,6 @@ namespace quda {
 #include <tm_dslash_def.h>        // Twisted Mass kernels
 #include <tm_core.h>              // solo twisted mass kernel
 #include <clover_def.h>           // kernels for applying the clover term alone
-//!ndeg tm:
 #include <tm_ndeg_dslash_def.h>   // Non-degenerate twisted Mass
 
 #ifndef DSLASH_SHARED_FLOATS_PER_THREAD
@@ -201,7 +200,6 @@ namespace quda {
 #define CLOVER_SHARED_FLOATS_PER_THREAD 0
 #endif
 
-//!ndeg tm:
 #ifndef NDEGTM_SHARED_FLOATS_PER_THREAD
 #define NDEGTM_SHARED_FLOATS_PER_THREAD 0
 #endif
@@ -845,7 +843,6 @@ namespace quda {
 
   }
 
-//!ndeg tm:
   template <typename sFloat, typename gFloat>
   class TwistedDslashCuda : public SharedDslashCuda {
 
@@ -1446,7 +1443,6 @@ namespace quda {
 
   }
 
-//!ndeg tm:
   void twistedMassDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, 
 			   const cudaColorSpinorField *in, const int parity, const int dagger, 
 			   const cudaColorSpinorField *x, const double &kappa, const double &mu, 
@@ -1456,7 +1452,6 @@ namespace quda {
   #ifdef GPU_TWISTED_MASS_DIRAC
     int Npad = (in->Ncolor()*in->Nspin()*2)/in->FieldOrder(); // SPINOR_HOP in old code
   
-//!ndeg tm:
     int ghost_threads[4] = {0};
     int bulk_threads = ((in->TwistFlavor() == QUDA_TWIST_PLUS) || (in->TwistFlavor() == QUDA_TWIST_MINUS)) ? in->Volume() : in->Volume() / 2;
   
@@ -1465,7 +1460,6 @@ namespace quda {
       dslashParam.ghostOffset[i] = Npad*(in->GhostOffset(i) + in->Stride());
       dslashParam.ghostNormOffset[i] = in->GhostNormOffset(i) + in->Stride();
       dslashParam.commDim[i] = (!commOverride[i]) ? 0 : commDimPartitioned(i); // switch off comms if override = 0
-//!ndeg tm:
       ghost_threads[i] = ((in->TwistFlavor() == QUDA_TWIST_PLUS) || (in->TwistFlavor() == QUDA_TWIST_MINUS)) ? in->GhostFace()[i] : in->GhostFace()[i] / 2;
     }
 
@@ -1492,7 +1486,6 @@ namespace quda {
       dslash = new TwistedDslashCuda<short4,short4>(out, (short4*)gauge0,(short4*)gauge1, gauge.Reconstruct(), in, x, kappa, mu, epsilon, dagger);
     }
 
-//!ndeg tm:
     dslashCuda(*dslash, regSize, parity, dagger, bulk_threads, ghost_threads);
 
     delete dslash;
@@ -1751,7 +1744,6 @@ namespace quda {
 #endif
   }
 
-//!ndeg tm:
 
   template <typename sFloat>
   class TwistGamma5Cuda : public Tunable {

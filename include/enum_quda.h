@@ -268,7 +268,6 @@ extern "C" {
     QUDA_INVALID_SOURCE = QUDA_INVALID_ENUM
   } QudaSourceType;
   
-//!ndeg tm:  
   typedef enum QudaTwistFlavorType_s {
     QUDA_TWIST_MINUS = -1,
     QUDA_TWIST_PLUS = +1,
