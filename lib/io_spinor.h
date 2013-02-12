@@ -317,7 +317,6 @@
   out[sid+3*(stride)] = make_short4((short)o20_re, (short)o20_im, (short)o21_re, (short)o21_im); \
   out[sid+4*(stride)] = make_short4((short)o22_re, (short)o22_im, (short)o30_re, (short)o30_im); \
   out[sid+5*(stride)] = make_short4((short)o31_re, (short)o31_im, (short)o32_re, (short)o32_im);
-
 #if (__COMPUTE_CAPABILITY__ >= 200)
 #define WRITE_SPINOR_DOUBLE2_STR(stride)				\
   store_streaming_double2(&out[0*sp_stride+sid], o00_re, o00_im);	\

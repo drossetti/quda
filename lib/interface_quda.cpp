@@ -544,7 +544,22 @@ namespace quda {
       diracParam.type = pc ? QUDA_CLOVERPC_DIRAC : QUDA_CLOVER_DIRAC;
       break;
     case QUDA_DOMAIN_WALL_DSLASH:
-      diracParam.type = pc ? QUDA_DOMAIN_WALLPC_DIRAC : QUDA_DOMAIN_WALL_DIRAC;
+      //-----------------------------------------------
+      // Edited by HJ Kim, this modification is needed 
+      // for the 4D preconditioned DW dirac operator
+      //-----------------------------------------------
+      if(pc)
+      {
+        if(inv_param->solve_type == QUDA_NORMEQ_4DPC_SOLVE)
+          diracParam.type = QUDA_DOMAIN_WALL_4DPC_DIRAC;
+        else
+          diracParam.type = QUDA_DOMAIN_WALLPC_DIRAC;
+      }
+      else
+      {
+        diracParam.type = QUDA_DOMAIN_WALL_DIRAC;
+      }
+      //diracParam.type = pc ? QUDA_DOMAIN_WALLPC_DIRAC : QUDA_DOMAIN_WALL_DIRAC;
       //BEGIN NEW :
       diracParam.Ls = inv_param->Ls;
       //END NEW    
@@ -1050,7 +1065,7 @@ void invertQuda(void *hp_x, void *hp_b, QudaInvertParam *param)
   // for now, though, so here we factorize everything for convenience.
 
   bool pc_solution = (param->solution_type == QUDA_MATPC_SOLUTION) || (param->solution_type == QUDA_MATPCDAG_MATPC_SOLUTION);
-  bool pc_solve = (param->solve_type == QUDA_DIRECT_PC_SOLVE) || (param->solve_type == QUDA_NORMOP_PC_SOLVE);
+  bool pc_solve = (param->solve_type == QUDA_DIRECT_PC_SOLVE) || (param->solve_type == QUDA_NORMOP_PC_SOLVE) || (param->solve_type == QUDA_NORMEQ_4DPC_SOLVE);
   bool mat_solution = (param->solution_type == QUDA_MAT_SOLUTION) || (param->solution_type ==  QUDA_MATPC_SOLUTION);
   bool direct_solve = (param->solve_type == QUDA_DIRECT_SOLVE) || (param->solve_type == QUDA_DIRECT_PC_SOLVE);
 
@@ -1195,6 +1210,8 @@ void invertQuda(void *hp_x, void *hp_b, QudaInvertParam *param)
   } else {
     DiracMdagM m(dirac), mSloppy(diracSloppy), mPre(diracPre);
     Solver *solve = Solver::create(*param, m, mSloppy, mPre, profileInvert);
+    double nin = norm2(*in);
+    double nout = norm2(*out);
     (*solve)(*out, *in);
     delete solve;
   }

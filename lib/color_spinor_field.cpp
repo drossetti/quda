@@ -23,7 +23,7 @@ namespace quda {
 								      even(0), odd(0) 
   {
     create(param.nDim, param.x, param.nColor, param.nSpin, param.twistFlavor, param.precision, param.pad, 
-	   param.siteSubset, param.siteOrder, param.fieldOrder, param.gammaBasis);
+	   param.siteSubset, param.siteOrder, param.fieldOrder, param.gammaBasis, param.PCtype);
 
   }
 
@@ -31,7 +31,7 @@ namespace quda {
 								      even(0), odd(0)
   {
     create(field.nDim, field.x, field.nColor, field.nSpin, field.twistFlavor, field.precision, field.pad,
-	   field.siteSubset, field.siteOrder, field.fieldOrder, field.gammaBasis);
+	   field.siteSubset, field.siteOrder, field.fieldOrder, field.gammaBasis, field.PCtype);
 
   }
 
@@ -119,7 +119,7 @@ namespace quda {
   void ColorSpinorField::create(int Ndim, const int *X, int Nc, int Ns, QudaTwistFlavorType Twistflavor, 
 				QudaPrecision Prec, int Pad, QudaSiteSubset siteSubset, 
 				QudaSiteOrder siteOrder, QudaFieldOrder fieldOrder, 
-				QudaGammaBasis gammaBasis) {
+				QudaGammaBasis gammaBasis, QudaDWFPCType DWFPC) {
     this->siteSubset = siteSubset;
     this->siteOrder = siteOrder;
     this->fieldOrder = fieldOrder;
@@ -132,6 +132,8 @@ namespace quda {
     nColor = Nc;
     nSpin = Ns;
     twistFlavor = Twistflavor;
+
+    PCtype = DWFPC;
 
     precision = Prec;
     volume = 1;
@@ -168,7 +170,7 @@ namespace quda {
     if (&src != this) {
       create(src.nDim, src.x, src.nColor, src.nSpin, src.twistFlavor, 
 	     src.precision, src.pad, src.siteSubset, 
-	     src.siteOrder, src.fieldOrder, src.gammaBasis);    
+	     src.siteOrder, src.fieldOrder, src.gammaBasis, src.PCtype);    
     }
     return *this;
   }
@@ -179,6 +181,8 @@ namespace quda {
     if (param.nColor != 0) nColor = param.nColor;
     if (param.nSpin != 0) nSpin = param.nSpin;
     if (param.twistFlavor != QUDA_TWIST_INVALID) twistFlavor = param.twistFlavor;
+    
+    if (param.PCtype != QUDA_PC_INVALID) PCtype = param.PCtype;
 
     if (param.precision != QUDA_INVALID_PRECISION)  precision = param.precision;
     if (param.nDim != 0) nDim = param.nDim;
@@ -237,6 +241,7 @@ namespace quda {
     param.siteOrder = siteOrder;
     param.fieldOrder = fieldOrder;
     param.gammaBasis = gammaBasis;
+    param.PCtype = PCtype;
     param.create = QUDA_INVALID_FIELD_CREATE;
     param.verbose = verbose;
   }
@@ -295,6 +300,7 @@ namespace quda {
     out << "siteOrder = " << a.siteOrder << std::endl;
     out << "fieldOrder = " << a.fieldOrder << std::endl;
     out << "gammaBasis = " << a.gammaBasis << std::endl;
+    out << "PC type = " << a.PCtype << std::endl;
     return out;
   }
 

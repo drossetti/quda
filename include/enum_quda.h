@@ -99,6 +99,7 @@ extern "C" {
     QUDA_NORMOP_PC_SOLVE,
     QUDA_NORMEQ_SOLVE = QUDA_NORMOP_SOLVE, // deprecated
     QUDA_NORMEQ_PC_SOLVE = QUDA_NORMOP_PC_SOLVE, // deprecated
+    QUDA_NORMEQ_4DPC_SOLVE,  // for 4D preconditioned domain wall dirac operator
     QUDA_INVALID_SOLVE = QUDA_INVALID_ENUM
   } QudaSolveType;
 
@@ -208,6 +209,7 @@ extern "C" {
     QUDA_CLOVERPC_DIRAC,
     QUDA_DOMAIN_WALL_DIRAC,
     QUDA_DOMAIN_WALLPC_DIRAC,
+    QUDA_DOMAIN_WALL_4DPC_DIRAC,// 4D preconditioned domain wall dirac operator
     QUDA_ASQTAD_DIRAC,
     QUDA_ASQTADPC_DIRAC,
     QUDA_TWISTED_MASS_DIRAC,
@@ -267,6 +269,13 @@ extern "C" {
     QUDA_RANDOM_SOURCE,
     QUDA_INVALID_SOURCE = QUDA_INVALID_ENUM
   } QudaSourceType;
+  
+  // used to select preconditioning method in domain-wall fermion
+  typedef enum QudaDWFPCType_s {
+    QUDA_5D_PC,
+    QUDA_4D_PC,
+    QUDA_PC_INVALID
+  } QudaDWFPCType;  
   
   typedef enum QudaTwistFlavorType_s {
     QUDA_TWIST_NO  = 0,

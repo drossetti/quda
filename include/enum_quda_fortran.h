@@ -92,6 +92,7 @@
 #define QUDA_NORMOP_PC_SOLVE 3
 #define QUDA_NORMEQ_SOLVE QUDA_NORMOP_SOLVE // deprecated
 #define QUDA_NORMEQ_PC_SOLVE QUDA_NORMOP_PC_SOLVE // deprecated
+#define QUDA_NORMEQ_4DPC_SOLVE 4 // for 4D preconditioned domain wall dirac operator
 #define QUDA_INVALID_SOLVE QUDA_INVALID_ENUM
 
 #define QudaSchwarzType integer(4)
@@ -186,6 +187,7 @@
 #define QUDA_CLOVERPC_DIRAC 3
 #define QUDA_DOMAIN_WALL_DIRAC 4
 #define QUDA_DOMAIN_WALLPC_DIRAC 5
+#define QUDA_DOMAIN_WALL_4DPC_DIRAC 10
 #define QUDA_ASQTAD_DIRAC 6
 #define QUDA_ASQTADPC_DIRAC 7
 #define QUDA_TWISTED_MASS_DIRAC 8

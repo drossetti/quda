@@ -247,6 +247,7 @@ namespace quda {
 
     void Dslash(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
 		const QudaParity parity) const;
+   
     void DslashXpay(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
 		    const QudaParity parity, const cudaColorSpinorField &x, const double &k) const;
 
@@ -259,7 +260,7 @@ namespace quda {
     virtual void reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
 			     const QudaSolutionType) const;
   };
-
+  
   // 5d Even-odd preconditioned domain wall
   class DiracDomainWallPC : public DiracDomainWall {
 
@@ -270,6 +271,36 @@ namespace quda {
     DiracDomainWallPC(const DiracDomainWallPC &dirac);
     virtual ~DiracDomainWallPC();
     DiracDomainWallPC& operator=(const DiracDomainWallPC &dirac);
+
+    void M(cudaColorSpinorField &out, const cudaColorSpinorField &in) const;
+    void MdagM(cudaColorSpinorField &out, const cudaColorSpinorField &in) const;
+
+    void prepare(cudaColorSpinorField* &src, cudaColorSpinorField* &sol,
+		 cudaColorSpinorField &x, cudaColorSpinorField &b, 
+		 const QudaSolutionType) const;
+    void reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
+		     const QudaSolutionType) const;
+  };
+
+
+// 4d Even-odd preconditioned domain wall
+  class DiracDomainWall4DPC : public DiracDomainWallPC {
+
+  private:
+
+  public:
+    DiracDomainWall4DPC(const DiracParam &param);
+    DiracDomainWall4DPC(const DiracDomainWall4DPC &dirac);
+    virtual ~DiracDomainWall4DPC();
+    DiracDomainWall4DPC& operator=(const DiracDomainWall4DPC &dirac);
+    void Dslash4(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
+		const QudaParity parity) const;
+    void Dslash5(cudaColorSpinorField &out, const cudaColorSpinorField &in, const QudaParity parity) const;
+    void Dslash5inv(cudaColorSpinorField &out, const cudaColorSpinorField &in, const QudaParity parity, const double &k) const;
+    void Dslash4Xpay(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
+		    const QudaParity parity, const cudaColorSpinorField &x, const double &k) const;
+    void Dslash5Xpay(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
+		    const QudaParity parity, const cudaColorSpinorField &x, const double &k) const;
 
     void M(cudaColorSpinorField &out, const cudaColorSpinorField &in) const;
     void MdagM(cudaColorSpinorField &out, const cudaColorSpinorField &in) const;

@@ -68,6 +68,9 @@ namespace quda {
 			    const int parity, const int dagger, const cudaColorSpinorField *x, 
 			    const double &m_f, const double &k, const int *commDim);//!NEW:extra argument			  
 
+  // Added for 4d EO preconditioning in DWF
+  void domainWallDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, const cudaColorSpinorField *in, const int parity, const int dagger, const cudaColorSpinorField *x, const double &m_f, const double &k, const int *commDim, const int DS_type); //!NEW:extra argument			  
+
   // staggered Dslash    
   void staggeredDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &fatGauge, const cudaGaugeField &longGauge,
 			   const cudaColorSpinorField *in, const int parity, const int dagger, 

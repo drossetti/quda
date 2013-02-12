@@ -172,6 +172,9 @@ namespace quda {
 #include <staggered_dslash_def.h> // staggered Dslash kernels
 #include <wilson_dslash_def.h>    // Wilson Dslash kernels (including clover)
 #include <dw_dslash_def.h>        // Domain Wall kernels
+#include <dw_dslash4_def.h>        // Dslash4 Domain Wall kernels
+#include <dw_dslash5_def.h>        // Dslash5 Domain Wall kernels
+#include <dw_dslash5inv_def.h>     // Dslash5inv Domain Wall kernels
 #include <tm_dslash_def.h>        // Twisted Mass kernels
 #include <tm_core.h>              // solo twisted mass kernel
 #include <clover_def.h>           // kernels for applying the clover term alone
@@ -1058,6 +1061,108 @@ namespace quda {
     }
   };
 
+  template <typename sFloat, typename gFloat>
+  class DomainWallDslash4DPCCuda : public DslashCuda {
+
+  private:
+    const size_t bytes, norm_bytes;
+    sFloat *out;
+    float *outNorm;
+    char *saveOut, *saveOutNorm;
+    const sFloat *in, *x;
+    const float *inNorm, *xNorm;
+    const gFloat *gauge0, *gauge1;
+    const QudaReconstructType reconstruct;
+    const int dagger;
+    const double mferm;
+    const double a;
+    const int DS_type;
+
+  protected:
+    int sharedBytesPerThread() const { return 0; }
+  
+  public:
+    DomainWallDslash4DPCCuda(sFloat *out, float *outNorm, const gFloat *gauge0, 
+       const gFloat *gauge1, const QudaReconstructType reconstruct, const sFloat *in, 
+			 const float *inNorm, const sFloat *x, const float *xNorm, const double mferm, 
+			 const double a, const int dagger, const size_t bytes, const size_t norm_bytes,
+       const int DS_type)
+      : DslashCuda(), bytes(bytes), norm_bytes(norm_bytes), out(out), outNorm(outNorm), gauge0(gauge0), gauge1(gauge1), in(in), inNorm(inNorm), mferm(mferm), reconstruct(reconstruct), dagger(dagger), x(x), xNorm(xNorm), a(a), DS_type(DS_type)
+    { 
+      bindSpinorTex(bytes, norm_bytes, in, inNorm, out, outNorm, x, xNorm); 
+    }
+    virtual ~DomainWallDslash4DPCCuda() { unbindSpinorTex(in, inNorm, out, outNorm, x, xNorm); }
+
+    TuneKey tuneKey() const
+    {
+      TuneKey key = DslashCuda::tuneKey();
+      std::stringstream ls, recon;
+      ls << dslashConstants.Ls;
+      recon << reconstruct;
+      key.volume += "x" + ls.str();
+      key.aux += ",reconstruct=" + recon.str();
+      if (x) key.aux += ",Xpay";
+      return key;
+    }
+
+    void apply(const cudaStream_t &stream)
+    {
+      TuneParam tp = tuneLaunch(*this, dslashTuning, verbosity);
+      dim3 gridDim( (dslashParam.threads+tp.block.x-1) / tp.block.x, 1, 1);
+      
+      switch(DS_type){
+        case 0:
+          DSLASH(domainWallDslash, gridDim, tp.block, tp.shared_bytes, stream, 
+            dslashParam, out, outNorm, gauge0, gauge1, in, inNorm, mferm, x, xNorm, a);
+          break;
+        case 1:
+          DSLASH(domainWallDslash4, gridDim, tp.block, tp.shared_bytes, stream, 
+            dslashParam, out, outNorm, gauge0, gauge1, in, inNorm, mferm, x, xNorm, a);
+          break;
+        case 2:
+          DSLASH(domainWallDslash5, gridDim, tp.block, tp.shared_bytes, stream, 
+            dslashParam, out, outNorm, gauge0, gauge1, in, inNorm, mferm, x, xNorm, a);
+          break;
+        case 3:
+          DSLASH(domainWallDslash5inv, gridDim, tp.block, tp.shared_bytes, stream, 
+            dslashParam, out, outNorm, gauge0, gauge1, in, inNorm, mferm, x, xNorm, a);
+          break;
+        default:
+          errorQuda("invalid Dslash type");
+      }
+    }
+
+    void preTune()
+    {
+      if (dslashParam.kernel_type < 5) { // exterior kernel
+	saveOut = new char[bytes];
+	cudaMemcpy(saveOut, out, bytes, cudaMemcpyDeviceToHost);
+	if (typeid(sFloat) == typeid(short4)) {
+	  saveOutNorm = new char[norm_bytes];
+	  cudaMemcpy(saveOutNorm, outNorm, norm_bytes, cudaMemcpyDeviceToHost);
+	}
+      }
+    }
+
+    void postTune()
+    {
+      if (dslashParam.kernel_type < 5) { // exterior kernel
+	cudaMemcpy(out, saveOut, bytes, cudaMemcpyHostToDevice);
+	delete[] saveOut;
+	if (typeid(sFloat) == typeid(short4)) {
+	  cudaMemcpy(outNorm, saveOutNorm, norm_bytes, cudaMemcpyHostToDevice);
+	  delete[] saveOutNorm;
+	}
+      }
+    }
+
+    long long flops() const { // FIXME for multi-GPU
+      long long bulk = (dslashConstants.Ls-2)*(dslashConstants.VolumeCB()/dslashConstants.Ls);
+      long long wall = 2*dslashConstants.VolumeCB()/dslashConstants.Ls;
+      return (x ? 1368ll : 1320ll)*dslashConstants.VolumeCB() + 96ll*bulk + 120ll*wall;
+    }
+  };
+
   template <typename sFloat, typename fatGFloat, typename longGFloat>
   class StaggeredDslashCuda : public DslashCuda {
 
@@ -1671,21 +1776,79 @@ namespace quda {
 
     if (in->Precision() == QUDA_DOUBLE_PRECISION) {
 #if (__COMPUTE_CAPABILITY__ >= 130)
-      dslash = new DomainWallDslashCuda<double2,double2>((double2*)out->V(), (float*)out->Norm(), (double2*)gauge0, (double2*)gauge1, 
-							 gauge.Reconstruct(), (double2*)in->V(), (float*)in->Norm(), (double2*)xv, 
-							 (float*)xn, m_f, k2, dagger, in->Bytes(), in->NormBytes());
+      dslash = new DomainWallDslashCuda<double2,double2>((double2*)out->V(), (float*)out->Norm(), (double2*)gauge0, (double2*)gauge1, gauge.Reconstruct(), (double2*)in->V(), (float*)in->Norm(), (double2*)xv, (float*)xn, m_f, k2, dagger, in->Bytes(), in->NormBytes());
       regSize = sizeof(double);
 #else
       errorQuda("Double precision not supported on this GPU");
 #endif
     } else if (in->Precision() == QUDA_SINGLE_PRECISION) {
-      dslash = new DomainWallDslashCuda<float4,float4>((float4*)out->V(), (float*)out->Norm(), (float4*)gauge0, (float4*)gauge1, 
-						       gauge.Reconstruct(), (float4*)in->V(), (float*)in->Norm(), (float4*)xv, 
-						       (float*)xn, m_f, k2, dagger, in->Bytes(), in->NormBytes());
+      dslash = new DomainWallDslashCuda<float4,float4>((float4*)out->V(), (float*)out->Norm(), (float4*)gauge0, (float4*)gauge1, gauge.Reconstruct(), (float4*)in->V(), (float*)in->Norm(), (float4*)xv, (float*)xn, m_f, k2, dagger, in->Bytes(), in->NormBytes());
     } else if (in->Precision() == QUDA_HALF_PRECISION) {
-      dslash = new DomainWallDslashCuda<short4,short4>((short4*)out->V(), (float*)out->Norm(), (short4*)gauge0, (short4*)gauge1, 
-						       gauge.Reconstruct(), (short4*)in->V(), (float*)in->Norm(), (short4*)xv, 
-						       (float*)xn, m_f, k2, dagger, in->Bytes(), in->NormBytes());
+      dslash = new DomainWallDslashCuda<short4,short4>((short4*)out->V(), (float*)out->Norm(), (short4*)gauge0, (short4*)gauge1, gauge.Reconstruct(), (short4*)in->V(), (float*)in->Norm(), (short4*)xv, (float*)xn, m_f, k2, dagger, in->Bytes(), in->NormBytes());
+    }
+
+    dslashCuda(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace());
+
+    delete dslash;
+    unbindGaugeTex(gauge);
+
+    checkCudaError();
+#else
+    errorQuda("Domain wall dslash has not been built");
+#endif
+  }
+  //-----------------------------------------------------
+  // Modification for 4D preconditioned DWF operator
+  // Additional Arg. is added to give a function name.
+  //
+  // pre-defined DS_type list
+  // 0 = normal 5D dslash 
+  // 1 = dslash4
+  // 2 = dslash5
+  // 3 = dslash5inv
+  //-----------------------------------------------------
+
+  void domainWallDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, const cudaColorSpinorField *in, const int parity, const int dagger, const cudaColorSpinorField *x, const double &m_f, const double &k2, const int *commOverride, const int DS_type)
+  {
+    inSpinor = (cudaColorSpinorField*)in; // EVIL
+
+    dslashParam.parity = parity;
+    dslashParam.threads = in->Volume();
+
+#ifdef GPU_DOMAIN_WALL_DIRAC
+    //currently splitting in space-time is impelemented:
+    int dirs = 4;
+    int Npad = (in->Ncolor()*in->Nspin()*2)/in->FieldOrder(); // SPINOR_HOP in old code
+    for(int i = 0;i < dirs; i++){
+      dslashParam.ghostDim[i] = commDimPartitioned(i); // determines whether to use regular or ghost indexing at boundary
+      dslashParam.ghostOffset[i] = Npad*(in->GhostOffset(i) + in->Stride());
+      dslashParam.ghostNormOffset[i] = in->GhostNormOffset(i) + in->Stride();
+      dslashParam.commDim[i] = (!commOverride[i]) ? 0 : commDimPartitioned(i); // switch off comms if override = 0
+    }  
+
+    void *gauge0, *gauge1;
+    bindGaugeTex(gauge, parity, &gauge0, &gauge1);
+
+    if (in->Precision() != gauge.Precision())
+      errorQuda("Mixing gauge and spinor precision not supported");
+
+    const void *xv = x ? x->V() : 0;
+    const void *xn = x ? x->Norm() : 0;
+
+    DslashCuda *dslash = 0;
+    size_t regSize = sizeof(float);
+
+    if (in->Precision() == QUDA_DOUBLE_PRECISION) {
+#if (__COMPUTE_CAPABILITY__ >= 130)
+      dslash = new DomainWallDslash4DPCCuda<double2,double2>((double2*)out->V(), (float*)out->Norm(), (double2*)gauge0, (double2*)gauge1, gauge.Reconstruct(), (double2*)in->V(), (float*)in->Norm(), (double2*)xv, (float*)xn, m_f, k2, dagger, in->Bytes(), in->NormBytes(), DS_type);
+      regSize = sizeof(double);
+#else
+      errorQuda("Double precision not supported on this GPU");
+#endif
+    } else if (in->Precision() == QUDA_SINGLE_PRECISION) {
+      dslash = new DomainWallDslash4DPCCuda<float4,float4>((float4*)out->V(), (float*)out->Norm(), (float4*)gauge0, (float4*)gauge1, gauge.Reconstruct(), (float4*)in->V(), (float*)in->Norm(), (float4*)xv, (float*)xn, m_f, k2, dagger, in->Bytes(), in->NormBytes(), DS_type);
+    } else if (in->Precision() == QUDA_HALF_PRECISION) {
+      dslash = new DomainWallDslash4DPCCuda<short4,short4>((short4*)out->V(), (float*)out->Norm(), (short4*)gauge0, (short4*)gauge1, gauge.Reconstruct(), (short4*)in->V(), (float*)in->Norm(), (short4*)xv, (float*)xn, m_f, k2, dagger, in->Bytes(), in->NormBytes(), DS_type);
     }
 
     dslashCuda(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace());
