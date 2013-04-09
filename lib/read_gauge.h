@@ -188,156 +188,6 @@
   (G##3).z = (G##0).x = pi_f*(G##0).x;						\
   (G##3).w = (G##0).y = pi_f*(G##0).y;
 
-/*!----For DW only----!*/
-
-#define ASSN_GAUGE_MATRIX_18_FLOAT2_TEX(G, gauge, dir, idx, stride)	\
-  G##0 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+0)*stride);	\
-  G##1 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+1)*stride);	\
-  G##2 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+2)*stride);	\
-  G##3 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+3)*stride);	\
-  G##4 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+4)*stride);	\
-  G##5 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+5)*stride);	\
-  G##6 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+6)*stride);	\
-  G##7 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+7)*stride);	\
-  G##8 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+8)*stride);	\
-
-#define ASSN_GAUGE_MATRIX_18_SHORT2_TEX(G, gauge, dir, idx, stride)	\
-  G##0 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+0)*stride);	\
-  G##1 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+1)*stride);	\
-  G##2 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+2)*stride);	\
-  G##3 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+3)*stride);	\
-  G##4 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+4)*stride);	\
-  G##5 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+5)*stride);	\
-  G##6 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+6)*stride);	\
-  G##7 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+7)*stride);	\
-  G##8 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+8)*stride);	\
-
-#define ASSN_GAUGE_MATRIX_12_FLOAT4_TEX(G, gauge, dir, idx, stride)	\
-  G##0 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*3+0)*stride);	\
-  G##1 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*3+1)*stride);	\
-  G##2 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*3+2)*stride);	\
-  G##3 = make_float4(0,0,0,0);						\
-  G##4 = make_float4(0,0,0,0);				
-
-#define ASSN_GAUGE_MATRIX_12_SHORT4_TEX(G, gauge, dir, idx, stride)	\
-  G##0 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*3+0)*stride);	\
-  G##1 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*3+1)*stride);	\
-  G##2 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*3+2)*stride);	\
-  G##3 = make_float4(0,0,0,0);						\
-  G##4 = make_float4(0,0,0,0);
-
-// set A to be last components of G4 (otherwise unused)
-#define ASSN_GAUGE_MATRIX_8_FLOAT4_TEX(G, gauge, dir, idx, stride)	\
-  G##0 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*2+0)*stride);	\
-  G##1 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*2+1)*stride);	\
-  G##2 = make_float4(0,0,0,0);						\
-  G##3 = make_float4(0,0,0,0);						\
-  G##4 = make_float4(0,0,0,0);						\
-  (G##3).z = (G##0).x;							\
-  (G##3).w = (G##0).y;
-
-#define ASSN_GAUGE_MATRIX_8_SHORT4_TEX(G, gauge, dir, idx, stride)	\
-  G##0 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*2+0)*stride);	\
-  G##1 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*2+1)*stride);	\
-  G##2 = make_float4(0,0,0,0);						\
-  G##3 = make_float4(0,0,0,0);						\
-  G##4 = make_float4(0,0,0,0);						\
-  (G##3).z = (G##0).x = pi_f*(G##0).x;					\
-  (G##3).w = (G##0).y = pi_f*(G##0).y;
-
-#define ASSN_GAUGE_MATRIX_18_DOUBLE2(G, gauge, dir, idx, stride)    \
-   G##0 = gauge[idx + ((dir/2)*9+0)*stride];		    \
-   G##1 = gauge[idx + ((dir/2)*9+1)*stride];		    \
-   G##2 = gauge[idx + ((dir/2)*9+2)*stride];		    \
-   G##3 = gauge[idx + ((dir/2)*9+3)*stride];		    \
-   G##4 = gauge[idx + ((dir/2)*9+4)*stride];		    \
-   G##5 = gauge[idx + ((dir/2)*9+5)*stride];		    \
-   G##6 = gauge[idx + ((dir/2)*9+6)*stride];		    \
-   G##7 = gauge[idx + ((dir/2)*9+7)*stride];		    \
-   G##8 = gauge[idx + ((dir/2)*9+8)*stride];		    \
-  
-#define ASSN_GAUGE_MATRIX_18_FLOAT2(G, gauge, dir, idx, stride)	\
-   G##0 = ((float2*)gauge)[idx + ((dir/2)*9+0)*stride];	\
-   G##1 = ((float2*)gauge)[idx + ((dir/2)*9+1)*stride];	\
-   G##2 = ((float2*)gauge)[idx + ((dir/2)*9+2)*stride];	\
-   G##3 = ((float2*)gauge)[idx + ((dir/2)*9+3)*stride];	\
-   G##4 = ((float2*)gauge)[idx + ((dir/2)*9+4)*stride];	\
-   G##5 = ((float2*)gauge)[idx + ((dir/2)*9+5)*stride];	\
-   G##6 = ((float2*)gauge)[idx + ((dir/2)*9+6)*stride];	\
-   G##7 = ((float2*)gauge)[idx + ((dir/2)*9+7)*stride];	\
-   G##8 = ((float2*)gauge)[idx + ((dir/2)*9+8)*stride];	\
-  
-#define ASSN_GAUGE_MATRIX_18_SHORT2(G, gauge, dir, idx, stride)		\
-   G##0 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+0)*stride]); \
-   G##1 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+1)*stride]); \
-   G##2 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+2)*stride]); \
-   G##3 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+3)*stride]); \
-   G##4 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+4)*stride]); \
-   G##5 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+5)*stride]); \
-   G##6 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+6)*stride]); \
-   G##7 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+7)*stride]); \
-   G##8 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+8)*stride]); \
-  
-#define ASSN_GAUGE_MATRIX_12_DOUBLE2(G, gauge, dir, idx, stride)	\
-   G##0 = gauge[idx + ((dir/2)*6+0)*stride];			\
-   G##1 = gauge[idx + ((dir/2)*6+1)*stride];			\
-   G##2 = gauge[idx + ((dir/2)*6+2)*stride];			\
-   G##3 = gauge[idx + ((dir/2)*6+3)*stride];			\
-   G##4 = gauge[idx + ((dir/2)*6+4)*stride];			\
-   G##5 = gauge[idx + ((dir/2)*6+5)*stride];			\
-   G##6 = make_double2(0,0);					\
-   G##7 = make_double2(0,0);					\
-   G##8 = make_double2(0,0);					
-
-#define ASSN_GAUGE_MATRIX_12_FLOAT4(G, gauge, dir, idx, stride)	\
-   G##0 = gauge[idx + ((dir/2)*3+0)*stride];		\
-   G##1 = gauge[idx + ((dir/2)*3+1)*stride];		\
-   G##2 = gauge[idx + ((dir/2)*3+2)*stride];		\
-   G##3 = make_float4(0,0,0,0);				\
-   G##4 = make_float4(0,0,0,0);				
-
-#define ASSN_GAUGE_MATRIX_12_SHORT4(G, gauge, dir, idx, stride)		\
-   G##0 = short42float4(gauge[idx + ((dir/2)*3+0)*stride]);	\
-   G##1 = short42float4(gauge[idx + ((dir/2)*3+1)*stride]);	\
-   G##2 = short42float4(gauge[idx + ((dir/2)*3+2)*stride]);	\
-   G##3 = make_float4(0,0,0,0);					\
-   G##4 = make_float4(0,0,0,0);
-
-// set A to be last components of G4 (otherwise unused)
-#define ASSN_GAUGE_MATRIX_8_DOUBLE2(G, gauge, dir, idx, stride)		\
-   G##0 = gauge[idx + ((dir/2)*4+0)*stride];			\
-   G##1 = gauge[idx + ((dir/2)*4+1)*stride];			\
-   G##2 = gauge[idx + ((dir/2)*4+2)*stride];			\
-   G##3 = gauge[idx + ((dir/2)*4+3)*stride];			\
-   G##4 = make_double2(0,0);					\
-   G##5 = make_double2(0,0);					\
-   G##6 = make_double2(0,0);					\
-   G##7 = make_double2(0,0);					\
-   G##8 = make_double2(0,0);					\
-  (G##7).x = (G##0).x;							\
-  (G##7).y = (G##0).y;
-
-// set A to be last components of G4 (otherwise unused)
-#define ASSN_GAUGE_MATRIX_8_FLOAT4(G, gauge, dir, idx, stride)	\
-   G##0 = gauge[idx + ((dir/2)*2+0)*stride];		\
-   G##1 = gauge[idx + ((dir/2)*2+1)*stride];		\
-   G##2 = make_float4(0,0,0,0);				\
-   G##3 = make_float4(0,0,0,0);				\
-   G##4 = make_float4(0,0,0,0);				\
-  (G##3).z = (G##0).x;						\
-  (G##3).w = (G##0).y;
-
-#define ASSN_GAUGE_MATRIX_8_SHORT4(G, gauge, dir, idx, stride)		\
-   G##0 = short42float4(gauge[idx + ((dir/2)*2+0)*stride]);	\
-   G##1 = short42float4(gauge[idx + ((dir/2)*2+1)*stride]);	\
-   G##2 = make_float4(0,0,0,0);					\
-   G##3 = make_float4(0,0,0,0);					\
-   G##4 = make_float4(0,0,0,0);					\
-  (G##3).z = (G##0).x = pi_f*(G##0).x;						\
-  (G##3).w = (G##0).y = pi_f*(G##0).y;
-
-
-/*----END--*/
 
 #define RESCALE2(G, max)						\
   (G##0).x *= max; (G##0).y *= max; (G##1).x *= max; (G##1).y *= max;	\
@@ -565,21 +415,13 @@
 
 // Fermi patch to disable double-precision texture reads
 #ifdef FERMI_NO_DBLE_TEX
+
 #define READ_GAUGE_MATRIX_18_DOUBLE2_TEX(G, gauge, dir, idx, stride)	\
   READ_GAUGE_MATRIX_18_DOUBLE2(G, gauge, dir, idx, stride)
 #define READ_GAUGE_MATRIX_12_DOUBLE2_TEX(G, gauge, dir, idx, stride)	\
   READ_GAUGE_MATRIX_12_DOUBLE2(G, gauge, dir, idx, stride)
 #define READ_GAUGE_MATRIX_8_DOUBLE2_TEX(G, gauge, dir, idx, stride)	\
   READ_GAUGE_MATRIX_8_DOUBLE2(G, gauge, dir, idx, stride)
-
-/*!For DW only*/
-
-#define ASSN_GAUGE_MATRIX_18_DOUBLE2_TEX(G, gauge, dir, idx, stride)    \
-  ASSN_GAUGE_MATRIX_18_DOUBLE2(G, gauge, dir, idx, stride)
-#define ASSN_GAUGE_MATRIX_12_DOUBLE2_TEX(G, gauge, dir, idx, stride)    \
-  ASSN_GAUGE_MATRIX_12_DOUBLE2(G, gauge, dir, idx, stride)
-#define ASSN_GAUGE_MATRIX_8_DOUBLE2_TEX(G, gauge, dir, idx, stride)     \
-  ASSN_GAUGE_MATRIX_8_DOUBLE2(G, gauge, dir, idx, stride)
 
 #else
 
@@ -619,8 +461,168 @@
   (G##7).x = (G##0).x;							\
   (G##7).y = (G##0).y;
 
-/*!For DW only*/
+#endif
+
+
+/*!----For DW only----!*/
+
+#define ASSN_GAUGE_MATRIX_18_FLOAT2_TEX(G, gauge, dir, idx, stride)	\
+  G##0 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+0)*stride);	\
+  G##1 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+1)*stride);	\
+  G##2 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+2)*stride);	\
+  G##3 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+3)*stride);	\
+  G##4 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+4)*stride);	\
+  G##5 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+5)*stride);	\
+  G##6 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+6)*stride);	\
+  G##7 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+7)*stride);	\
+  G##8 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+8)*stride);	\
+
+#define ASSN_GAUGE_MATRIX_18_SHORT2_TEX(G, gauge, dir, idx, stride)	\
+  G##0 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+0)*stride);	\
+  G##1 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+1)*stride);	\
+  G##2 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+2)*stride);	\
+  G##3 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+3)*stride);	\
+  G##4 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+4)*stride);	\
+  G##5 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+5)*stride);	\
+  G##6 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+6)*stride);	\
+  G##7 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+7)*stride);	\
+  G##8 = TEX1DFETCH(float2, (gauge), idx + ((dir/2)*9+8)*stride);	\
+
+#define ASSN_GAUGE_MATRIX_12_FLOAT4_TEX(G, gauge, dir, idx, stride)	\
+  G##0 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*3+0)*stride);	\
+  G##1 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*3+1)*stride);	\
+  G##2 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*3+2)*stride);	\
+  G##3 = make_float4(0,0,0,0);						\
+  G##4 = make_float4(0,0,0,0);				
+
+#define ASSN_GAUGE_MATRIX_12_SHORT4_TEX(G, gauge, dir, idx, stride)	\
+  G##0 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*3+0)*stride);	\
+  G##1 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*3+1)*stride);	\
+  G##2 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*3+2)*stride);	\
+  G##3 = make_float4(0,0,0,0);						\
+  G##4 = make_float4(0,0,0,0);
+
+// set A to be last components of G4 (otherwise unused)
+#define ASSN_GAUGE_MATRIX_8_FLOAT4_TEX(G, gauge, dir, idx, stride)	\
+  G##0 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*2+0)*stride);	\
+  G##1 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*2+1)*stride);	\
+  G##2 = make_float4(0,0,0,0);						\
+  G##3 = make_float4(0,0,0,0);						\
+  G##4 = make_float4(0,0,0,0);						\
+  (G##3).z = (G##0).x;							\
+  (G##3).w = (G##0).y;
+
+#define ASSN_GAUGE_MATRIX_8_SHORT4_TEX(G, gauge, dir, idx, stride)	\
+  G##0 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*2+0)*stride);	\
+  G##1 = TEX1DFETCH(float4, (gauge), idx + ((dir/2)*2+1)*stride);	\
+  G##2 = make_float4(0,0,0,0);						\
+  G##3 = make_float4(0,0,0,0);						\
+  G##4 = make_float4(0,0,0,0);						\
+  (G##3).z = (G##0).x = pi_f*(G##0).x;					\
+  (G##3).w = (G##0).y = pi_f*(G##0).y;
+
+#define ASSN_GAUGE_MATRIX_18_DOUBLE2(G, gauge, dir, idx, stride)    \
+   G##0 = gauge[idx + ((dir/2)*9+0)*stride];		    \
+   G##1 = gauge[idx + ((dir/2)*9+1)*stride];		    \
+   G##2 = gauge[idx + ((dir/2)*9+2)*stride];		    \
+   G##3 = gauge[idx + ((dir/2)*9+3)*stride];		    \
+   G##4 = gauge[idx + ((dir/2)*9+4)*stride];		    \
+   G##5 = gauge[idx + ((dir/2)*9+5)*stride];		    \
+   G##6 = gauge[idx + ((dir/2)*9+6)*stride];		    \
+   G##7 = gauge[idx + ((dir/2)*9+7)*stride];		    \
+   G##8 = gauge[idx + ((dir/2)*9+8)*stride];		    \
   
+#define ASSN_GAUGE_MATRIX_18_FLOAT2(G, gauge, dir, idx, stride)	\
+   G##0 = ((float2*)gauge)[idx + ((dir/2)*9+0)*stride];	\
+   G##1 = ((float2*)gauge)[idx + ((dir/2)*9+1)*stride];	\
+   G##2 = ((float2*)gauge)[idx + ((dir/2)*9+2)*stride];	\
+   G##3 = ((float2*)gauge)[idx + ((dir/2)*9+3)*stride];	\
+   G##4 = ((float2*)gauge)[idx + ((dir/2)*9+4)*stride];	\
+   G##5 = ((float2*)gauge)[idx + ((dir/2)*9+5)*stride];	\
+   G##6 = ((float2*)gauge)[idx + ((dir/2)*9+6)*stride];	\
+   G##7 = ((float2*)gauge)[idx + ((dir/2)*9+7)*stride];	\
+   G##8 = ((float2*)gauge)[idx + ((dir/2)*9+8)*stride];	\
+  
+#define ASSN_GAUGE_MATRIX_18_SHORT2(G, gauge, dir, idx, stride)		\
+   G##0 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+0)*stride]); \
+   G##1 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+1)*stride]); \
+   G##2 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+2)*stride]); \
+   G##3 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+3)*stride]); \
+   G##4 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+4)*stride]); \
+   G##5 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+5)*stride]); \
+   G##6 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+6)*stride]); \
+   G##7 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+7)*stride]); \
+   G##8 = short22float2(((short2*)gauge)[idx + ((dir/2)*9+8)*stride]); \
+  
+#define ASSN_GAUGE_MATRIX_12_DOUBLE2(G, gauge, dir, idx, stride)	\
+   G##0 = gauge[idx + ((dir/2)*6+0)*stride];			\
+   G##1 = gauge[idx + ((dir/2)*6+1)*stride];			\
+   G##2 = gauge[idx + ((dir/2)*6+2)*stride];			\
+   G##3 = gauge[idx + ((dir/2)*6+3)*stride];			\
+   G##4 = gauge[idx + ((dir/2)*6+4)*stride];			\
+   G##5 = gauge[idx + ((dir/2)*6+5)*stride];			\
+   G##6 = make_double2(0,0);					\
+   G##7 = make_double2(0,0);					\
+   G##8 = make_double2(0,0);					
+
+#define ASSN_GAUGE_MATRIX_12_FLOAT4(G, gauge, dir, idx, stride)	\
+   G##0 = gauge[idx + ((dir/2)*3+0)*stride];		\
+   G##1 = gauge[idx + ((dir/2)*3+1)*stride];		\
+   G##2 = gauge[idx + ((dir/2)*3+2)*stride];		\
+   G##3 = make_float4(0,0,0,0);				\
+   G##4 = make_float4(0,0,0,0);				
+
+#define ASSN_GAUGE_MATRIX_12_SHORT4(G, gauge, dir, idx, stride)		\
+   G##0 = short42float4(gauge[idx + ((dir/2)*3+0)*stride]);	\
+   G##1 = short42float4(gauge[idx + ((dir/2)*3+1)*stride]);	\
+   G##2 = short42float4(gauge[idx + ((dir/2)*3+2)*stride]);	\
+   G##3 = make_float4(0,0,0,0);					\
+   G##4 = make_float4(0,0,0,0);
+
+#define ASSN_GAUGE_MATRIX_8_DOUBLE2(G, gauge, dir, idx, stride)		\
+   G##0 = gauge[idx + ((dir/2)*4+0)*stride];			\
+   G##1 = gauge[idx + ((dir/2)*4+1)*stride];			\
+   G##2 = gauge[idx + ((dir/2)*4+2)*stride];			\
+   G##3 = gauge[idx + ((dir/2)*4+3)*stride];			\
+   G##4 = make_double2(0,0);					\
+   G##5 = make_double2(0,0);					\
+   G##6 = make_double2(0,0);					\
+   G##7 = make_double2(0,0);					\
+   G##8 = make_double2(0,0);					\
+  (G##7).x = (G##0).x;							\
+  (G##7).y = (G##0).y;
+
+#define ASSN_GAUGE_MATRIX_8_FLOAT4(G, gauge, dir, idx, stride)	\
+   G##0 = gauge[idx + ((dir/2)*2+0)*stride];		\
+   G##1 = gauge[idx + ((dir/2)*2+1)*stride];		\
+   G##2 = make_float4(0,0,0,0);				\
+   G##3 = make_float4(0,0,0,0);				\
+   G##4 = make_float4(0,0,0,0);				\
+  (G##3).z = (G##0).x;						\
+  (G##3).w = (G##0).y;
+
+#define ASSN_GAUGE_MATRIX_8_SHORT4(G, gauge, dir, idx, stride)		\
+   G##0 = short42float4(gauge[idx + ((dir/2)*2+0)*stride]);	\
+   G##1 = short42float4(gauge[idx + ((dir/2)*2+1)*stride]);	\
+   G##2 = make_float4(0,0,0,0);					\
+   G##3 = make_float4(0,0,0,0);					\
+   G##4 = make_float4(0,0,0,0);					\
+  (G##3).z = (G##0).x = pi_f*(G##0).x;						\
+  (G##3).w = (G##0).y = pi_f*(G##0).y;
+
+
+// Fermi patch to disable double-precision texture reads
+#ifdef FERMI_NO_DBLE_TEX
+
+#define ASSN_GAUGE_MATRIX_18_DOUBLE2_TEX(G, gauge, dir, idx, stride)    \
+  ASSN_GAUGE_MATRIX_18_DOUBLE2(G, gauge, dir, idx, stride)
+#define ASSN_GAUGE_MATRIX_12_DOUBLE2_TEX(G, gauge, dir, idx, stride)    \
+  ASSN_GAUGE_MATRIX_12_DOUBLE2(G, gauge, dir, idx, stride)
+#define ASSN_GAUGE_MATRIX_8_DOUBLE2_TEX(G, gauge, dir, idx, stride)     \
+  ASSN_GAUGE_MATRIX_8_DOUBLE2(G, gauge, dir, idx, stride)
+
+#else
+
 #define ASSN_GAUGE_MATRIX_18_DOUBLE2_TEX(G, gauge, dir, idx, stride) \
    G##0 = fetch_double2((gauge), idx + ((dir/2)*9+0)*stride); \
    G##1 = fetch_double2((gauge), idx + ((dir/2)*9+1)*stride); \
@@ -643,7 +645,6 @@
    G##7 = make_double2(0,0);					\
    G##8 = make_double2(0,0);					\
 
-// set A to be last components of G4 (otherwise unused)
 #define ASSN_GAUGE_MATRIX_8_DOUBLE2_TEX(G, gauge, dir, idx, stride)	\
    G##0 = fetch_double2((gauge), idx + ((dir/2)*4+0)*stride);	\
    G##1 = fetch_double2((gauge), idx + ((dir/2)*4+1)*stride);	\
@@ -658,4 +659,229 @@
   (G##7).y = (G##0).y;
   
 #endif
+
+//!new
+
+#define WRITE_LINK_SHARED_REC12(tx, ty, dir, G, gauge0, gauge1, spar, idx, stride) 							\
+  extern __shared__ char sm[];	          											\
+  linkFloat *smlinks = (linkFloat*)sm + DD_RECON_F * SHARED_STRIDE * ((tx + spar*blockDim.x) / SHARED_STRIDE) 	\
+                       + ((tx + spar*blockDim.x) % SHARED_STRIDE); 						\
+  if ( ty == 0 ) { 															\
+   ASSN_GAUGE_MATRIX(G, gauge0, dir, idx, stride); 											\
+																	\
+   smlinks[ 0*SHARED_STRIDE] = g00_re;													\
+   smlinks[ 1*SHARED_STRIDE] = g00_im;													\
+   smlinks[ 2*SHARED_STRIDE] = g01_re;													\
+   smlinks[ 3*SHARED_STRIDE] = g01_im;													\
+   smlinks[ 4*SHARED_STRIDE] = g02_re;													\
+   smlinks[ 5*SHARED_STRIDE] = g02_im;													\
+   smlinks[ 6*SHARED_STRIDE] = g10_re;													\
+   smlinks[ 7*SHARED_STRIDE] = g10_im;													\
+   smlinks[ 8*SHARED_STRIDE] = g11_re;													\
+   smlinks[ 9*SHARED_STRIDE] = g11_im;													\
+   smlinks[10*SHARED_STRIDE] = g12_re;													\
+   smlinks[11*SHARED_STRIDE] = g12_im;													\
+  } else if (ty == 1){ 													\
+   ASSN_GAUGE_MATRIX(G, gauge1, dir, idx, stride); 										\
+																	\
+   smlinks[ 0*SHARED_STRIDE] = g00_re;													\
+   smlinks[ 1*SHARED_STRIDE] = g00_im;													\
+   smlinks[ 2*SHARED_STRIDE] = g01_re;													\
+   smlinks[ 3*SHARED_STRIDE] = g01_im;													\
+   smlinks[ 4*SHARED_STRIDE] = g02_re;													\
+   smlinks[ 5*SHARED_STRIDE] = g02_im;													\
+   smlinks[ 6*SHARED_STRIDE] = g10_re;													\
+   smlinks[ 7*SHARED_STRIDE] = g10_im;													\
+   smlinks[ 8*SHARED_STRIDE] = g11_re;													\
+   smlinks[ 9*SHARED_STRIDE] = g11_im;													\
+   smlinks[10*SHARED_STRIDE] = g12_re;													\
+   smlinks[11*SHARED_STRIDE] = g12_im;													\
+ }
+
+#define WRITE_LINK_SHARED_REC8(tx, ty, dir, G, gauge0, gauge1, spar, idx, stride)                                                      \
+  extern __shared__ char sm[];                                                                                                  \
+  linkFloat *smlinks = (linkFloat*)sm + DD_RECON_F * SHARED_STRIDE * ((tx + spar*blockDim.x) / SHARED_STRIDE)   \
+                       + ((tx + spar*blockDim.x) % SHARED_STRIDE);                                              \
+  if ( ty == 0 ) {                                                                                                                      \
+   ASSN_GAUGE_MATRIX(G, gauge0, dir, idx, stride);                                                                                      \
+                                                                                                                                        \
+   smlinks[ 0*SHARED_STRIDE] = g00_re;                                                                                                  \
+   smlinks[ 1*SHARED_STRIDE] = g00_im;                                                                                                  \
+   smlinks[ 2*SHARED_STRIDE] = g01_re;                                                                                                  \
+   smlinks[ 3*SHARED_STRIDE] = g01_im;                                                                                                  \
+   smlinks[ 4*SHARED_STRIDE] = g02_re;                                                                                                  \
+   smlinks[ 5*SHARED_STRIDE] = g02_im;                                                                                                  \
+   smlinks[ 6*SHARED_STRIDE] = g10_re;                                                                                                  \
+   smlinks[ 7*SHARED_STRIDE] = g10_im;                                                                                                  \
+  } else if (ty == 1){                                                                                                  \
+   ASSN_GAUGE_MATRIX(G, gauge1, dir, idx, stride);                                                                              \
+                                                                                                                                        \
+   smlinks[ 0*SHARED_STRIDE] = g00_re;                                                                                                  \
+   smlinks[ 1*SHARED_STRIDE] = g00_im;                                                                                                  \
+   smlinks[ 2*SHARED_STRIDE] = g01_re;                                                                                                  \
+   smlinks[ 3*SHARED_STRIDE] = g01_im;                                                                                                  \
+   smlinks[ 4*SHARED_STRIDE] = g02_re;                                                                                                  \
+   smlinks[ 5*SHARED_STRIDE] = g02_im;                                                                                                  \
+   smlinks[ 6*SHARED_STRIDE] = g10_re;                                                                                                  \
+   smlinks[ 7*SHARED_STRIDE] = g10_im;                                                                                                  \
+ }
+
+
+#define WRITE_LINK_SHARED_REC18(tx, ty, dir, G, gauge0, gauge1, spar, idx, stride) 							\
+  extern __shared__ char sm[];	          											\
+  linkFloat *smlinks = (linkFloat*)sm + DD_RECON_F * SHARED_STRIDE * ((tx + spar*blockDim.x) / SHARED_STRIDE) 	\
+                       + ((tx + spar*blockDim.x) % SHARED_STRIDE); 						\
+  if ( ty == 0 ) { 															\
+   ASSN_GAUGE_MATRIX(G, gauge0, dir, idx, stride); 											\
+																	\
+   smlinks[ 0*SHARED_STRIDE] = g00_re;													\
+   smlinks[ 1*SHARED_STRIDE] = g00_im;													\
+   smlinks[ 2*SHARED_STRIDE] = g01_re;													\
+   smlinks[ 3*SHARED_STRIDE] = g01_im;													\
+   smlinks[ 4*SHARED_STRIDE] = g02_re;													\
+   smlinks[ 5*SHARED_STRIDE] = g02_im;													\
+   smlinks[ 6*SHARED_STRIDE] = g10_re;													\
+   smlinks[ 7*SHARED_STRIDE] = g10_im;													\
+   smlinks[ 8*SHARED_STRIDE] = g11_re;													\
+   smlinks[ 9*SHARED_STRIDE] = g11_im;													\
+   smlinks[10*SHARED_STRIDE] = g12_re;													\
+   smlinks[11*SHARED_STRIDE] = g12_im;													\
+   smlinks[12*SHARED_STRIDE] = g20_re;													\
+   smlinks[13*SHARED_STRIDE] = g20_im;													\
+   smlinks[14*SHARED_STRIDE] = g21_re;													\
+   smlinks[15*SHARED_STRIDE] = g21_im;													\
+   smlinks[16*SHARED_STRIDE] = g22_re;													\
+   smlinks[17*SHARED_STRIDE] = g22_im;													\
+  } else if (ty == 1){ 													\
+   ASSN_GAUGE_MATRIX(G, gauge1, dir, idx, stride); 										\
+																	\
+   smlinks[ 0*SHARED_STRIDE] = g00_re;													\
+   smlinks[ 1*SHARED_STRIDE] = g00_im;													\
+   smlinks[ 2*SHARED_STRIDE] = g01_re;													\
+   smlinks[ 3*SHARED_STRIDE] = g01_im;													\
+   smlinks[ 4*SHARED_STRIDE] = g02_re;													\
+   smlinks[ 5*SHARED_STRIDE] = g02_im;													\
+   smlinks[ 6*SHARED_STRIDE] = g10_re;													\
+   smlinks[ 7*SHARED_STRIDE] = g10_im;													\
+   smlinks[ 8*SHARED_STRIDE] = g11_re;													\
+   smlinks[ 9*SHARED_STRIDE] = g11_im;													\
+   smlinks[10*SHARED_STRIDE] = g12_re;													\
+   smlinks[11*SHARED_STRIDE] = g12_im;													\
+   smlinks[12*SHARED_STRIDE] = g20_re;													\
+   smlinks[13*SHARED_STRIDE] = g20_im;													\
+   smlinks[14*SHARED_STRIDE] = g21_re;													\
+   smlinks[15*SHARED_STRIDE] = g21_im;													\
+   smlinks[16*SHARED_STRIDE] = g22_re;													\
+   smlinks[17*SHARED_STRIDE] = g22_im;													\
+ }
+
+#define DESTRIBUTE_LINK_SHARED_REC8()\
+   g00_re = smlinks[ 0*SHARED_STRIDE];\
+   g00_im = smlinks[ 1*SHARED_STRIDE];\
+   g01_re = smlinks[ 2*SHARED_STRIDE];\
+   g01_im = smlinks[ 3*SHARED_STRIDE];\
+   g02_re = smlinks[ 4*SHARED_STRIDE];\
+   g02_im = smlinks[ 5*SHARED_STRIDE];\
+   g10_re = smlinks[ 6*SHARED_STRIDE];\
+   g10_im = smlinks[ 7*SHARED_STRIDE];\
+
+
+
+#define DESTRIBUTE_LINK_SHARED_REC12()\
+   g00_re = smlinks[ 0*SHARED_STRIDE];\
+   g00_im = smlinks[ 1*SHARED_STRIDE];\
+   g01_re = smlinks[ 2*SHARED_STRIDE];\
+   g01_im = smlinks[ 3*SHARED_STRIDE];\
+   g02_re = smlinks[ 4*SHARED_STRIDE];\
+   g02_im = smlinks[ 5*SHARED_STRIDE];\
+   g10_re = smlinks[ 6*SHARED_STRIDE];\
+   g10_im = smlinks[ 7*SHARED_STRIDE];\
+   g11_re = smlinks[ 8*SHARED_STRIDE];\
+   g11_im = smlinks[ 9*SHARED_STRIDE];\
+   g12_re = smlinks[10*SHARED_STRIDE];\
+   g12_im = smlinks[11*SHARED_STRIDE];
+
+#define DESTRIBUTE_LINK_SHARED_REC18()\
+   g00_re = smlinks[ 0*SHARED_STRIDE];\
+   g00_im = smlinks[ 1*SHARED_STRIDE];\
+   g01_re = smlinks[ 2*SHARED_STRIDE];\
+   g01_im = smlinks[ 3*SHARED_STRIDE];\
+   g02_re = smlinks[ 4*SHARED_STRIDE];\
+   g02_im = smlinks[ 5*SHARED_STRIDE];\
+   g10_re = smlinks[ 6*SHARED_STRIDE];\
+   g10_im = smlinks[ 7*SHARED_STRIDE];\
+   g11_re = smlinks[ 8*SHARED_STRIDE];\
+   g11_im = smlinks[ 9*SHARED_STRIDE];\
+   g12_re = smlinks[10*SHARED_STRIDE];\
+   g12_im = smlinks[11*SHARED_STRIDE];\
+   g20_re = smlinks[12*SHARED_STRIDE];\
+   g20_im = smlinks[13*SHARED_STRIDE];\
+   g21_re = smlinks[14*SHARED_STRIDE];\
+   g21_im = smlinks[15*SHARED_STRIDE];\
+   g22_re = smlinks[16*SHARED_STRIDE];\
+   g22_im = smlinks[17*SHARED_STRIDE];
+
+#define READ_LINK_SHARED_REC8(tx, ty, spar) 							\
+  extern __shared__ char sm[];	          											\
+  linkFloat *smlinks = (linkFloat*)sm + DD_RECON_F * SHARED_STRIDE * ((tx + spar*blockDim.x) / SHARED_STRIDE) \
+                       + ((tx + spar*blockDim.x) % SHARED_STRIDE);\
+  g00_re = smlinks[ 0*SHARED_STRIDE];\
+  g00_im = smlinks[ 1*SHARED_STRIDE];\
+  g01_re = smlinks[ 2*SHARED_STRIDE];\
+  g01_im = smlinks[ 3*SHARED_STRIDE];\
+  g02_re = smlinks[ 4*SHARED_STRIDE];\
+  g02_im = smlinks[ 5*SHARED_STRIDE];\
+  g10_re = smlinks[ 6*SHARED_STRIDE];\
+  g10_im = smlinks[ 7*SHARED_STRIDE];
+
+
+#define READ_LINK_SHARED_REC12(tx, ty, spar) 							\
+  extern __shared__ char sm[];	          											\
+  linkFloat *smlinks = (linkFloat*)sm + DD_RECON_F * SHARED_STRIDE * ((tx + spar*blockDim.x) / SHARED_STRIDE) \
+                       + ((tx + spar*blockDim.x) % SHARED_STRIDE);\
+  g00_re = smlinks[ 0*SHARED_STRIDE];\
+  g00_im = smlinks[ 1*SHARED_STRIDE];\
+  g01_re = smlinks[ 2*SHARED_STRIDE];\
+  g01_im = smlinks[ 3*SHARED_STRIDE];\
+  g02_re = smlinks[ 4*SHARED_STRIDE];\
+  g02_im = smlinks[ 5*SHARED_STRIDE];\
+  g10_re = smlinks[ 6*SHARED_STRIDE];\
+  g10_im = smlinks[ 7*SHARED_STRIDE];\
+  g11_re = smlinks[ 8*SHARED_STRIDE];\
+  g11_im = smlinks[ 9*SHARED_STRIDE];\
+  g12_re = smlinks[10*SHARED_STRIDE];\
+  g12_im = smlinks[11*SHARED_STRIDE];
+
+
+#define READ_LINK_SHARED_REC18(tx, ty, spar) 							\
+  extern __shared__ char sm[];	          											\
+  linkFloat *smlinks = (linkFloat*)sm + DD_RECON_F * SHARED_STRIDE * ((tx + spar*blockDim.x) / SHARED_STRIDE) \
+                       + ((tx + spar*blockDim.x) % SHARED_STRIDE);\
+  g00_re = smlinks[ 0*SHARED_STRIDE];\
+  g00_im = smlinks[ 1*SHARED_STRIDE];\
+  g01_re = smlinks[ 2*SHARED_STRIDE];\
+  g01_im = smlinks[ 3*SHARED_STRIDE];\
+  g02_re = smlinks[ 4*SHARED_STRIDE];\
+  g02_im = smlinks[ 5*SHARED_STRIDE];\
+  g10_re = smlinks[ 6*SHARED_STRIDE];\
+  g10_im = smlinks[ 7*SHARED_STRIDE];\
+  g11_re = smlinks[ 8*SHARED_STRIDE];\
+  g11_im = smlinks[ 9*SHARED_STRIDE];\
+  g12_re = smlinks[10*SHARED_STRIDE];\
+  g12_im = smlinks[11*SHARED_STRIDE];\
+  g20_re = smlinks[12*SHARED_STRIDE];\
+  g20_im = smlinks[13*SHARED_STRIDE];\
+  g21_re = smlinks[14*SHARED_STRIDE];\
+  g21_im = smlinks[15*SHARED_STRIDE];\
+  g22_re = smlinks[16*SHARED_STRIDE];\
+  g22_im = smlinks[17*SHARED_STRIDE];
+
+
+
+
+
+
+
+
+
 

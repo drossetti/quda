@@ -1,7 +1,5 @@
 // *** CUDA DSLASH DAGGER ***
 
-#define DSLASH_SHARED_FLOATS_PER_THREAD 0
-
 // NB! Don't trust any MULTI_GPU code
 
 #if (CUDA_VERSION >= 4010)
@@ -153,20 +151,6 @@ VOLATILE spinorFloat o31_im;
 VOLATILE spinorFloat o32_re;
 VOLATILE spinorFloat o32_im;
 
-#ifdef SPINOR_DOUBLE
-#if (__COMPUTE_CAPABILITY__ >= 200)
-#define SHARED_STRIDE 16 // to avoid bank conflicts on Fermi
-#else
-#define SHARED_STRIDE 8 // to avoid bank conflicts on G80 and GT200
-#endif
-#else
-#if (__COMPUTE_CAPABILITY__ >= 200)
-#define SHARED_STRIDE 32 // to avoid bank conflicts on Fermi
-#else
-#define SHARED_STRIDE 16 // to avoid bank conflicts on G80 and GT200
-#endif
-#endif
-
 #include "read_gauge.h"
 #include "io_spinor.h"
 
@@ -177,14 +161,37 @@ int sp_norm_idx;
 int sid = ((blockIdx.y*blockDim.y + threadIdx.y)*gridDim.x + blockIdx.x)*blockDim.x + threadIdx.x;
 if (sid >= param.threads*Ls) return;
 
-int X, x1, x2, x3, x4, xs;
+int X, x1, x2, x3, x4, xs, s_parity;
+int boundaryCrossing, tot_parity;
 
-int s_parity, boundaryCrossing;
+#if (DD_PREC==0) 
+#define linkFloat double
+#define SHARED_STRIDE 16
+#else
+#define linkFloat float
+#define SHARED_STRIDE 32
+#endif
+
+#if (DD_RECON_F == 8)
+#define WRITE_LINK_SHARED WRITE_LINK_SHARED_REC8 
+#define DESTRIBUTE_LINK_SHARED DESTRIBUTE_LINK_SHARED_REC8
+#define READ_LINK_SHARED READ_LINK_SHARED_REC8
+#elif (DD_RECON_F == 12)
+#define WRITE_LINK_SHARED WRITE_LINK_SHARED_REC12 
+#define DESTRIBUTE_LINK_SHARED DESTRIBUTE_LINK_SHARED_REC12
+#define READ_LINK_SHARED READ_LINK_SHARED_REC12
+#else
+#define WRITE_LINK_SHARED WRITE_LINK_SHARED_REC18 
+#define DESTRIBUTE_LINK_SHARED DESTRIBUTE_LINK_SHARED_REC18
+#define READ_LINK_SHARED READ_LINK_SHARED_REC18
+#endif
 
 #ifdef MULTI_GPU
 int face_idx;
 if (kernel_type == INTERIOR_KERNEL) {
 #endif
+
+if (blockDim.x > X1h*X2) return;//
 
 // Inline by hand for the moment and assume even dimensions
 //coordsFromIndex(X, x1, x2, x3, x4, sid, param.parity);
@@ -197,7 +204,11 @@ x1 = X % X1;
 x2 = (X/X1) % X2;
 x3 = (X/(X1*X2)) % X3;
 x4 = (X/(X1*X2*X3)) % X4;
-xs = X/(X1*X2*X3*X4);
+xs = X/(X1*X2*X3*X4); 
+
+//full lattice coordinate:
+tot_parity = (x4 + x3 + x2 + s_parity + param.parity) & 1; //or don't combine with param.parity? call like gauge_parity...
+
 
  o00_re = 0; o00_im = 0;
  o01_re = 0; o01_im = 0;
@@ -255,32 +266,32 @@ READ_INTERMEDIATE_SPINOR(INTERTEX, sp_stride, sid, sid);
 // declare G## here and use ASSN below instead of READ
 #ifdef GAUGE_FLOAT2
 #if (DD_PREC==0) //temporal hack
-double2 G0;
-double2 G1;
-double2 G2;
-double2 G3;
-double2 G4;
-double2 G5;
-double2 G6;
-double2 G7;
-double2 G8;
+double2 G0 = make_double2(0,0);
+double2 G1 = make_double2(0,0);
+double2 G2 = make_double2(0,0);
+double2 G3 = make_double2(0,0);
+double2 G4 = make_double2(0,0);
+double2 G5 = make_double2(0,0);
+double2 G6 = make_double2(0,0);
+double2 G7 = make_double2(0,0);
+double2 G8 = make_double2(0,0);
 #else
-float2 G0;
-float2 G1;
-float2 G2;
-float2 G3;
-float2 G4;
-float2 G5;
-float2 G6;
-float2 G7;
-float2 G8;
+float2 G0 = make_float2(0,0);
+float2 G1 = make_float2(0,0);
+float2 G2 = make_float2(0,0);
+float2 G3 = make_float2(0,0);
+float2 G4 = make_float2(0,0);
+float2 G5 = make_float2(0,0);
+float2 G6 = make_float2(0,0);
+float2 G7 = make_float2(0,0);
+float2 G8 = make_float2(0,0);
 #endif
 #else
-float4 G0;
-float4 G1;
-float4 G2;
-float4 G3;
-float4 G4;
+float4 G0 = make_float4(0,0,0,0);
+float4 G1 = make_float4(0,0,0,0);
+float4 G2 = make_float4(0,0,0,0);
+float4 G3 = make_float4(0,0,0,0);
+float4 G4 = make_float4(0,0,0,0);
 #endif
 
 
@@ -305,9 +316,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1<X1m1)) ||
 
  const int ga_idx = sid % Vh;
 
- // read gauge matrix from device memory
- if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 0, ga_idx, ga_stride); }
- else { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 0, ga_idx, ga_stride); }
 
  spinorFloat a0_re, a0_im;
  spinorFloat a1_re, a1_im;
@@ -319,6 +327,8 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1<X1m1)) ||
 #ifdef MULTI_GPU
  if (kernel_type == INTERIOR_KERNEL) {
 #endif
+
+  WRITE_LINK_SHARED(threadIdx.x, threadIdx.y, 0, G, GAUGE0TEX, GAUGE1TEX, s_parity, ga_idx, ga_stride);
 
   // read spinor from device memory
   READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
@@ -337,8 +347,15 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1<X1m1)) ||
   b2_re = +i12_re-i22_im;
   b2_im = +i12_im+i22_re;
 
+  __syncthreads();
+  if (xs > 1){ DESTRIBUTE_LINK_SHARED(); }
+
 #ifdef MULTI_GPU
  } else {
+
+  // read gauge matrix from device memory
+  if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 0, ga_idx, ga_stride); }
+  else { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 0, ga_idx, ga_stride); }
 
   const int sp_stride_pad = Ls*ghostFace[static_cast<int>(kernel_type)];
 
@@ -500,9 +517,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1>0)) ||
  const int ga_idx = sp_idx % Vh;
 #endif
 
- // read gauge matrix from device memory
- if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 1, ga_idx, ga_stride); }
- else { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 1, ga_idx, ga_stride); }
 
  spinorFloat a0_re, a0_im;
  spinorFloat a1_re, a1_im;
@@ -514,6 +528,10 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1>0)) ||
 #ifdef MULTI_GPU
  if (kernel_type == INTERIOR_KERNEL) {
 #endif
+
+  int tx = (tot_parity) ? threadIdx.x : (x1 ? threadIdx.x - 1 : X1h - 1 + X1h * (threadIdx.x / X1h));
+  int conj_parity = 1 - s_parity;
+  READ_LINK_SHARED(tx, threadIdx.y, conj_parity);
 
   // read spinor from device memory
   READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
@@ -532,8 +550,13 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1>0)) ||
   b2_re = +i12_re+i22_im;
   b2_im = +i12_im-i22_re;
 
+
 #ifdef MULTI_GPU
  } else {
+
+  // read gauge matrix from device memory
+  if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 1, ga_idx, ga_stride); }
+  else { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 1, ga_idx, ga_stride); }
 
   const int sp_stride_pad = Ls*ghostFace[static_cast<int>(kernel_type)];
 
@@ -691,9 +714,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2<X2m1)) ||
 
  const int ga_idx = sid % Vh;
 
- // read gauge matrix from device memory
- if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 2, ga_idx, ga_stride); }
- else { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 2, ga_idx, ga_stride); }
 
  spinorFloat a0_re, a0_im;
  spinorFloat a1_re, a1_im;
@@ -705,6 +725,9 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2<X2m1)) ||
 #ifdef MULTI_GPU
  if (kernel_type == INTERIOR_KERNEL) {
 #endif
+
+  __syncthreads();
+  WRITE_LINK_SHARED(threadIdx.x, threadIdx.y, 2, G, GAUGE0TEX, GAUGE1TEX, s_parity, ga_idx, ga_stride);
 
   // read spinor from device memory
   READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
@@ -723,8 +746,15 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2<X2m1)) ||
   b2_re = +i12_re-i22_re;
   b2_im = +i12_im-i22_im;
 
+  __syncthreads();
+  if (xs > 1){ DESTRIBUTE_LINK_SHARED(); }
+
 #ifdef MULTI_GPU
  } else {
+
+  // read gauge matrix from device memory
+  if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 2, ga_idx, ga_stride); }
+  else { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 2, ga_idx, ga_stride); }
 
   const int sp_stride_pad = Ls*ghostFace[static_cast<int>(kernel_type)];
 
@@ -886,9 +916,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2>0)) ||
  const int ga_idx = sp_idx % Vh;
 #endif
 
- // read gauge matrix from device memory
- if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 3, ga_idx, ga_stride); }
- else { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 3, ga_idx, ga_stride); }
 
  spinorFloat a0_re, a0_im;
  spinorFloat a1_re, a1_im;
@@ -900,6 +927,18 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2>0)) ||
 #ifdef MULTI_GPU
  if (kernel_type == INTERIOR_KERNEL) {
 #endif
+
+  const int lx2 = threadIdx.x / X1h;
+
+  if (lx2 != 0 && x2 != 0)
+  { 
+    int tx = threadIdx.x - X1h;
+    int conj_parity = 1 - s_parity;
+    READ_LINK_SHARED(tx, threadIdx.y, conj_parity);
+  }else{
+    if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 3, ga_idx, ga_stride); }
+    else { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 3, ga_idx, ga_stride); }
+  }
 
   // read spinor from device memory
   READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
@@ -918,8 +957,13 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2>0)) ||
   b2_re = +i12_re+i22_re;
   b2_im = +i12_im+i22_im;
 
+
 #ifdef MULTI_GPU
  } else {
+
+  // read gauge matrix from device memory
+  if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 3, ga_idx, ga_stride); }
+  else { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 3, ga_idx, ga_stride); }
 
   const int sp_stride_pad = Ls*ghostFace[static_cast<int>(kernel_type)];
 
@@ -1077,9 +1121,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3<X3m1)) ||
 
  const int ga_idx = sid % Vh;
 
- // read gauge matrix from device memory
- if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 4, ga_idx, ga_stride); }
- else { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 4, ga_idx, ga_stride); }
 
  spinorFloat a0_re, a0_im;
  spinorFloat a1_re, a1_im;
@@ -1091,6 +1132,9 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3<X3m1)) ||
 #ifdef MULTI_GPU
  if (kernel_type == INTERIOR_KERNEL) {
 #endif
+
+  __syncthreads();
+  WRITE_LINK_SHARED(threadIdx.x, threadIdx.y, 4, G, GAUGE0TEX, GAUGE1TEX, s_parity, ga_idx, ga_stride);
 
   // read spinor from device memory
   READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
@@ -1109,8 +1153,15 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3<X3m1)) ||
   b2_re = +i12_re+i32_im;
   b2_im = +i12_im-i32_re;
 
+  __syncthreads();
+  if (xs > 1){ DESTRIBUTE_LINK_SHARED(); }
+
 #ifdef MULTI_GPU
  } else {
+
+  // read gauge matrix from device memory
+  if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 4, ga_idx, ga_stride); }
+  else { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 4, ga_idx, ga_stride); }
 
   const int sp_stride_pad = Ls*ghostFace[static_cast<int>(kernel_type)];
 
@@ -1272,9 +1323,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3>0)) ||
  const int ga_idx = sp_idx % Vh;
 #endif
 
- // read gauge matrix from device memory
- if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 5, ga_idx, ga_stride); }
- else { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 5, ga_idx, ga_stride); }
 
  spinorFloat a0_re, a0_im;
  spinorFloat a1_re, a1_im;
@@ -1286,6 +1334,8 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3>0)) ||
 #ifdef MULTI_GPU
  if (kernel_type == INTERIOR_KERNEL) {
 #endif
+
+  WRITE_LINK_SHARED(threadIdx.x, threadIdx.y, 5, G, GAUGE1TEX, GAUGE0TEX, s_parity, ga_idx, ga_stride);
 
   // read spinor from device memory
   READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
@@ -1304,8 +1354,15 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3>0)) ||
   b2_re = +i12_re-i32_im;
   b2_im = +i12_im+i32_re;
 
+  __syncthreads();
+  if (xs > 1){ DESTRIBUTE_LINK_SHARED(); }
+
 #ifdef MULTI_GPU
  } else {
+
+  // read gauge matrix from device memory
+  if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 5, ga_idx, ga_stride); }
+  else { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 5, ga_idx, ga_stride); }
 
   const int sp_stride_pad = Ls*ghostFace[static_cast<int>(kernel_type)];
 
@@ -1463,6 +1520,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4<X4m1)) ||
 
  const int ga_idx = sid % Vh;
 
+
  if (gauge_fixed && ga_idx < X4X3X2X1hmX3X2X1h)
  {
   spinorFloat a0_re, a0_im;
@@ -1475,7 +1533,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4<X4m1)) ||
 #ifdef MULTI_GPU
   if (kernel_type == INTERIOR_KERNEL) {
 #endif
-
    // read spinor from device memory
    READ_SPINOR_UP(SPINORTEX, sp_stride, sp_idx, sp_idx);
 
@@ -1492,6 +1549,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4<X4m1)) ||
    b1_im = +2*i11_im;
    b2_re = +2*i12_re;
    b2_im = +2*i12_im;
+
 
 #ifdef MULTI_GPU
   } else {
@@ -1535,10 +1593,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4<X4m1)) ||
   o12_re += B2_re;
   o12_im += B2_im;
  } else {
-  // read gauge matrix from device memory
-  if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 6, ga_idx, ga_stride); }
-  else { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 6, ga_idx, ga_stride); }
-
   spinorFloat a0_re, a0_im;
   spinorFloat a1_re, a1_im;
   spinorFloat a2_re, a2_im;
@@ -1549,6 +1603,9 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4<X4m1)) ||
 #ifdef MULTI_GPU
   if (kernel_type == INTERIOR_KERNEL) {
 #endif
+
+   __syncthreads();
+   WRITE_LINK_SHARED(threadIdx.x, threadIdx.y, 6, G, GAUGE0TEX, GAUGE1TEX, s_parity, ga_idx, ga_stride);
 
    // read spinor from device memory
    READ_SPINOR_UP(SPINORTEX, sp_stride, sp_idx, sp_idx);
@@ -1567,8 +1624,15 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4<X4m1)) ||
    b2_re = +2*i12_re;
    b2_im = +2*i12_im;
 
+   __syncthreads();
+   if (xs > 1){ DESTRIBUTE_LINK_SHARED(); }
+
 #ifdef MULTI_GPU
   } else {
+
+   // read gauge matrix from device memory
+   if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 6, ga_idx, ga_stride); }
+   else { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 6, ga_idx, ga_stride); }
 
    const int sp_stride_pad = Ls*ghostFace[static_cast<int>(kernel_type)];
    const int t_proj_scale = TPROJSCALE;
@@ -1720,6 +1784,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4>0)) ||
  const int ga_idx = sp_idx % Vh;
 #endif
 
+
  if (gauge_fixed && ga_idx < X4X3X2X1hmX3X2X1h)
  {
   spinorFloat a0_re, a0_im;
@@ -1732,7 +1797,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4>0)) ||
 #ifdef MULTI_GPU
   if (kernel_type == INTERIOR_KERNEL) {
 #endif
-
    // read spinor from device memory
    READ_SPINOR_DOWN(SPINORTEX, sp_stride, sp_idx, sp_idx);
 
@@ -1749,6 +1813,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4>0)) ||
    b1_im = +2*i31_im;
    b2_re = +2*i32_re;
    b2_im = +2*i32_im;
+
 
 #ifdef MULTI_GPU
   } else {
@@ -1792,10 +1857,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4>0)) ||
   o32_re += B2_re;
   o32_im += B2_im;
  } else {
-  // read gauge matrix from device memory
-  if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 7, ga_idx, ga_stride); }
-  else { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 7, ga_idx, ga_stride); }
-
   spinorFloat a0_re, a0_im;
   spinorFloat a1_re, a1_im;
   spinorFloat a2_re, a2_im;
@@ -1806,6 +1867,8 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4>0)) ||
 #ifdef MULTI_GPU
   if (kernel_type == INTERIOR_KERNEL) {
 #endif
+
+   WRITE_LINK_SHARED(threadIdx.x, threadIdx.y, 7, G, GAUGE1TEX, GAUGE0TEX, s_parity, ga_idx, ga_stride);
 
    // read spinor from device memory
    READ_SPINOR_DOWN(SPINORTEX, sp_stride, sp_idx, sp_idx);
@@ -1824,8 +1887,15 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4>0)) ||
    b2_re = +2*i32_re;
    b2_im = +2*i32_im;
 
+   __syncthreads();
+   if (xs > 1){ DESTRIBUTE_LINK_SHARED(); }
+
 #ifdef MULTI_GPU
   } else {
+
+   // read gauge matrix from device memory
+   if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE1TEX, 7, ga_idx, ga_stride); }
+   else { ASSN_GAUGE_MATRIX(G, GAUGE0TEX, 7, ga_idx, ga_stride); }
 
    const int sp_stride_pad = Ls*ghostFace[static_cast<int>(kernel_type)];
    const int t_proj_scale = TPROJSCALE;
@@ -2134,7 +2204,11 @@ if (!incomplete)
 WRITE_SPINOR(sp_stride);
 
 // undefine to prevent warning when precision is changed
+#undef WRITE_LINK_SHARED
+#undef READ_LINK_SHARED
+#undef DESTRIBUTE_LINK_SHARED
 #undef spinorFloat
+#undef linkFloat
 #undef SHARED_STRIDE
 
 #undef g00_re

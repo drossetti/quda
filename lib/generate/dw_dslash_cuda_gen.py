@@ -196,91 +196,19 @@ def def_gauge():
     return str
 # end def def_gauge
 
-
-def def_clover():
-    str = "// first chiral block of inverted clover term\n"
-    str += "#ifdef CLOVER_DOUBLE\n"
-    i = 0
-    for m in range(0,6):
-        s = m/3
-        c = m%3
-        str += "#define "+c_re(0,s,c,s,c)+" C"+nthFloat2(i)+"\n"
-        i += 1
-    for n in range(0,6):
-        sn = n/3
-        cn = n%3
-        for m in range(n+1,6):
-            sm = m/3
-            cm = m%3
-            str += "#define "+c_re(0,sm,cm,sn,cn)+" C"+nthFloat2(i)+"\n"
-            str += "#define "+c_im(0,sm,cm,sn,cn)+" C"+nthFloat2(i+1)+"\n"
-            i += 2
-    str += "#else\n"
-    i = 0
-    for m in range(0,6):
-        s = m/3
-        c = m%3
-        str += "#define "+c_re(0,s,c,s,c)+" C"+nthFloat4(i)+"\n"
-        i += 1
-    for n in range(0,6):
-        sn = n/3
-        cn = n%3
-        for m in range(n+1,6):
-            sm = m/3
-            cm = m%3
-            str += "#define "+c_re(0,sm,cm,sn,cn)+" C"+nthFloat4(i)+"\n"
-            str += "#define "+c_im(0,sm,cm,sn,cn)+" C"+nthFloat4(i+1)+"\n"
-            i += 2
-    str += "#endif // CLOVER_DOUBLE\n\n"
-
-    for n in range(0,6):
-        sn = n/3
-        cn = n%3
-        for m in range(0,n):
-            sm = m/3
-            cm = m%3
-            str += "#define "+c_re(0,sm,cm,sn,cn)+" (+"+c_re(0,sn,cn,sm,cm)+")\n"
-            str += "#define "+c_im(0,sm,cm,sn,cn)+" (-"+c_im(0,sn,cn,sm,cm)+")\n"
-    str += "\n"
-
-    str += "// second chiral block of inverted clover term (reuses C0,...,C9)\n"
-    for n in range(0,6):
-        sn = n/3
-        cn = n%3
-        for m in range(0,6):
-            sm = m/3
-            cm = m%3
-            str += "#define "+c_re(1,sm,cm,sn,cn)+" "+c_re(0,sm,cm,sn,cn)+"\n"
-            if m != n: str += "#define "+c_im(1,sm,cm,sn,cn)+" "+c_im(0,sm,cm,sn,cn)+"\n"
-    str += "\n"
-
-    return str
-# end def def_clover
-
 def def_output_spinor():
     str = "// output spinor\n"
     for s in range(0,4):
         for c in range(0,3):
             i = 3*s+c
-            if 2*i < sharedFloats:
-                str += "#define "+out_re(s,c)+" s["+`(2*i+0)`+"*SHARED_STRIDE]\n"
-            else:
-                str += "VOLATILE spinorFloat "+out_re(s,c)+";\n"
-            if 2*i+1 < sharedFloats:
-                str += "#define "+out_im(s,c)+" s["+`(2*i+1)`+"*SHARED_STRIDE]\n"
-            else:
-                str += "VOLATILE spinorFloat "+out_im(s,c)+";\n"
+            str += "VOLATILE spinorFloat "+out_re(s,c)+";\n"
+            str += "VOLATILE spinorFloat "+out_im(s,c)+";\n"
     return str
 # end def def_output_spinor
-
 
 def prolog():
     if dslash:
         prolog_str= ("// *** CUDA DSLASH ***\n\n" if not dagger else "// *** CUDA DSLASH DAGGER ***\n\n")
-        prolog_str+= "#define DSLASH_SHARED_FLOATS_PER_THREAD "+str(sharedFloats)+"\n\n"
-    elif clover:
-        prolog_str= ("// *** CUDA CLOVER ***\n\n")
-        prolog_str+= "#define CLOVER_SHARED_FLOATS_PER_THREAD "+str(sharedFloats)+"\n\n"
     else:
         print "Undefined prolog"
         exit
@@ -298,50 +226,10 @@ def prolog():
 
     prolog_str+= def_input_spinor()
     if dslash == True: prolog_str+= def_gauge()
-    if clover == True: prolog_str+= def_clover()
     prolog_str+= def_output_spinor()
-
-    prolog_str+= (
-"""
-#ifdef SPINOR_DOUBLE
-#if (__COMPUTE_CAPABILITY__ >= 200)
-#define SHARED_STRIDE 16 // to avoid bank conflicts on Fermi
-#else
-#define SHARED_STRIDE 8 // to avoid bank conflicts on G80 and GT200
-#endif
-#else
-#if (__COMPUTE_CAPABILITY__ >= 200)
-#define SHARED_STRIDE 32 // to avoid bank conflicts on Fermi
-#else
-#define SHARED_STRIDE 16 // to avoid bank conflicts on G80 and GT200
-#endif
-#endif
-""")
-
-    if sharedFloats > 0:
-        prolog_str += (
-"""
-extern __shared__ char s_data[];
-""")
-
-        if dslash:
-            prolog_str += (
-"""
-VOLATILE spinorFloat *s = (spinorFloat*)s_data + DSLASH_SHARED_FLOATS_PER_THREAD*SHARED_STRIDE*(threadIdx.x/SHARED_STRIDE)
-+ (threadIdx.x % SHARED_STRIDE);
-""")
-        else:
-            prolog_str += (
-"""
-VOLATILE spinorFloat *s = (spinorFloat*)s_data + CLOVER_SHARED_FLOATS_PER_THREAD*SHARED_STRIDE*(threadIdx.x/SHARED_STRIDE)
-+ (threadIdx.x % SHARED_STRIDE);
-""")
-
 
     if dslash:
         prolog_str += "\n#include \"read_gauge.h\"\n"
-        if not domain_wall:
-          prolog_str += "#include \"read_clover.h\"\n"
         prolog_str += "#include \"io_spinor.h\"\n"
         prolog_str += (
 """
@@ -352,21 +240,41 @@ int sp_norm_idx;
 int sid = ((blockIdx.y*blockDim.y + threadIdx.y)*gridDim.x + blockIdx.x)*blockDim.x + threadIdx.x;
 if (sid >= param.threads*Ls) return;
 
-int X, x1, x2, x3, x4, xs;
+int X, x1, x2, x3, x4, xs, s_parity;
+int boundaryCrossing, tot_parity;
 
-int s_parity, boundaryCrossing;
+#if (DD_PREC==0) 
+#define linkFloat double
+#define SHARED_STRIDE 16
+#else
+#define linkFloat float
+#define SHARED_STRIDE 32
+#endif
+
+#if (DD_RECON_F == 8)
+#define WRITE_LINK_SHARED WRITE_LINK_SHARED_REC8 
+#define DESTRIBUTE_LINK_SHARED DESTRIBUTE_LINK_SHARED_REC8
+#define READ_LINK_SHARED READ_LINK_SHARED_REC8
+#elif (DD_RECON_F == 12)
+#define WRITE_LINK_SHARED WRITE_LINK_SHARED_REC12 
+#define DESTRIBUTE_LINK_SHARED DESTRIBUTE_LINK_SHARED_REC12
+#define READ_LINK_SHARED READ_LINK_SHARED_REC12
+#else
+#define WRITE_LINK_SHARED WRITE_LINK_SHARED_REC18 
+#define DESTRIBUTE_LINK_SHARED DESTRIBUTE_LINK_SHARED_REC18
+#define READ_LINK_SHARED READ_LINK_SHARED_REC18
+#endif
 
 #ifdef MULTI_GPU
 int face_idx;
 if (kernel_type == INTERIOR_KERNEL) {
 #endif
 
+if (blockDim.x > X1h*X2) return;//
+
 // Inline by hand for the moment and assume even dimensions
 //coordsFromIndex(X, x1, x2, x3, x4, sid, param.parity);
-""")
-        if domain_wall:
-          prolog_str+=(
-"""
+
 s_parity = ( sid/(X4*X3*X2*X1h) ) % 2;
 boundaryCrossing = sid/X1h + sid/(X2*X1h) + sid/(X3*X2*X1h) + sid/(X4*X3*X2*X1h);
 
@@ -375,22 +283,11 @@ x1 = X % X1;
 x2 = (X/X1) % X2;
 x3 = (X/(X1*X2)) % X3;
 x4 = (X/(X1*X2*X3)) % X4;
-xs = X/(X1*X2*X3*X4);
+xs = X/(X1*X2*X3*X4); 
 
-""")
-        else:
-          prolog_str+=(
-"""
-X = 2*sid;
-int aux1 = X / X1;
-x1 = X - aux1 * X1;
-int aux2 = aux1 / X2;
-x2 = aux1 - aux2 * X2;
-x4 = aux2 / X3;
-x3 = aux2 - x4 * X3;
-aux1 = (param.parity + x4 + x3 + x2) & 1;
-x1 += aux1;
-X += aux1;
+//full lattice coordinate:
+tot_parity = (x4 + x3 + x2 + s_parity + param.parity) & 1; //or don't combine with param.parity? call like gauge_parity...
+
 
 """)
 
@@ -437,72 +334,44 @@ READ_INTERMEDIATE_SPINOR(INTERTEX, sp_stride, sid, sid);
         prolog_str+= "}\n"
         prolog_str+= "#endif // MULTI_GPU\n"
 
-        if domain_wall:
-          prolog_str += (
+        prolog_str += (
 """
 // declare G## here and use ASSN below instead of READ
 #ifdef GAUGE_FLOAT2
 #if (DD_PREC==0) //temporal hack
-double2 G0;
-double2 G1;
-double2 G2;
-double2 G3;
-double2 G4;
-double2 G5;
-double2 G6;
-double2 G7;
-double2 G8;
+double2 G0 = make_double2(0,0);
+double2 G1 = make_double2(0,0);
+double2 G2 = make_double2(0,0);
+double2 G3 = make_double2(0,0);
+double2 G4 = make_double2(0,0);
+double2 G5 = make_double2(0,0);
+double2 G6 = make_double2(0,0);
+double2 G7 = make_double2(0,0);
+double2 G8 = make_double2(0,0);
 #else
-float2 G0;
-float2 G1;
-float2 G2;
-float2 G3;
-float2 G4;
-float2 G5;
-float2 G6;
-float2 G7;
-float2 G8;
+float2 G0 = make_float2(0,0);
+float2 G1 = make_float2(0,0);
+float2 G2 = make_float2(0,0);
+float2 G3 = make_float2(0,0);
+float2 G4 = make_float2(0,0);
+float2 G5 = make_float2(0,0);
+float2 G6 = make_float2(0,0);
+float2 G7 = make_float2(0,0);
+float2 G8 = make_float2(0,0);
 #endif
 #else
-float4 G0;
-float4 G1;
-float4 G2;
-float4 G3;
-float4 G4;
+float4 G0 = make_float4(0,0,0,0);
+float4 G1 = make_float4(0,0,0,0);
+float4 G2 = make_float4(0,0,0,0);
+float4 G3 = make_float4(0,0,0,0);
+float4 G4 = make_float4(0,0,0,0);
 #endif
 
 """)
-
         prolog_str+= "\n\n"
 
-    elif domain_wall:
-        prolog_str+=(
-"""
-#include "io_spinor.h"
-
-int sid = blockIdx.x*blockDim.x + threadIdx.x;
-if (sid >= param.threads) return;
-
-// read spinor from device memory
-READ_SPINOR(SPINORTEX, sp_stride, sid, sid);
-
-""")
-    else:
-        prolog_str+=(
-"""
-#include "read_clover.h"
-#include "io_spinor.h"
-
-int sid = blockIdx.x*blockDim.x + threadIdx.x;
-if (sid >= param.threads) return;
-
-// read spinor from device memory
-READ_SPINOR(SPINORTEX, sp_stride, sid, sid);
-
-""")
     return prolog_str
 # end def prolog
-
 
 def gen(dir, pack_only=False):
     projIdx = dir if not dagger else dir + ( +1 if dir%2 == 0 else -1 )
@@ -519,8 +388,6 @@ def gen(dir, pack_only=False):
         if proj(i,1) == 0j:
             return (0, proj(i,0))
 
-# boundary = ["x1==X1m1", "x1==0", "x2==X2m1", "x2==0", "x3==X3m1", "x3==0", "x4==X4m1", "x4==0"]
-# interior = ["x1<X1m1", "x1>0", "x2<X2m1", "x2>0", "x3<X3m1", "x3>0", "x4<X4m1", "x4>0"]
     boundary = ["x1==X1m1", "x1==0", "x2==X2m1", "x2==0", "x3==X3m1", "x3==0", "x4==X4m1", "x4==0"]
     interior = ["x1<X1m1", "x1>0", "x2<X2m1", "x2>0", "x3<X3m1", "x3>0", "x4<X4m1", "x4>0"]
     dim = ["X", "Y", "Z", "T"]
@@ -552,19 +419,46 @@ def gen(dir, pack_only=False):
     str += "#else\n"
     str += "const int sp_idx = ("+boundary[dir]+" ? "+sp_idx_wrap[dir]+" : "+sp_idx[dir]+") >> 1;\n"
     str += "#endif\n"
-
     str += "\n"
     if dir % 2 == 0:
-        if domain_wall: str += "const int ga_idx = sid % Vh;\n"
-        else: str += "const int ga_idx = sid;\n"
+        str += "const int ga_idx = sid % Vh;\n"
     else:
         str += "#ifdef MULTI_GPU\n"
-        if domain_wall: str += "const int ga_idx = ((kernel_type == INTERIOR_KERNEL) ? sp_idx % Vh : Vh+(face_idx % ghostFace[static_cast<int>(kernel_type)]));\n"
-        else: str += "const int ga_idx = ((kernel_type == INTERIOR_KERNEL) ? sp_idx : Vh+face_idx);\n"
+        str += "const int ga_idx = ((kernel_type == INTERIOR_KERNEL) ? sp_idx % Vh : Vh+(face_idx % ghostFace[static_cast<int>(kernel_type)]));\n"
         str += "#else\n"
-        if domain_wall: str += "const int ga_idx = sp_idx % Vh;\n"
-        else: str += "const int ga_idx = sp_idx;\n"
+        str += "const int ga_idx = sp_idx % Vh;\n"
         str += "#endif\n"
+    str += "\n"
+
+    load_shared_links = ""
+    destribute_shared_links = ""
+    if dir % 2 == 0:
+        load_shared_links += ("__syncthreads();\n" if dir > 0 else "")
+        load_shared_links += "WRITE_LINK_SHARED(threadIdx.x, threadIdx.y, "+`dir`+", G, GAUGE0TEX, GAUGE1TEX, s_parity, ga_idx, ga_stride);\n"
+        destribute_shared_links += "__syncthreads();\n"
+        destribute_shared_links += "if (xs > 1){ DESTRIBUTE_LINK_SHARED(); }\n"
+    else:
+        if dir == 1 : 
+            load_shared_links += "int tx = (tot_parity) ? threadIdx.x : (x1 ? threadIdx.x - 1 : X1h - 1 + X1h * (threadIdx.x / X1h));\n"
+            load_shared_links += "int conj_parity = 1 - s_parity;\n"
+            load_shared_links += "READ_LINK_SHARED(tx, threadIdx.y, conj_parity);\n"
+        elif dir == 3 : 
+	    load_shared_links +=  "const int lx2 = threadIdx.x / X1h;\n"
+	    load_shared_links +=  "\n"
+	    load_shared_links +=  "if (lx2 != 0 && x2 != 0)\n"
+	    load_shared_links +=  "{ \n"
+	    load_shared_links +=  "  int tx = threadIdx.x - X1h;\n"
+            load_shared_links +=  "  int conj_parity = 1 - s_parity;\n"
+	    load_shared_links +=  "  READ_LINK_SHARED(tx, threadIdx.y, conj_parity);\n"
+	    load_shared_links +=  "}else{\n"
+	    load_shared_links +=  "  if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE"+`( dir%2)`+"TEX, "+`dir`+", ga_idx, ga_stride); }\n"
+	    load_shared_links +=  "  else { ASSN_GAUGE_MATRIX(G, GAUGE"+`(1-dir%2)`+"TEX, "+`dir`+", ga_idx, ga_stride); }\n"
+	    load_shared_links +=  "}\n" 
+        else:
+            load_shared_links += "WRITE_LINK_SHARED(threadIdx.x, threadIdx.y, "+`dir`+", G, GAUGE1TEX, GAUGE0TEX, s_parity, ga_idx, ga_stride);\n"
+            destribute_shared_links += "__syncthreads();\n"
+            destribute_shared_links += "if (xs > 1){ DESTRIBUTE_LINK_SHARED(); }\n"
+
     str += "\n"
 
     # scan the projector to determine which loads are required
@@ -598,9 +492,6 @@ def gen(dir, pack_only=False):
         load_half += "const int sp_stride_pad = Ls*ghostFace[static_cast<int>(kernel_type)];\n"
     else :
         load_half += "const int sp_stride_pad = ghostFace[static_cast<int>(kernel_type)];\n" 
-    #load_half += "#if (DD_PREC==2) // half precision\n"
-    #load_half += "const int sp_norm_idx = sid + param.ghostNormOffset[static_cast<int>(kernel_type)];\n"
-    #load_half += "#endif\n"
 
     if dir >= 6: load_half += "const int t_proj_scale = TPROJSCALE;\n"
     load_half += "\n"
@@ -611,11 +502,14 @@ def gen(dir, pack_only=False):
     if (dir+1) % 2 == 0: load_half += "READ_HALF_SPINOR(SPINORTEX, sp_stride_pad, sp_idx, sp_norm_idx);\n\n"
     else: load_half += "READ_HALF_SPINOR(SPINORTEX, sp_stride_pad, sp_idx + (SPINOR_HOP/2)*sp_stride_pad, sp_norm_idx);\n\n"
     load_gauge = "// read gauge matrix from device memory\n"
-    if domain_wall:
-        load_gauge += "if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE"+`( dir%2)`+"TEX, "+`dir`+", ga_idx, ga_stride); }\n"
-        load_gauge += "else { ASSN_GAUGE_MATRIX(G, GAUGE"+`(1-dir%2)`+"TEX, "+`dir`+", ga_idx, ga_stride); }\n\n"
-    else:
-        load_gauge += "READ_GAUGE_MATRIX(G, GAUGE"+`dir%2`+"TEX, "+`dir`+", ga_idx, ga_stride);\n\n"
+    
+    #if dir % 2 == 0:
+        #load_gauge += "ga_idx = sid % Vh;\n"
+    #else:
+        #load_gauge += "ga_idx = Vh+(face_idx % ghostFace[static_cast<int>(kernel_type)]);\n"
+
+    load_gauge += "if ( ! s_parity ) { ASSN_GAUGE_MATRIX(G, GAUGE"+`( dir%2)`+"TEX, "+`dir`+", ga_idx, ga_stride); }\n"
+    load_gauge += "else { ASSN_GAUGE_MATRIX(G, GAUGE"+`(1-dir%2)`+"TEX, "+`dir`+", ga_idx, ga_stride); }\n\n"
 
     reconstruct_gauge = "// reconstruct gauge matrix\n"
     reconstruct_gauge += "RECONSTRUCT_GAUGE_MATRIX("+`dir`+");\n\n"
@@ -657,13 +551,58 @@ def gen(dir, pack_only=False):
             copy_half += h1_im(h,c)+" = "+("t_proj_scale*" if (dir >= 6) else "")+in_im(h,c)+";\n"
     copy_half += "\n"
 
+    prep_half_3d = ""
+    prep_half_3d += "#ifdef MULTI_GPU\n"
+    prep_half_3d += "if (kernel_type == INTERIOR_KERNEL) {\n"
+    prep_half_3d += "#endif\n"
+    prep_half_3d += "\n"
+    prep_half_3d += indent(load_shared_links)
+    prep_half_3d += "\n"
+    prep_half_3d += indent(load_spinor)
+    prep_half_3d += indent(project)
+    prep_half_3d += "\n"
+    prep_half_3d += indent(destribute_shared_links)
+    prep_half_3d += "\n"
+    prep_half_3d += "#ifdef MULTI_GPU\n"
+    prep_half_3d += "} else {\n"
+    prep_half_3d += "\n"
+    prep_half_3d += indent(load_gauge)
+    prep_half_3d += indent(load_half)
+    prep_half_3d += indent(copy_half)
+    prep_half_3d += "}\n"
+    prep_half_3d += "#endif // MULTI_GPU\n"
+    prep_half_3d += "\n"
+
+    prep_half_tlinks = ""
+    prep_half_tlinks += "#ifdef MULTI_GPU\n"
+    prep_half_tlinks += "if (kernel_type == INTERIOR_KERNEL) {\n"
+    prep_half_tlinks += "#endif\n"
+    prep_half_tlinks += "\n"
+    prep_half_tlinks += indent(load_shared_links)
+    prep_half_tlinks += "\n"
+    prep_half_tlinks += indent(load_spinor)
+    prep_half_tlinks += indent(project)
+    prep_half_tlinks += "\n"
+    prep_half_tlinks += indent(destribute_shared_links)
+    prep_half_tlinks += "\n"
+    prep_half_tlinks += "#ifdef MULTI_GPU\n"
+    prep_half_tlinks += "} else {\n"
+    prep_half_tlinks += "\n"
+    prep_half_tlinks += indent(load_gauge)
+    prep_half_tlinks += indent(load_half)
+    prep_half_tlinks += indent(copy_half)
+    prep_half_tlinks += "}\n"
+    prep_half_tlinks += "#endif // MULTI_GPU\n"
+    prep_half_tlinks += "\n"
+
+
     prep_half = ""
     prep_half += "#ifdef MULTI_GPU\n"
     prep_half += "if (kernel_type == INTERIOR_KERNEL) {\n"
     prep_half += "#endif\n"
-    prep_half += "\n"
     prep_half += indent(load_spinor)
     prep_half += indent(project)
+    prep_half += "\n"
     prep_half += "\n"
     prep_half += "#ifdef MULTI_GPU\n"
     prep_half += "} else {\n"
@@ -673,6 +612,7 @@ def gen(dir, pack_only=False):
     prep_half += "}\n"
     prep_half += "#endif // MULTI_GPU\n"
     prep_half += "\n"
+
     
     ident = "// identity gauge matrix\n"
     for m in range(0,3):
@@ -722,12 +662,14 @@ def gen(dir, pack_only=False):
 
     if dir >= 6:
         str += "if (gauge_fixed && ga_idx < X4X3X2X1hmX3X2X1h)\n"
+        no_Tlinks = True
         str += block(decl_half + prep_half + ident + reconstruct)
         str += " else "
-        str += block(load_gauge + decl_half + prep_half + reconstruct_gauge + mult + reconstruct)
+        no_Tlinks = False
+        str += block(decl_half + prep_half_tlinks + reconstruct_gauge + mult + reconstruct)
     else:
-        str += load_gauge + decl_half + prep_half + reconstruct_gauge + mult + reconstruct
-    
+        ##str += load_gauge + decl_half + prep_half_3d + reconstruct_gauge + mult + reconstruct
+        str += decl_half + prep_half_3d + reconstruct_gauge + mult + reconstruct    
     if pack_only:
         out = load_spinor + decl_half + project
         out = out.replace("sp_idx", "idx")
@@ -1043,7 +985,13 @@ incomplete = incomplete || (param.commDim[0] && (x1==0 || x1==X1m1));
     str += "WRITE_SPINOR(sp_stride);\n\n"
 
     str += "// undefine to prevent warning when precision is changed\n"
+
+    str += "#undef WRITE_LINK_SHARED\n"
+    str += "#undef READ_LINK_SHARED\n"
+    str += "#undef DESTRIBUTE_LINK_SHARED\n"
+
     str += "#undef spinorFloat\n"
+    str += "#undef linkFloat\n"
     str += "#undef SHARED_STRIDE\n\n"
 
     if dslash:
@@ -1162,14 +1110,14 @@ clover = False
 print sys.argv[0] + ": generating dw_dslash_core.h";
 dslash = True
 dagger = False
-f = open('dslash_core/dw_dslash_core.h', 'w')
+f = open('./dw_dslash_core.h', 'w')
 f.write(generate_dslash())
 f.close()
 
 print sys.argv[0] + ": generating dw_dslash_dagger_core.h";
 dslash = True
 dagger = True
-f = open('dslash_core/dw_dslash_dagger_core.h', 'w')
+f = open('./dw_dslash_dagger_core.h', 'w')
 f.write(generate_dslash())
 f.close()
 

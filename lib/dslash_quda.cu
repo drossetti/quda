@@ -942,6 +942,8 @@ namespace quda {
     const double mferm;
     const double a;
 
+    const int Ls;
+
     bool checkGrid(TuneParam &param) const {
       if (param.grid.x > deviceProp.maxGridSize[0] || param.grid.y > deviceProp.maxGridSize[1]) {
 	warningQuda("Autotuner is skipping blockDim=(%u,%u,%u), gridDim=(%u,%u,%u) because lattice volume is too large",
@@ -1002,7 +1004,7 @@ namespace quda {
 			 const cudaColorSpinorField *x, const double mferm, 
 			 const double a, const int dagger)
       : DslashCuda(out, in, x), gauge0(gauge0), gauge1(gauge1), mferm(mferm), 
-	reconstruct(reconstruct), dagger(dagger), a(a)
+	reconstruct(reconstruct), dagger(dagger), a(a), Ls(in->X(4))
     { 
       bindSpinorTex<sFloat>(in, out, x);
     }
@@ -1043,10 +1045,24 @@ namespace quda {
 
     void apply(const cudaStream_t &stream)
     {
-      TuneParam tp = tuneLaunch(*this, dslashTuning, verbosity);
-      DSLASH(domainWallDslash, tp.grid, tp.block, tp.shared_bytes, stream, dslashParam,
-	     (sFloat*)out->V(), (float*)out->Norm(), gauge0, gauge1, 
-	     (sFloat*)in->V(), (float*)in->Norm(), mferm, (sFloat*)(x ? x->V() : 0), (float*)(x ? x->Norm() : 0), a);
+       if (dslashParam.kernel_type != INTERIOR_KERNEL){
+         TuneParam tp = tuneLaunch(*this, dslashTuning, verbosity);
+         DSLASH(domainWallDslash, tp.grid, tp.block, tp.shared_bytes, stream, dslashParam,
+	        (sFloat*)out->V(), (float*)out->Norm(), gauge0, gauge1, 
+	        (sFloat*)in->V(), (float*)in->Norm(), mferm, (sFloat*)(x ? x->V() : 0), (float*)(x ? x->Norm() : 0), a);
+       }
+       else{//for debug only:
+#define MAXSMSIZE 36864
+         TuneParam tp;
+         tp.block = dim3(dslashConstants.x[0]/2 * 4, Ls, 1);//hard-coded,und nur fuer die pruefung!
+         tp.shared_bytes = tp.block.x * /*two parities*/2 * reconstruct*sizeof(gFloat);//this must be input parameter!
+         tp.grid = dim3( (dslashParam.threads+tp.block.x-1) / tp.block.x, (Ls + tp.block.y-1)/ tp.block.y, 1);
+
+         DSLASH(domainWallDslash, tp.grid, tp.block, tp.shared_bytes, stream, dslashParam,
+	        (sFloat*)out->V(), (float*)out->Norm(), gauge0, gauge1, 
+	        (sFloat*)in->V(), (float*)in->Norm(), mferm, (sFloat*)(x ? x->V() : 0), (float*)(x ? x->Norm() : 0), a);
+         checkCudaError();
+       }
     }
 
     long long flops() const { // FIXME for multi-GPU
