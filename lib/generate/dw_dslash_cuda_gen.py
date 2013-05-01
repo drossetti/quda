@@ -1110,14 +1110,14 @@ clover = False
 print sys.argv[0] + ": generating dw_dslash_core.h";
 dslash = True
 dagger = False
-f = open('./dw_dslash_core.h', 'w')
+f = open('dslash_core/dw_dslash_core.h', 'w')
 f.write(generate_dslash())
 f.close()
 
 print sys.argv[0] + ": generating dw_dslash_dagger_core.h";
 dslash = True
 dagger = True
-f = open('./dw_dslash_dagger_core.h', 'w')
+f = open('dslash_core/dw_dslash_dagger_core.h', 'w')
 f.write(generate_dslash())
 f.close()
 

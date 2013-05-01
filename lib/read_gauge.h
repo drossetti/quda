@@ -705,8 +705,8 @@
   if ( ty == 0 ) {                                                                                                                      \
    ASSN_GAUGE_MATRIX(G, gauge0, dir, idx, stride);                                                                                      \
                                                                                                                                         \
-   smlinks[ 0*SHARED_STRIDE] = g00_re;                                                                                                  \
-   smlinks[ 1*SHARED_STRIDE] = g00_im;                                                                                                  \
+   smlinks[ 0*SHARED_STRIDE] = g21_re;                                                                                                  \
+   smlinks[ 1*SHARED_STRIDE] = g21_im;                                                                                                  \
    smlinks[ 2*SHARED_STRIDE] = g01_re;                                                                                                  \
    smlinks[ 3*SHARED_STRIDE] = g01_im;                                                                                                  \
    smlinks[ 4*SHARED_STRIDE] = g02_re;                                                                                                  \
@@ -716,8 +716,8 @@
   } else if (ty == 1){                                                                                                  \
    ASSN_GAUGE_MATRIX(G, gauge1, dir, idx, stride);                                                                              \
                                                                                                                                         \
-   smlinks[ 0*SHARED_STRIDE] = g00_re;                                                                                                  \
-   smlinks[ 1*SHARED_STRIDE] = g00_im;                                                                                                  \
+   smlinks[ 0*SHARED_STRIDE] = g21_re;                                                                                                  \
+   smlinks[ 1*SHARED_STRIDE] = g21_im;                                                                                                  \
    smlinks[ 2*SHARED_STRIDE] = g01_re;                                                                                                  \
    smlinks[ 3*SHARED_STRIDE] = g01_im;                                                                                                  \
    smlinks[ 4*SHARED_STRIDE] = g02_re;                                                                                                  \
@@ -776,16 +776,24 @@
  }
 
 #define DESTRIBUTE_LINK_SHARED_REC8()\
-   g00_re = smlinks[ 0*SHARED_STRIDE];\
-   g00_im = smlinks[ 1*SHARED_STRIDE];\
+   g21_re = smlinks[ 0*SHARED_STRIDE];\
+   g21_im = smlinks[ 1*SHARED_STRIDE];\
    g01_re = smlinks[ 2*SHARED_STRIDE];\
    g01_im = smlinks[ 3*SHARED_STRIDE];\
    g02_re = smlinks[ 4*SHARED_STRIDE];\
    g02_im = smlinks[ 5*SHARED_STRIDE];\
    g10_re = smlinks[ 6*SHARED_STRIDE];\
    g10_im = smlinks[ 7*SHARED_STRIDE];\
-
-
+   g00_re = 0;\
+   g00_im = 0;\
+   g11_re = 0;\
+   g11_im = 0;\
+   g12_re = 0;\
+   g12_im = 0;\
+   g20_re = 0;\
+   g20_im = 0;\
+   g22_re = 0;\
+   g22_im = 0;
 
 #define DESTRIBUTE_LINK_SHARED_REC12()\
    g00_re = smlinks[ 0*SHARED_STRIDE];\
@@ -799,7 +807,13 @@
    g11_re = smlinks[ 8*SHARED_STRIDE];\
    g11_im = smlinks[ 9*SHARED_STRIDE];\
    g12_re = smlinks[10*SHARED_STRIDE];\
-   g12_im = smlinks[11*SHARED_STRIDE];
+   g12_im = smlinks[11*SHARED_STRIDE];\
+   g20_re = 0;\
+   g20_im = 0;\
+   g21_re = 0;\
+   g21_im = 0;\
+   g22_re = 0;\
+   g22_im = 0;
 
 #define DESTRIBUTE_LINK_SHARED_REC18()\
    g00_re = smlinks[ 0*SHARED_STRIDE];\
@@ -822,17 +836,28 @@
    g22_im = smlinks[17*SHARED_STRIDE];
 
 #define READ_LINK_SHARED_REC8(tx, ty, spar) 							\
-  extern __shared__ char sm[];	          											\
+  extern __shared__ char sm[];\
   linkFloat *smlinks = (linkFloat*)sm + DD_RECON_F * SHARED_STRIDE * ((tx + spar*blockDim.x) / SHARED_STRIDE) \
                        + ((tx + spar*blockDim.x) % SHARED_STRIDE);\
-  g00_re = smlinks[ 0*SHARED_STRIDE];\
-  g00_im = smlinks[ 1*SHARED_STRIDE];\
+  g21_re = smlinks[ 0*SHARED_STRIDE];\
+  g21_im = smlinks[ 1*SHARED_STRIDE];\
   g01_re = smlinks[ 2*SHARED_STRIDE];\
   g01_im = smlinks[ 3*SHARED_STRIDE];\
   g02_re = smlinks[ 4*SHARED_STRIDE];\
   g02_im = smlinks[ 5*SHARED_STRIDE];\
   g10_re = smlinks[ 6*SHARED_STRIDE];\
-  g10_im = smlinks[ 7*SHARED_STRIDE];
+  g10_im = smlinks[ 7*SHARED_STRIDE];\
+  g00_re = 0;\
+  g00_im = 0;\
+  g11_re = 0;\
+  g11_im = 0;\
+  g12_re = 0;\
+  g12_im = 0;\
+  g20_re = 0;\
+  g20_im = 0;\
+  g22_re = 0;\
+  g22_im = 0;
+
 
 
 #define READ_LINK_SHARED_REC12(tx, ty, spar) 							\
@@ -850,7 +875,14 @@
   g11_re = smlinks[ 8*SHARED_STRIDE];\
   g11_im = smlinks[ 9*SHARED_STRIDE];\
   g12_re = smlinks[10*SHARED_STRIDE];\
-  g12_im = smlinks[11*SHARED_STRIDE];
+  g12_im = smlinks[11*SHARED_STRIDE];\
+  g20_re = 0;\
+  g20_im = 0;\
+  g21_re = 0;\
+  g21_im = 0;\
+  g22_re = 0;\
+  g22_im = 0;
+
 
 
 #define READ_LINK_SHARED_REC18(tx, ty, spar) 							\
