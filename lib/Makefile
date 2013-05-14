@@ -82,6 +82,7 @@ $(QUDA): $(QUDA_OBJS) ../make.inc
 gen:
 	$(PYTHON) generate/dslash_cuda_gen.py
 	$(PYTHON) generate/dw_dslash_cuda_gen.py
+	$(PYTHON) generate/dw_dslash_4D_cuda_gen.py
 
 clean:
 	-rm -f *.o $(QUDA)
