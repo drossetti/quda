@@ -106,31 +106,51 @@ void	loopPlainCG	(void *hp_x, void *hp_b, QudaInvertParam *param, void *cnRes, v
 
 	printfQuda	("Allocating mem for contractions\n");
 
+	if	(param->cuda_prec == QUDA_DOUBLE_PRECISION)
+	{
+		if	((cudaMallocHost(&h_ctrn, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+	        	errorQuda	("Error allocating memory for contraction results in CPU.\n");
+
+		cudaMemset(h_ctrn, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
+
+		if	((cudaMalloc(&ctrnC, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+			errorQuda	("Error allocating memory for contraction results in GPU.\n");
+
+		cudaMemset(ctrnC, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
+
+		if	((cudaMalloc(&ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+			errorQuda	("Error allocating memory for contraction results in GPU.\n");
+
+		cudaMemset	(ctrnS, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
+
+		printfQuda	("%ld bytes allocated in GPU for contractions\n", sizeof(double)*64*X[0]*X[1]*X[2]*X[3]);
+	}
+	else if	(param->cuda_prec == QUDA_SINGLE_PRECISION)
+	{
+		if	((cudaMallocHost(&h_ctrn, sizeof(float)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+	        	errorQuda	("Error allocating memory for contraction results in CPU.\n");
+
+		cudaMemset(h_ctrn, 0, sizeof(float)*32*X[0]*X[1]*X[2]*X[3]);
+
+		if	((cudaMalloc(&ctrnC, sizeof(float)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+			errorQuda	("Error allocating memory for contraction results in GPU.\n");
+
+		cudaMemset(ctrnC, 0, sizeof(float)*32*X[0]*X[1]*X[2]*X[3]);
+
+		if	((cudaMalloc(&ctrnS, sizeof(float)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+			errorQuda	("Error allocating memory for contraction results in GPU.\n");
+
+		cudaMemset	(ctrnS, 0, sizeof(float)*32*X[0]*X[1]*X[2]*X[3]);
+
+		printfQuda	("%ld bytes allocated in GPU for contractions\n", sizeof(float)*64*X[0]*X[1]*X[2]*X[3]);
+	}
+	else if	(param->cuda_prec == QUDA_SINGLE_PRECISION)
+		errorQuda	("Error: Contraction not supported in half precision.\n");
 	if	((cudaMallocHost(&h_ctrn, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
 	{
         	printfQuda	("Error allocating memory for contraction results in CPU.\n");
 	        exit		(0);
 	}
-
-	cudaMemset(h_ctrn, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
-
-	if	((cudaMalloc(&ctrnC, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
-	{
-		printfQuda	("Error allocating memory for contraction results in GPU.\n");
-		exit		(0);
-	}
-
-	cudaMemset(ctrnC, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
-
-	if	((cudaMalloc(&ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
-	{
-		printfQuda	("Error allocating memory for contraction results in GPU.\n");
-		exit		(0);
-	}
-
-	cudaMemset	(ctrnS, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
-
-	printfQuda	("%ld bytes allocated in GPU for contractions\n", (long int) sizeof(double)*64*X[0]*X[1]*X[2]*X[3]);
 
 	// wrap CPU host side pointers
 	ColorSpinorParam cpuParam(hp_b, param->input_location, *param, X, pc_solution);
@@ -285,8 +305,8 @@ void	loopPlainCG	(void *hp_x, void *hp_b, QudaInvertParam *param, void *cnRes, v
 
 	for     (int mu=0; mu<4; mu++)
 	{
-		covDevQuda	(&(tmp2->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu, cDim);
-		covDevQuda	(&(tmp2->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu, cDim);
+		covDev		(&(tmp2->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu, cDim);
+		covDev		(&(tmp2->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu, cDim);
 		cudaDeviceSynchronize	();
 		
 		contractCuda	(b->Even(), tmp2->Even(), ((double2*)ctrnS), 0, blockTwust, LX, QUDA_EVEN_PARITY);
@@ -295,8 +315,8 @@ void	loopPlainCG	(void *hp_x, void *hp_b, QudaInvertParam *param, void *cnRes, v
 		
 		cudaMemcpy	(ctrnC, ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3], cudaMemcpyDeviceToDevice);
 		
-		covDevQuda	(&(tmp2->Odd()),  *gaugePrecise, &(b->Even()), QUDA_ODD_PARITY,  mu, cDim);
-		covDevQuda	(&(tmp2->Even()), *gaugePrecise, &(b->Odd()),  QUDA_EVEN_PARITY, mu, cDim);
+		covDev		(&(tmp2->Odd()),  *gaugePrecise, &(b->Even()), QUDA_ODD_PARITY,  mu, cDim);
+		covDev		(&(tmp2->Even()), *gaugePrecise, &(b->Odd()),  QUDA_EVEN_PARITY, mu, cDim);
 		cudaDeviceSynchronize	();
 
 		contractCuda	(tmp2->Even(), x->Even(), ((double2*)ctrnC), 1, blockTwust, LX, QUDA_EVEN_PARITY);
@@ -307,16 +327,16 @@ void	loopPlainCG	(void *hp_x, void *hp_b, QudaInvertParam *param, void *cnRes, v
 		contractCuda	(tmp2->Odd(),  x->Odd(),  ((double2*)ctrnS), 2, blockTwust, LX, QUDA_ODD_PARITY);
 		cudaDeviceSynchronize	();
 
-		covDevQuda	(&(tmp2->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu+4, cDim);
-		covDevQuda	(&(tmp2->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu+4, cDim);
+		covDev		(&(tmp2->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu+4, cDim);
+		covDev		(&(tmp2->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu+4, cDim);
 		cudaDeviceSynchronize	();
 
 		contractCuda	(b->Even(), tmp2->Even(), ((double2*)ctrnS), 1, blockTwust, LX, QUDA_EVEN_PARITY);
 		contractCuda	(b->Odd(),  tmp2->Odd(),  ((double2*)ctrnS), 1, blockTwust, LX, QUDA_ODD_PARITY);
 		cudaDeviceSynchronize	();
 
-		covDevQuda	(&(tmp2->Odd()),  *gaugePrecise, &(b->Even()), QUDA_ODD_PARITY,  mu+4, cDim);
-		covDevQuda	(&(tmp2->Even()), *gaugePrecise, &(b->Odd()),  QUDA_EVEN_PARITY, mu+4, cDim);
+		covDev		(&(tmp2->Odd()),  *gaugePrecise, &(b->Even()), QUDA_ODD_PARITY,  mu+4, cDim);
+		covDev		(&(tmp2->Even()), *gaugePrecise, &(b->Odd()),  QUDA_EVEN_PARITY, mu+4, cDim);
 		cudaDeviceSynchronize	();
 
 		contractCuda	(tmp2->Even(), x->Even(), ((double2*)ctrnS), 2, blockTwust, LX, QUDA_EVEN_PARITY);
@@ -471,32 +491,46 @@ void	loopHPECG	(void *hp_x, void *hp_b, QudaInvertParam *param, void *cnRes, voi
 	printfQuda	("Allocating mem for contractions\n");
 	fflush	(stdout);
 
-	if	((cudaMallocHost(&h_ctrn, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+	if	(param->cuda_prec == QUDA_DOUBLE_PRECISION)
 	{
-        	printfQuda	("Error allocating memory for contraction results in CPU.\n");
-	        exit		(0);
+		if	((cudaMallocHost(&h_ctrn, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+	        	errorQuda	("Error allocating memory for contraction results in CPU.\n");
+
+		cudaMemset(h_ctrn, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
+
+		if	((cudaMalloc(&ctrnC, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+			errorQuda	("Error allocating memory for contraction results in GPU.\n");
+
+		cudaMemset(ctrnC, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
+
+		if	((cudaMalloc(&ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+			errorQuda	("Error allocating memory for contraction results in GPU.\n");
+
+		cudaMemset	(ctrnS, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
+
+		printfQuda	("%ld bytes allocated in GPU for contractions\n", sizeof(double)*64*X[0]*X[1]*X[2]*X[3]);
 	}
-
-	cudaMemset(h_ctrn, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
-
-	if	((cudaMalloc(&ctrnC, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+	else if	(param->cuda_prec == QUDA_SINGLE_PRECISION)
 	{
-		printfQuda	("Error allocating memory for contraction results in GPU.\n");
-		exit		(0);
+		if	((cudaMallocHost(&h_ctrn, sizeof(float)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+	        	errorQuda	("Error allocating memory for contraction results in CPU.\n");
+
+		cudaMemset(h_ctrn, 0, sizeof(float)*32*X[0]*X[1]*X[2]*X[3]);
+
+		if	((cudaMalloc(&ctrnC, sizeof(float)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+			errorQuda	("Error allocating memory for contraction results in GPU.\n");
+
+		cudaMemset(ctrnC, 0, sizeof(float)*32*X[0]*X[1]*X[2]*X[3]);
+
+		if	((cudaMalloc(&ctrnS, sizeof(float)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+			errorQuda	("Error allocating memory for contraction results in GPU.\n");
+
+		cudaMemset	(ctrnS, 0, sizeof(float)*32*X[0]*X[1]*X[2]*X[3]);
+
+		printfQuda	("%ld bytes allocated in GPU for contractions\n", sizeof(float)*64*X[0]*X[1]*X[2]*X[3]);
 	}
-
-	cudaMemset(ctrnC, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
-
-
-	if	((cudaMalloc(&ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
-	{
-		printfQuda	("Error allocating memory for contraction results in GPU.\n");
-		exit		(0);
-	}
-
-	cudaMemset	(ctrnS, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
-
-	printfQuda	("%ld bytes allocated in GPU for contractions\n", sizeof(double)*64*X[0]*X[1]*X[2]*X[3]);
+	else if	(param->cuda_prec == QUDA_SINGLE_PRECISION)
+		errorQuda	("Error: Contraction not supported in half precision.\n");
 
 	// wrap CPU host side pointers
 	ColorSpinorParam cpuParam(hp_b, param->input_location, *param, X, pc_solution);
@@ -694,8 +728,8 @@ void	loopHPECG	(void *hp_x, void *hp_b, QudaInvertParam *param, void *cnRes, voi
 
 	for     (int mu=0; mu<4; mu++)
 	{
-		covDevQuda	(&(tmp2->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu, cDim);
-		covDevQuda	(&(tmp2->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu, cDim);
+		covDev		(&(tmp2->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu, cDim);
+		covDev		(&(tmp2->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu, cDim);
 		cudaDeviceSynchronize	();
 		
 		contractCuda	(tmp3->Even(), tmp2->Even(), ((double2*)ctrnS), 0, blockTwust, LX, QUDA_EVEN_PARITY);
@@ -704,8 +738,8 @@ void	loopHPECG	(void *hp_x, void *hp_b, QudaInvertParam *param, void *cnRes, voi
 		
 		cudaMemcpy	(ctrnC, ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3], cudaMemcpyDeviceToDevice);
 		
-		covDevQuda	(&(tmp2->Odd()),  *gaugePrecise, &(tmp3->Even()), QUDA_ODD_PARITY,  mu, cDim);
-		covDevQuda	(&(tmp2->Even()), *gaugePrecise, &(tmp3->Odd()),  QUDA_EVEN_PARITY, mu, cDim);
+		covDev		(&(tmp2->Odd()),  *gaugePrecise, &(tmp3->Even()), QUDA_ODD_PARITY,  mu, cDim);
+		covDev		(&(tmp2->Even()), *gaugePrecise, &(tmp3->Odd()),  QUDA_EVEN_PARITY, mu, cDim);
 		cudaDeviceSynchronize	();
 
 		contractCuda	(tmp2->Even(), x->Even(), ((double2*)ctrnC), 1, blockTwust, LX, QUDA_EVEN_PARITY);
@@ -716,16 +750,16 @@ void	loopHPECG	(void *hp_x, void *hp_b, QudaInvertParam *param, void *cnRes, voi
 		contractCuda	(tmp2->Odd(),  x->Odd(),  ((double2*)ctrnS), 2, blockTwust, LX, QUDA_ODD_PARITY);
 		cudaDeviceSynchronize	();
 
-		covDevQuda	(&(tmp2->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu+4, cDim);
-		covDevQuda	(&(tmp2->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu+4, cDim);
+		covDev		(&(tmp2->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu+4, cDim);
+		covDev		(&(tmp2->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu+4, cDim);
 		cudaDeviceSynchronize	();
 
 		contractCuda	(tmp3->Even(), tmp2->Even(), ((double2*)ctrnS), 1, blockTwust, LX, QUDA_EVEN_PARITY);
 		contractCuda	(tmp3->Odd(),  tmp2->Odd(),  ((double2*)ctrnS), 1, blockTwust, LX, QUDA_ODD_PARITY);
 		cudaDeviceSynchronize	();
 
-		covDevQuda	(&(tmp2->Odd()),  *gaugePrecise, &(tmp3->Even()), QUDA_ODD_PARITY,  mu+4, cDim);
-		covDevQuda	(&(tmp2->Even()), *gaugePrecise, &(tmp3->Odd()),  QUDA_EVEN_PARITY, mu+4, cDim);
+		covDev		(&(tmp2->Odd()),  *gaugePrecise, &(tmp3->Even()), QUDA_ODD_PARITY,  mu+4, cDim);
+		covDev		(&(tmp2->Even()), *gaugePrecise, &(tmp3->Odd()),  QUDA_EVEN_PARITY, mu+4, cDim);
 		cudaDeviceSynchronize	();
 
 		contractCuda	(tmp2->Even(), x->Even(), ((double2*)ctrnS), 2, blockTwust, LX, QUDA_EVEN_PARITY);
@@ -878,32 +912,46 @@ void	oneEndTrickCG	(void *hp_x, void *hp_b, QudaInvertParam *param, void *cnRes_
 	printfQuda	("Allocating mem for contractions\n");
 	fflush	(stdout);
 
-	if	((cudaMallocHost(&h_ctrn, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+	if	(param->cuda_prec == QUDA_DOUBLE_PRECISION)
 	{
-        	printfQuda	("Error allocating memory for contraction results in CPU.\n");
-	        exit		(0);
+		if	((cudaMallocHost(&h_ctrn, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+	        	errorQuda	("Error allocating memory for contraction results in CPU.\n");
+
+		cudaMemset(h_ctrn, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
+
+		if	((cudaMalloc(&ctrnC, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+			errorQuda	("Error allocating memory for contraction results in GPU.\n");
+
+		cudaMemset(ctrnC, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
+
+		if	((cudaMalloc(&ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+			errorQuda	("Error allocating memory for contraction results in GPU.\n");
+
+		cudaMemset	(ctrnS, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
+
+		printfQuda	("%ld bytes allocated in GPU for contractions\n", sizeof(double)*64*X[0]*X[1]*X[2]*X[3]);
 	}
-
-	cudaMemset(h_ctrn, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
-
-	if	((cudaMalloc(&ctrnC, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+	else if	(param->cuda_prec == QUDA_SINGLE_PRECISION)
 	{
-		printfQuda	("Error allocating memory for contraction results in GPU.\n");
-		exit		(0);
+		if	((cudaMallocHost(&h_ctrn, sizeof(float)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+	        	errorQuda	("Error allocating memory for contraction results in CPU.\n");
+
+		cudaMemset(h_ctrn, 0, sizeof(float)*32*X[0]*X[1]*X[2]*X[3]);
+
+		if	((cudaMalloc(&ctrnC, sizeof(float)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+			errorQuda	("Error allocating memory for contraction results in GPU.\n");
+
+		cudaMemset(ctrnC, 0, sizeof(float)*32*X[0]*X[1]*X[2]*X[3]);
+
+		if	((cudaMalloc(&ctrnS, sizeof(float)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
+			errorQuda	("Error allocating memory for contraction results in GPU.\n");
+
+		cudaMemset	(ctrnS, 0, sizeof(float)*32*X[0]*X[1]*X[2]*X[3]);
+
+		printfQuda	("%ld bytes allocated in GPU for contractions\n", sizeof(float)*64*X[0]*X[1]*X[2]*X[3]);
 	}
-
-	cudaMemset(ctrnC, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
-
-
-	if	((cudaMalloc(&ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3])) == cudaErrorMemoryAllocation)
-	{
-		printfQuda	("Error allocating memory for contraction results in GPU.\n");
-		exit		(0);
-	}
-
-	cudaMemset	(ctrnS, 0, sizeof(double)*32*X[0]*X[1]*X[2]*X[3]);
-
-	printfQuda	("%ld bytes allocated in GPU for contractions\n", sizeof(double)*64*X[0]*X[1]*X[2]*X[3]);
+	else if	(param->cuda_prec == QUDA_SINGLE_PRECISION)
+		errorQuda	("Error: Contraction not supported in half precision.\n");
 
 	// wrap CPU host side pointers
 	ColorSpinorParam cpuParam(hp_b, param->input_location, *param, X, pc_solution);
@@ -1071,118 +1119,216 @@ void	oneEndTrickCG	(void *hp_x, void *hp_b, QudaInvertParam *param, void *cnRes_
 	gamma5Cuda	(&(tmp3->Even()), &(tmp4->Even()), blockTwost);
 	gamma5Cuda	(&(tmp3->Odd()),  &(tmp4->Odd()),  blockTwost);
 
-	printfQuda	("Synchronizing\n");
-
 	int	LX[4]	 = {X[0], X[1], X[2], X[3]};
 
-	if	(cudaDeviceSynchronize() != cudaSuccess)
+	long int	sizeBuffer;
+
+	if	(x->Precision() == QUDA_SINGLE_PRECISION)
 	{
-		printfQuda	("Error synchronizing!!!\n");
-		return;
+		sizeBuffer	= sizeof(float)*32*X[0]*X[1]*X[2]*X[3];
+
+		contractGamma5Cuda	(x->Even(), tmp3->Even(), ((float2*)ctrnS), 0, blockTwust, LX, QUDA_EVEN_PARITY);
+		contractGamma5Cuda	(x->Odd(),  tmp3->Odd(),  ((float2*)ctrnS), 0, blockTwust, LX, QUDA_ODD_PARITY);
+
+		cudaMemcpy	(h_ctrn, ctrnS, sizeof(float)*32*X[0]*X[1]*X[2]*X[3], cudaMemcpyDeviceToHost);
+
+		for	(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
+			((float*) cnRes_gv)[ix]	+= ((float*)h_ctrn)[ix];
+
+		contractGamma5Cuda	(x->Even(), x->Even(), ((float2*)ctrnS), 0, blockTwust, LX, QUDA_EVEN_PARITY);
+		contractGamma5Cuda	(x->Odd(),  x->Odd(),  ((float2*)ctrnS), 0, blockTwust, LX, QUDA_ODD_PARITY); 
+
+		cudaMemcpy	(h_ctrn, ctrnS, sizeof(float)*32*X[0]*X[1]*X[2]*X[3], cudaMemcpyDeviceToHost);
+
+		for	(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
+			((float *) cnRes_vv)[ix]       -= ((float*)h_ctrn)[ix];
+
+		printfQuda	("Locals contracted\n");
+		fflush		(stdout);
+
+		for	(int mu=0; mu<4; mu++)	//Hasta 4
+		{
+			covDev		(&(tmp4->Odd()),  *gaugePrecise, &(tmp3->Even()), QUDA_ODD_PARITY,  mu, dWParam.commDim);
+			covDev		(&(tmp4->Even()), *gaugePrecise, &(tmp3->Odd()),  QUDA_EVEN_PARITY, mu, dWParam.commDim);
+
+			contractGamma5Cuda	(x->Even(), tmp4->Even(), ((float2*)ctrnS), 0, blockTwust, LX, QUDA_EVEN_PARITY);		//Term0
+			contractGamma5Cuda	(x->Odd(),  tmp4->Odd(),  ((float2*)ctrnS), 0, blockTwust, LX, QUDA_ODD_PARITY);
+	                cudaDeviceSynchronize	();
+
+			cudaMemcpy		(ctrnC, ctrnS, sizeBuffer, cudaMemcpyDeviceToDevice);
+
+			covDev		(&(tmp4->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu, dWParam.commDim);
+			covDev		(&(tmp4->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu, dWParam.commDim);
+
+			contractGamma5Cuda	(tmp4->Even(), tmp3->Even(), ((float2*)ctrnC), 1, blockTwust, LX, QUDA_EVEN_PARITY);		//Term2 (C Sum)
+			contractGamma5Cuda	(tmp4->Odd(),  tmp3->Odd(),  ((float2*)ctrnC), 1, blockTwust, LX, QUDA_ODD_PARITY);
+
+	                contractGamma5Cuda	(tmp4->Even(), tmp3->Even(), ((float2*)ctrnS), 2, blockTwust, LX, QUDA_EVEN_PARITY);		//Term2 (D Dif)
+			contractGamma5Cuda	(tmp4->Odd(),  tmp3->Odd(),  ((float2*)ctrnS), 2, blockTwust, LX, QUDA_ODD_PARITY);
+
+			covDev		(&(tmp4->Even()), *gaugePrecise, &(tmp3->Odd()),  QUDA_EVEN_PARITY, mu+4, dWParam.commDim);
+			covDev		(&(tmp4->Odd()),  *gaugePrecise, &(tmp3->Even()), QUDA_ODD_PARITY,  mu+4, dWParam.commDim);
+
+			contractGamma5Cuda	(x->Even(), tmp4->Even(), ((float2*)ctrnS), 2, blockTwust, LX, QUDA_EVEN_PARITY);		//Term1
+			contractGamma5Cuda	(x->Odd(),  tmp4->Odd(),  ((float2*)ctrnS), 2, blockTwust, LX, QUDA_ODD_PARITY);
+
+			covDev		(&(tmp4->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu+4, dWParam.commDim);
+			covDev		(&(tmp4->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu+4, dWParam.commDim);
+
+			contractGamma5Cuda	(tmp4->Even(), tmp3->Even(), ((float2*)ctrnS), 1, blockTwust, LX, QUDA_EVEN_PARITY);		//Term3
+			contractGamma5Cuda	(tmp4->Odd(),  tmp3->Odd(),  ((float2*)ctrnS), 1, blockTwust, LX, QUDA_ODD_PARITY);
+			cudaDeviceSynchronize	();
+
+			cudaMemcpy		(h_ctrn, ctrnS, sizeBuffer, cudaMemcpyDeviceToHost);
+
+			for(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
+				((float *) cnD_gv[mu])[ix]	+= ((float*)h_ctrn)[ix];
+
+			cudaMemcpy		(h_ctrn, ctrnC, sizeBuffer, cudaMemcpyDeviceToHost);
+
+			for(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
+				((float *) cnC_gv[mu])[ix]	+= ((float*)h_ctrn)[ix];
+		}
+
+		for     (int mu=0; mu<4; mu++)
+		{
+			covDev		(&(tmp4->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu, dWParam.commDim);
+			covDev		(&(tmp4->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu, dWParam.commDim);
+      	
+      			contractGamma5Cuda	(x->Even(), tmp4->Even(), ((float2*)ctrnS), 0, blockTwust, LX, QUDA_EVEN_PARITY);
+      			contractGamma5Cuda	(x->Odd(),  tmp4->Odd(),  ((float2*)ctrnS), 0, blockTwust, LX, QUDA_ODD_PARITY);
+      	
+		      	contractGamma5Cuda	(tmp4->Even(), x->Even(), ((float2*)ctrnS), 2, blockTwust, LX, QUDA_EVEN_PARITY);
+      			contractGamma5Cuda	(tmp4->Odd(),  x->Odd(),  ((float2*)ctrnS), 2, blockTwust, LX, QUDA_ODD_PARITY);
+		      	cudaDeviceSynchronize	();
+
+	      		cudaMemcpy	(ctrnC, ctrnS, sizeBuffer, cudaMemcpyDeviceToDevice);
+
+			covDev		(&(tmp4->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu+4, dWParam.commDim);
+			covDev		(&(tmp4->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu+4, dWParam.commDim);
+
+			contractGamma5Cuda	(x->Even(), tmp4->Even(), ((float2*)ctrnS), 2, blockTwust, LX, QUDA_EVEN_PARITY);
+			contractGamma5Cuda	(x->Odd(),  tmp4->Odd(),  ((float2*)ctrnS), 2, blockTwust, LX, QUDA_ODD_PARITY);
+
+			contractGamma5Cuda	(tmp4->Even(), x->Even(), ((float2*)ctrnS), 1, blockTwust, LX, QUDA_EVEN_PARITY);
+			contractGamma5Cuda	(tmp4->Odd(),  x->Odd(),  ((float2*)ctrnS), 1, blockTwust, LX, QUDA_ODD_PARITY);
+			cudaDeviceSynchronize	();
+
+			cudaMemcpy	(h_ctrn, ctrnS, sizeBuffer, cudaMemcpyDeviceToHost);
+
+			for	(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
+				((float *) cnD_vv[mu])[ix]	-= ((float*)h_ctrn)[ix];
+
+			cudaMemcpy	(h_ctrn, ctrnC, sizeBuffer, cudaMemcpyDeviceToHost);
+
+			for	(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
+				((float *) cnC_vv[mu])[ix]	-= ((float*)h_ctrn)[ix];
+		}
 	}
-
-	contractGamma5Cuda	(x->Even(), tmp3->Even(), ((double2*)ctrnS), 0, blockTwust, LX, QUDA_EVEN_PARITY);
-	contractGamma5Cuda	(x->Odd(),  tmp3->Odd(),  ((double2*)ctrnS), 0, blockTwust, LX, QUDA_ODD_PARITY);
-
-	cudaMemcpy	(h_ctrn, ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3], cudaMemcpyDeviceToHost);
-
-	for	(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
-		((double *) cnRes_gv)[ix]	+= ((double*)h_ctrn)[ix];
-
-	contractGamma5Cuda	(x->Even(), x->Even(), ((double2*)ctrnS), 0, blockTwust, LX, QUDA_EVEN_PARITY);
-	contractGamma5Cuda	(x->Odd(),  x->Odd(),  ((double2*)ctrnS), 0, blockTwust, LX, QUDA_ODD_PARITY); 
-
-	cudaMemcpy	(h_ctrn, ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3], cudaMemcpyDeviceToHost);
-
-	for	(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
-		((double *) cnRes_vv)[ix]       -= ((double*)h_ctrn)[ix];
-
-	printfQuda	("Locals contracted\n");
-	fflush		(stdout);
-
-	for	(int mu=0; mu<4; mu++)	//Hasta 4
+	else if	(x->Precision() == QUDA_DOUBLE_PRECISION)
 	{
-		covDevQuda		(&(tmp4->Odd()),  *gaugePrecise, &(tmp3->Even()), QUDA_ODD_PARITY,  mu, dWParam.commDim);
-		covDevQuda		(&(tmp4->Even()), *gaugePrecise, &(tmp3->Odd()),  QUDA_EVEN_PARITY, mu, dWParam.commDim);
+		sizeBuffer	= sizeof(double)*32*X[0]*X[1]*X[2]*X[3];
 
-		contractGamma5Cuda	(x->Even(), tmp4->Even(), ((double2*)ctrnS), 0, blockTwust, LX, QUDA_EVEN_PARITY);		//Term0
-		contractGamma5Cuda	(x->Odd(),  tmp4->Odd(),  ((double2*)ctrnS), 0, blockTwust, LX, QUDA_ODD_PARITY);
-                cudaDeviceSynchronize	();
-
-		cudaMemcpy		(ctrnC, ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3], cudaMemcpyDeviceToDevice);
-
-		covDevQuda		(&(tmp4->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu, dWParam.commDim);
-		covDevQuda		(&(tmp4->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu, dWParam.commDim);
-
-		contractGamma5Cuda	(tmp4->Even(), tmp3->Even(), ((double2*)ctrnC), 1, blockTwust, LX, QUDA_EVEN_PARITY);		//Term2 (C Sum)
-		contractGamma5Cuda	(tmp4->Odd(),  tmp3->Odd(),  ((double2*)ctrnC), 1, blockTwust, LX, QUDA_ODD_PARITY);
-                cudaDeviceSynchronize	();
-
-                contractGamma5Cuda	(tmp4->Even(), tmp3->Even(), ((double2*)ctrnS), 2, blockTwust, LX, QUDA_EVEN_PARITY);		//Term2 (D Dif)
-		contractGamma5Cuda	(tmp4->Odd(),  tmp3->Odd(),  ((double2*)ctrnS), 2, blockTwust, LX, QUDA_ODD_PARITY);
-
-		covDevQuda		(&(tmp4->Odd()),  *gaugePrecise, &(tmp3->Even()), QUDA_ODD_PARITY,  mu+4, dWParam.commDim);
-		covDevQuda		(&(tmp4->Even()), *gaugePrecise, &(tmp3->Odd()),  QUDA_EVEN_PARITY, mu+4, dWParam.commDim);
-
-		contractGamma5Cuda	(x->Even(), tmp4->Even(), ((double2*)ctrnS), 2, blockTwust, LX, QUDA_EVEN_PARITY);		//Term1
-		contractGamma5Cuda	(x->Odd(),  tmp4->Odd(),  ((double2*)ctrnS), 2, blockTwust, LX, QUDA_ODD_PARITY);
-
-		covDevQuda		(&(tmp4->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu+4, dWParam.commDim);
-		covDevQuda		(&(tmp4->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu+4, dWParam.commDim);
-
-		contractGamma5Cuda	(tmp4->Even(), tmp3->Even(), ((double2*)ctrnS), 1, blockTwust, LX, QUDA_EVEN_PARITY);		//Term3
-		contractGamma5Cuda	(tmp4->Odd(),  tmp3->Odd(),  ((double2*)ctrnS), 1, blockTwust, LX, QUDA_ODD_PARITY);
-		cudaDeviceSynchronize	();
-
-		cudaMemcpy		(h_ctrn, ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3], cudaMemcpyDeviceToHost);
-
-		for(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
-			((double *) cnD_gv[mu])[ix]	+= ((double*)h_ctrn)[ix];
-
-		cudaMemcpy		(h_ctrn, ctrnC, sizeof(double)*32*X[0]*X[1]*X[2]*X[3], cudaMemcpyDeviceToHost);
-
-		for(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
-			((double *) cnC_gv[mu])[ix]	+= ((double*)h_ctrn)[ix];
-	}
-
-	for     (int mu=0; mu<4; mu++)
-	{
-		covDevQuda	(&(tmp4->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu, dWParam.commDim);
-		covDevQuda	(&(tmp4->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu, dWParam.commDim);
-		
-		contractGamma5Cuda	(x->Even(), tmp4->Even(), ((double2*)ctrnS), 0, blockTwust, LX, QUDA_EVEN_PARITY);
-		contractGamma5Cuda	(x->Odd(),  tmp4->Odd(),  ((double2*)ctrnS), 0, blockTwust, LX, QUDA_ODD_PARITY);
-		cudaDeviceSynchronize	();
-		
-		cudaMemcpy	(ctrnC, ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3], cudaMemcpyDeviceToDevice);
-		
-		contractGamma5Cuda	(tmp4->Even(), x->Even(), ((double2*)ctrnC), 2, blockTwust, LX, QUDA_EVEN_PARITY);
-		contractGamma5Cuda	(tmp4->Odd(),  x->Odd(),  ((double2*)ctrnC), 2, blockTwust, LX, QUDA_ODD_PARITY);
-		
-		contractGamma5Cuda	(tmp4->Even(), x->Even(), ((double2*)ctrnS), 2, blockTwust, LX, QUDA_EVEN_PARITY);
-		contractGamma5Cuda	(tmp4->Odd(),  x->Odd(),  ((double2*)ctrnS), 2, blockTwust, LX, QUDA_ODD_PARITY);
-		cudaDeviceSynchronize	();
-
-		covDevQuda	(&(tmp4->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu+4, dWParam.commDim);
-		covDevQuda	(&(tmp4->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu+4, dWParam.commDim);
-
-		contractGamma5Cuda	(x->Even(), tmp4->Even(), ((double2*)ctrnS), 2, blockTwust, LX, QUDA_EVEN_PARITY);
-		contractGamma5Cuda	(x->Odd(),  tmp4->Odd(),  ((double2*)ctrnS), 2, blockTwust, LX, QUDA_ODD_PARITY);
-
-		contractGamma5Cuda	(tmp4->Even(), x->Even(), ((double2*)ctrnS), 1, blockTwust, LX, QUDA_EVEN_PARITY);
-		contractGamma5Cuda	(tmp4->Odd(),  x->Odd(),  ((double2*)ctrnS), 1, blockTwust, LX, QUDA_ODD_PARITY);
-		cudaDeviceSynchronize	();
+		contractGamma5Cuda	(x->Even(), tmp3->Even(), ((double2*)ctrnS), 0, blockTwust, LX, QUDA_EVEN_PARITY);
+		contractGamma5Cuda	(x->Odd(),  tmp3->Odd(),  ((double2*)ctrnS), 0, blockTwust, LX, QUDA_ODD_PARITY);
 
 		cudaMemcpy	(h_ctrn, ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3], cudaMemcpyDeviceToHost);
 
 		for	(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
-			((double *) cnD_vv[mu])[ix]	-= ((double*)h_ctrn)[ix];
+			((double*) cnRes_gv)[ix]	+= ((double*)h_ctrn)[ix];
 
-		cudaMemcpy	(h_ctrn, ctrnC, sizeof(double)*32*X[0]*X[1]*X[2]*X[3], cudaMemcpyDeviceToHost);
+		contractGamma5Cuda	(x->Even(), x->Even(), ((double2*)ctrnS), 0, blockTwust, LX, QUDA_EVEN_PARITY);
+		contractGamma5Cuda	(x->Odd(),  x->Odd(),  ((double2*)ctrnS), 0, blockTwust, LX, QUDA_ODD_PARITY); 
+
+		cudaMemcpy	(h_ctrn, ctrnS, sizeof(double)*32*X[0]*X[1]*X[2]*X[3], cudaMemcpyDeviceToHost);
 
 		for	(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
-			((double *) cnC_vv[mu])[ix]	-= ((double*)h_ctrn)[ix];
+			((double *) cnRes_vv)[ix]       -= ((double*)h_ctrn)[ix];
+
+		printfQuda	("Locals contracted\n");
+		fflush		(stdout);
+
+		for	(int mu=0; mu<4; mu++)	//Hasta 4
+		{
+			covDev		(&(tmp4->Odd()),  *gaugePrecise, &(tmp3->Even()), QUDA_ODD_PARITY,  mu, dWParam.commDim);
+			covDev		(&(tmp4->Even()), *gaugePrecise, &(tmp3->Odd()),  QUDA_EVEN_PARITY, mu, dWParam.commDim);
+
+			contractGamma5Cuda	(x->Even(), tmp4->Even(), ((double2*)ctrnS), 0, blockTwust, LX, QUDA_EVEN_PARITY);		//Term0
+			contractGamma5Cuda	(x->Odd(),  tmp4->Odd(),  ((double2*)ctrnS), 0, blockTwust, LX, QUDA_ODD_PARITY);
+	                cudaDeviceSynchronize	();
+
+			cudaMemcpy		(ctrnC, ctrnS, sizeBuffer, cudaMemcpyDeviceToDevice);
+
+			covDev		(&(tmp4->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu, dWParam.commDim);
+			covDev		(&(tmp4->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu, dWParam.commDim);
+
+			contractGamma5Cuda	(tmp4->Even(), tmp3->Even(), ((double2*)ctrnC), 1, blockTwust, LX, QUDA_EVEN_PARITY);		//Term2 (C Sum)
+			contractGamma5Cuda	(tmp4->Odd(),  tmp3->Odd(),  ((double2*)ctrnC), 1, blockTwust, LX, QUDA_ODD_PARITY);
+
+	                contractGamma5Cuda	(tmp4->Even(), tmp3->Even(), ((double2*)ctrnS), 2, blockTwust, LX, QUDA_EVEN_PARITY);		//Term2 (D Dif)
+			contractGamma5Cuda	(tmp4->Odd(),  tmp3->Odd(),  ((double2*)ctrnS), 2, blockTwust, LX, QUDA_ODD_PARITY);
+
+			covDev		(&(tmp4->Odd()),  *gaugePrecise, &(tmp3->Even()), QUDA_ODD_PARITY,  mu+4, dWParam.commDim);
+			covDev		(&(tmp4->Even()), *gaugePrecise, &(tmp3->Odd()),  QUDA_EVEN_PARITY, mu+4, dWParam.commDim);
+
+			contractGamma5Cuda	(x->Even(), tmp4->Even(), ((double2*)ctrnS), 2, blockTwust, LX, QUDA_EVEN_PARITY);		//Term1
+			contractGamma5Cuda	(x->Odd(),  tmp4->Odd(),  ((double2*)ctrnS), 2, blockTwust, LX, QUDA_ODD_PARITY);
+
+			covDev		(&(tmp4->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu+4, dWParam.commDim);
+			covDev		(&(tmp4->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu+4, dWParam.commDim);
+
+			contractGamma5Cuda	(tmp4->Even(), tmp3->Even(), ((double2*)ctrnS), 1, blockTwust, LX, QUDA_EVEN_PARITY);		//Term3
+			contractGamma5Cuda	(tmp4->Odd(),  tmp3->Odd(),  ((double2*)ctrnS), 1, blockTwust, LX, QUDA_ODD_PARITY);
+			cudaDeviceSynchronize	();
+
+			cudaMemcpy		(h_ctrn, ctrnS, sizeBuffer, cudaMemcpyDeviceToHost);
+
+			for(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
+				((double *) cnD_gv[mu])[ix]	+= ((double*)h_ctrn)[ix];
+
+			cudaMemcpy		(h_ctrn, ctrnC, sizeBuffer, cudaMemcpyDeviceToHost);
+
+			for(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
+				((double *) cnC_gv[mu])[ix]	+= ((double*)h_ctrn)[ix];
+		}
+
+		for     (int mu=0; mu<4; mu++)
+		{
+			covDev		(&(tmp4->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu, dWParam.commDim);
+			covDev		(&(tmp4->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu, dWParam.commDim);
+      	
+      			contractGamma5Cuda	(x->Even(), tmp4->Even(), ((double2*)ctrnS), 0, blockTwust, LX, QUDA_EVEN_PARITY);
+      			contractGamma5Cuda	(x->Odd(),  tmp4->Odd(),  ((double2*)ctrnS), 0, blockTwust, LX, QUDA_ODD_PARITY);
+      	
+		      	contractGamma5Cuda	(tmp4->Even(), x->Even(), ((double2*)ctrnS), 2, blockTwust, LX, QUDA_EVEN_PARITY);
+      			contractGamma5Cuda	(tmp4->Odd(),  x->Odd(),  ((double2*)ctrnS), 2, blockTwust, LX, QUDA_ODD_PARITY);
+		      	cudaDeviceSynchronize	();
+
+	      		cudaMemcpy	(ctrnC, ctrnS, sizeBuffer, cudaMemcpyDeviceToDevice);
+
+			covDev		(&(tmp4->Odd()),  *gaugePrecise, &(x->Even()), QUDA_ODD_PARITY,  mu+4, dWParam.commDim);
+			covDev		(&(tmp4->Even()), *gaugePrecise, &(x->Odd()),  QUDA_EVEN_PARITY, mu+4, dWParam.commDim);
+
+			contractGamma5Cuda	(x->Even(), tmp4->Even(), ((double2*)ctrnS), 2, blockTwust, LX, QUDA_EVEN_PARITY);
+			contractGamma5Cuda	(x->Odd(),  tmp4->Odd(),  ((double2*)ctrnS), 2, blockTwust, LX, QUDA_ODD_PARITY);
+
+			contractGamma5Cuda	(tmp4->Even(), x->Even(), ((double2*)ctrnS), 1, blockTwust, LX, QUDA_EVEN_PARITY);
+			contractGamma5Cuda	(tmp4->Odd(),  x->Odd(),  ((double2*)ctrnS), 1, blockTwust, LX, QUDA_ODD_PARITY);
+			cudaDeviceSynchronize	();
+
+			cudaMemcpy	(h_ctrn, ctrnS, sizeBuffer, cudaMemcpyDeviceToHost);
+
+			for	(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
+				((double *) cnD_vv[mu])[ix]	-= ((double*)h_ctrn)[ix];
+
+			cudaMemcpy	(h_ctrn, ctrnC, sizeBuffer, cudaMemcpyDeviceToHost);
+
+			for	(int ix=0; ix<32*X[0]*X[1]*X[2]*X[3]; ix++)
+				((double *) cnC_vv[mu])[ix]	-= ((double*)h_ctrn)[ix];
+		}
 	}
+
+
 
 	if	(cudaDeviceSynchronize() != cudaSuccess)
 	{
