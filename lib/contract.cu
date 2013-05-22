@@ -19,10 +19,21 @@ namespace quda
 
 			bindSpinorTex<double2>(in); //for multi-gpu usage
 			gamma5Kernel<<<gridDim, blockDim, 0>>> ((double2*)out->V(), (float*)out->Norm(), dslashParam, in->Stride());
-	#else
+		#else
 			errorQuda("Double precision not supported on this GPU");
-	#endif
+		#endif
 		}
+		else if	(in->Precision() == QUDA_SINGLE_PRECISION)
+		{
+			dim3 blockDim (block.x, block.y, block.z);
+			dim3 gridDim( (dslashParam.threads+blockDim.x-1) / blockDim.x, 1, 1);
+
+			bindSpinorTex<float4>(in); //for multi-gpu usage
+			gamma5Kernel<<<gridDim, blockDim, 0>>> ((float4*)out->V(), (float*)out->Norm(), dslashParam, in->Stride());
+		}
+
+		cudaDeviceSynchronize	();
+		checkCudaError		();
 	}
 
 
@@ -63,74 +74,43 @@ namespace quda
 
 		if	(x.Precision() == QUDA_DOUBLE_PRECISION)
 		{
-			#ifndef USE_TEXTURE_OBJECTS
-				int	spinor_bytes	= x.Length()*sizeof(double);
-
-				cudaBindTexture(0, spinorTexDouble, x.V(), spinor_bytes);
-				cudaBindTexture(0, interTexDouble,  y.V(), spinor_bytes);
-			#else
-				dslashParam.inTex	 = (&x)->Tex();
-				dslashParam.inTexNorm	 = (&x)->TexNorm();
-				dslashParam.xTex	 = (&y)->Tex();
-				dslashParam.xTexNorm	 = (&y)->TexNorm();
-			#endif
+			bindSpinorTex<double2>(&x, &y);
 
 			switch	(sign)
 			{
 				default:
 				case	0:
-				contractGamma5KernelD     <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractGamma5Kernel     <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 	
 				case	1:
-				contractGamma5KernelPlusD <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractGamma5PlusKernel <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 
 				case	2:
-				contractGamma5KernelMinusD<<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractGamma5MinusKernel<<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 			}
-
-			#ifndef USE_TEXTURE_OBJECTS
-				cudaUnbindTexture(spinorTexDouble);
-				cudaUnbindTexture(interTexDouble);
-			#endif
 		}
-
-		if	(x.Precision() == QUDA_SINGLE_PRECISION)
+		else if	(x.Precision() == QUDA_SINGLE_PRECISION)
 		{
-			#ifndef USE_TEXTURE_OBJECTS
-				int	spinor_bytes	= x.Length()*sizeof(float);
-
-				cudaBindTexture(0, spinorTexSingle, x.V(), spinor_bytes);
-				cudaBindTexture(0, interTexSingle,  y.V(), spinor_bytes);
-			#else
-				dslashParam.inTex	 = (&x)->Tex();
-				dslashParam.inTexNorm	 = (&x)->TexNorm();
-				dslashParam.xTex	 = (&y)->Tex();
-				dslashParam.xTexNorm	 = (&y)->TexNorm();
-			#endif
+			bindSpinorTex<float4>(&x, &y);
 
 			switch	(sign)
 			{
 				default:
 				case	0:
-				contractGamma5KernelS     <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float2*)x.V(), (float2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractGamma5Kernel     <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 	
 				case	1:
-				contractGamma5KernelPlusS <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float2*)x.V(), (float2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractGamma5PlusKernel <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 
 				case	2:
-				contractGamma5KernelMinusS<<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float2*)x.V(), (float2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractGamma5MinusKernel<<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 			}
-
-			#ifndef USE_TEXTURE_OBJECTS
-				cudaUnbindTexture(spinorTexSingle);
-				cudaUnbindTexture(interTexSingle);
-			#endif
 		}
 
 		cudaDeviceSynchronize	();
@@ -171,11 +151,11 @@ namespace quda
 				break;
 		
 				case	1:
-				contractTsliceKernelPlusD <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
+				contractTslicePlusKernelD <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
 				break;
 
 				case	2:
-				contractTsliceKernelMinusD<<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
+				contractTsliceMinusKernelD<<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
 				break;
 			}
 
@@ -203,15 +183,15 @@ namespace quda
 			{
 				default:
 				case	0:
-				contractTsliceKernelS     <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float2*)x.V(), (float2*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
+				contractTsliceKernelS     <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
 				break;
 		
 				case	1:
-				contractTsliceKernelPlusS <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float2*)x.V(), (float2*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
+				contractTslicePlusKernelS <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
 				break;
 
 				case	2:
-				contractTsliceKernelMinusS<<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float2*)x.V(), (float2*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
+				contractTsliceMinusKernelS<<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
 				break;
 			}
 
@@ -257,11 +237,11 @@ namespace quda
 				break;
 	
 				case	1:
-				contractKernelPlusD <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractPlusKernelD <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 
 				case	2:
-				contractKernelMinusD<<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractMinusKernelD<<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 			}
 
@@ -289,15 +269,15 @@ namespace quda
 			{
 				default:
 				case	0:
-				contractKernelS     <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float2*)x.V(), (float2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractKernelS     <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 	
 				case	1:
-				contractKernelPlusS <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float2*)x.V(), (float2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractPlusKernelS <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 
 				case	2:
-				contractKernelMinusS<<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float2*)x.V(), (float2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractMinusKernelS<<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 			}
 

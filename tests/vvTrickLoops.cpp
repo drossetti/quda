@@ -23,7 +23,7 @@
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
 
-//#define	TESTPOINT
+#define	TESTPOINT
 //#define	RANDOM_CONF
 #define	CROSSCHECK
 
@@ -161,7 +161,8 @@ void	genRandomSource	(void *spinorIn, QudaInvertParam *inv_param, gsl_rng *rNum)
 			((float*) spinorIn)[i]		 = 0.;
 
 		if	(comm_rank() == 0)
-			((float*) spinorIn)[7864338]		 = 1.;		//t-Component
+//			((float*) spinorIn)[7864338]		 = 1.;		//t-Component
+			((float*) spinorIn)[18]		 = 1.;		//t-Component
 	}
 	else if	(inv_param->cpu_prec == QUDA_DOUBLE_PRECISION)
 	{
@@ -361,7 +362,7 @@ void	reOrder	(double *array1, double *array2, const int arrayOffset)
 	return;
 }
 
-int	doCudaFFT	(const int keep, void *cnRes_vv, void *cnRes_gv, void **cnD_vv, void **cnD_gv, void **cnC_vv, void **cnC_gv)
+int	doCudaFFT	(const int keep, void *cnRes_vv, void *cnRes_gv, void **cnD_vv, void **cnD_gv, void **cnC_vv, void **cnC_gv, QudaPrecision prec)
 {
 	static cufftHandle	fftPlan;
 	static int		init = 0;
@@ -388,6 +389,9 @@ int	doCudaFFT	(const int keep, void *cnRes_vv, void *cnRes_gv, void **cnD_vv, vo
 
 		return	0;
 	}
+
+	if	(prec == QUDA_DOUBLE_PRECISION)
+	{
 
 	if	(!init)
 	{
@@ -523,10 +527,150 @@ int	doCudaFFT	(const int keep, void *cnRes_vv, void *cnRes_gv, void **cnD_vv, vo
 
 	cudaFree	(ctrnS);
 
+	}
+	else if	(prec == QUDA_SINGLE_PRECISION)
+	{
+
+	if	(!init)
+	{
+		cudaStreamCreate	(&streamCuFFT);
+
+		if	(cufftPlanMany(&fftPlan, 3, nRank, nRank, 1, Vol, nRank, 1, Vol, CUFFT_C2C, 16*tdim) != CUFFT_SUCCESS)
+		{
+			printf	("Error in the FFT!!!\n");
+			return 1;
+		}
+
+		cufftSetCompatibilityMode	(fftPlan, CUFFT_COMPATIBILITY_NATIVE);
+		cufftSetStream			(fftPlan, streamCuFFT);
+
+		printfQuda	("Synchronizing\n");
+
+		if	(cudaDeviceSynchronize() != cudaSuccess)
+		{
+			printf	("Error synchronizing!!!\n");
+			return 1;
+		}
+
+		init	 = 1;
+	}
+	else
+		printfQuda	("CuFFT plan already initialized\n");
+
+	void	*ctrnS;
+
+	if	((cudaMalloc(&ctrnS, sizeof(float)*32*Vol*tdim)) == cudaErrorMemoryAllocation)
+	{
+		printf	("Error allocating memory for contraction results in GPU.\n");
+		exit	(0);
+	}
+	cudaMemcpy	(ctrnS, cnRes_vv, sizeof(float)*32*Vol*tdim, cudaMemcpyHostToDevice);
+
+	if	(cufftExecC2C(fftPlan, (float2 *) ctrnS, (float2 *) ctrnS, CUFFT_FORWARD) != CUFFT_SUCCESS)
+	{
+		printf  ("Error executing FFT!!!\n");
+		return 1;
+	}
+	
+	if	(cudaDeviceSynchronize() != cudaSuccess)
+	{
+		printf	("Error synchronizing!!!\n");
+		return 1;
+	}
+	
+	cudaMemcpy	(cnRes_vv, ctrnS, sizeof(float)*32*Vol*tdim, cudaMemcpyDeviceToHost);
+
+	cudaMemcpy	(ctrnS, cnRes_gv, sizeof(float)*32*Vol*tdim, cudaMemcpyHostToDevice);
+
+	if	(cufftExecC2C(fftPlan, (float2 *) ctrnS, (float2 *) ctrnS, CUFFT_FORWARD) != CUFFT_SUCCESS)
+	{
+		printf  ("Error executing FFT!!!\n");
+		return 1;
+	}
+	
+	if	(cudaDeviceSynchronize() != cudaSuccess)
+	{
+		printf	("Error synchronizing!!!\n");
+		return 1;
+	}
+	
+	cudaMemcpy	(cnRes_gv, ctrnS, sizeof(float)*32*Vol*tdim, cudaMemcpyDeviceToHost);
+
+	for	(int mu=0; mu<4; mu++)
+	{
+		cudaMemcpy	(ctrnS, cnD_gv[mu], sizeof(float)*32*Vol*tdim, cudaMemcpyHostToDevice);
+	
+		if	(cufftExecC2C(fftPlan, (float2 *) ctrnS, (float2 *) ctrnS, CUFFT_FORWARD) != CUFFT_SUCCESS)
+		{
+			printf  ("Error executing FFT!!!\n");
+			return 1;
+		}
+		
+		if	(cudaDeviceSynchronize() != cudaSuccess)
+		{
+			printf	("Error synchronizing!!!\n");
+			return 1;
+		}
+		
+		cudaMemcpy	(cnD_gv[mu], ctrnS, sizeof(float)*32*Vol*tdim, cudaMemcpyDeviceToHost);
+
+		cudaMemcpy	(ctrnS, cnD_vv[mu], sizeof(float)*32*Vol*tdim, cudaMemcpyHostToDevice);
+	
+		if	(cufftExecC2C(fftPlan, (float2 *) ctrnS, (float2 *) ctrnS, CUFFT_FORWARD) != CUFFT_SUCCESS)
+		{
+			printf  ("Error executing FFT!!!\n");
+			return 1;
+		}
+		
+		if	(cudaDeviceSynchronize() != cudaSuccess)
+		{
+			printf	("Error synchronizing!!!\n");
+			return 1;
+		}
+		
+		cudaMemcpy	(cnD_vv[mu], ctrnS, sizeof(float)*32*Vol*tdim, cudaMemcpyDeviceToHost);
+
+		cudaMemcpy	(ctrnS, cnC_gv[mu], sizeof(float)*32*Vol*tdim, cudaMemcpyHostToDevice);
+	
+		if	(cufftExecC2C(fftPlan, (float2 *) ctrnS, (float2 *) ctrnS, CUFFT_FORWARD) != CUFFT_SUCCESS)
+		{
+			printf  ("Error executing FFT!!!\n");
+			return 1;
+		}
+		
+		if	(cudaDeviceSynchronize() != cudaSuccess)
+		{
+			printf	("Error synchronizing!!!\n");
+			return 1;
+		}
+		
+		cudaMemcpy	(cnC_gv[mu], ctrnS, sizeof(float)*32*Vol*tdim, cudaMemcpyDeviceToHost);
+
+		cudaMemcpy	(ctrnS, cnC_vv[mu], sizeof(float)*32*Vol*tdim, cudaMemcpyHostToDevice);
+	
+		if	(cufftExecC2C(fftPlan, (float2 *) ctrnS, (float2 *) ctrnS, CUFFT_FORWARD) != CUFFT_SUCCESS)
+		{
+			printf  ("Error executing FFT!!!\n");
+			return 1;
+		}
+		
+		if	(cudaDeviceSynchronize() != cudaSuccess)
+		{
+			printf	("Error synchronizing!!!\n");
+			return 1;
+		}
+		
+		cudaMemcpy	(cnC_vv[mu], ctrnS, sizeof(float)*32*Vol*tdim, cudaMemcpyDeviceToHost);
+	}
+
+	cudaFree	(ctrnS);
+
+	}
+
 	return	0;
 }
 
-void	dumpData	(int nSols, const char *Pref, int **mom, void *cnRes_vv, void *cnRes_gv, void **cnD_vv, void **cnD_gv, void **cnC_vv, void **cnC_gv, const int iDiv)	//nSols -> nSol, iDiv desaparece
+void	dumpData	(int nSols, const char *Pref, int **mom, void *cnRes_vv, void *cnRes_gv, void **cnD_vv, void **cnD_gv, void **cnC_vv, void **cnC_gv, const int iDiv, QudaPrecision prec)
 {
 	FILE		*sfp;
 	FILE		*sfpMu;
@@ -536,136 +680,163 @@ void	dumpData	(int nSols, const char *Pref, int **mom, void *cnRes_vv, void *cnR
 
 	const int	Vol = xdim*ydim*zdim;
 
-	sprintf(file_name, "dOp.loop.%s.%04d.%d_%d", Pref, nConf, comm_size(), comm_rank()); 
-
-	if	((sfp = fopen(file_name, "wb")) == NULL)
-		printf("\nCannot open file %s\n", file_name),	exit(-1);
-
-	sprintf(file_name, "LpsDw.loop.%s.%04d.%d_%d", Pref, nConf, comm_size(), comm_rank()); 
-
-	if	((sfpMu = fopen(file_name, "wb")) == NULL)
-		printf("\nCannot open file %s\n", file_name),	exit(-1);
-
 	if	(iDiv)				//*	Y recuerda cambiar el nSols de abajo por nSol!!!
 		nSol	 = nSols;		//*
 	else					//*
 		nSol	 = 1;			//*
 
-	int	testMom	 = 0;
+	if	(prec == QUDA_DOUBLE_PRECISION)
+	{
+		sprintf(file_name, "dOp.loop.%s.%04d.%d_%d", Pref, nConf, comm_size(), comm_rank()); 
 
-	for	(int ip=0; ip<Vol; ip++)
-		for	(int wt=0; wt<tdim; wt++)
-		{
-			if	((mom[ip][0]*mom[ip][0] + mom[ip][1]*mom[ip][1] + mom[ip][2]*mom[ip][2]) <= MaxP)
+		if	((sfp = fopen(file_name, "wb")) == NULL)
+			printf("\nCannot open file %s\n", file_name),	exit(-1);
+
+		sprintf(file_name, "LpsDw.loop.%s.%04d.%d_%d", Pref, nConf, comm_size(), comm_rank()); 
+
+		if	((sfpMu = fopen(file_name, "wb")) == NULL)
+			printf("\nCannot open file %s\n", file_name),	exit(-1);
+
+		for	(int ip=0; ip<Vol; ip++)
+			for	(int wt=0; wt<tdim; wt++)
 			{
-		        	int	rT	 = wt+comm_coord(3)*tdim;
+				if	((mom[ip][0]*mom[ip][0] + mom[ip][1]*mom[ip][1] + mom[ip][2]*mom[ip][2]) <= MaxP)
+				{
+			        	int	rT	 = wt+comm_coord(3)*tdim;
 
-				double	testR[4]	 = { 0., 0., 0., 0.};								// TEST
-				double	testI[4]	 = { 0., 0., 0., 0.};								// TEST
-				double	testRO		 = 0.;										// TEST
-				double	testIO		 = 0.;										// TEST
+					for	(int gm=0; gm<16; gm++)
+					{										// TEST
+						fprintf (sfp, "%03d %02d %02d %+d %+d %+d %+.10le %+.10le\n", nSols, rT, gm, mom[ip][0], mom[ip][1], mom[ip][2],
+							((double2*)cnRes_gv)[ip+Vol*wt+Vol*tdim*gm].x/((double) nSol), ((double2*)cnRes_gv)[ip+Vol*wt+Vol*tdim*gm].y/((double) nSol));
 
-				for	(int gm=0; gm<16; gm++)
-				{										// TEST
-					fprintf (sfp, "%03d %02d %02d %+d %+d %+d %+.10le %+.10le\n", nSols, rT, gm, mom[ip][0], mom[ip][1], mom[ip][2],
-						((double2*)cnRes_gv)[ip+Vol*wt+Vol*tdim*gm].x/((double) nSol), ((double2*)cnRes_gv)[ip+Vol*wt+Vol*tdim*gm].y/((double) nSol));
-
-					for	(int mu = 0; mu < 4; mu++)
-					{
-						fprintf (sfpMu, "%03d %02d %d %02d %+d %+d %+d %+.10le %+.10le %+.10le %+.10le\n", nSols, rT, mu, gm, mom[ip][0], mom[ip][1], mom[ip][2],
-							((double2**)cnD_gv)[mu][ip+Vol*wt+Vol*tdim*gm].x/((double) nSol), ((double2**)cnD_gv)[mu][ip+Vol*wt+Vol*tdim*gm].y/((double) nSol),
-							((double2**)cnC_gv)[mu][ip+Vol*wt+Vol*tdim*gm].x/((double) nSol), ((double2**)cnC_gv)[mu][ip+Vol*wt+Vol*tdim*gm].y/((double) nSol));
-
-						if	((ip == testMom)&&((gm == 0)||(gm == 5)||(gm == 10)||(gm == 15)))			// TEST
+						for	(int mu = 0; mu < 4; mu++)
 						{
-							testR[mu]	+= ((double2**)cnC_gv)[mu][ip+Vol*wt+Vol*tdim*gm].x;
-							testI[mu]	+= ((double2**)cnC_gv)[mu][ip+Vol*wt+Vol*tdim*gm].y;
-
-							if	(mu == 0)
-							{
-								testRO	+= ((double2*)cnRes_gv)[ip+Vol*wt+Vol*tdim*gm].x;
-								testIO	+= ((double2*)cnRes_gv)[ip+Vol*wt+Vol*tdim*gm].y;
-							}
+							fprintf (sfpMu, "%03d %02d %d %02d %+d %+d %+d %+.10le %+.10le %+.10le %+.10le\n", nSols, rT, mu, gm, mom[ip][0], mom[ip][1], mom[ip][2],
+								((double2**)cnD_gv)[mu][ip+Vol*wt+Vol*tdim*gm].x/((double) nSol), ((double2**)cnD_gv)[mu][ip+Vol*wt+Vol*tdim*gm].y/((double) nSol),
+								((double2**)cnC_gv)[mu][ip+Vol*wt+Vol*tdim*gm].x/((double) nSol), ((double2**)cnC_gv)[mu][ip+Vol*wt+Vol*tdim*gm].y/((double) nSol));
 						}
+
+						fflush  (sfp);
+						fflush  (sfpMu);
 					}
 				}
-
-/*				if	(ip == testMom)
-					for	(int mu = 0; mu < 4; mu++)
-						printf	("%d %02d %+le %+le\n", mu, rT, testR[mu], testI[mu]);					// END TESTi
-
-				if	(ip == testMom)
-					printf	("D %02d %+le %+le\n", rT, testRO, testIO);					// END TESTi
-*/
-				fflush  (sfp);
-				fflush  (sfpMu);
 			}
-		}
+	}
+	else if	(prec == QUDA_SINGLE_PRECISION)
+	{
+		sprintf(file_name, "dOp.lpSg.%s.%04d.%d_%d", Pref, nConf, comm_size(), comm_rank()); 
+
+		if	((sfp = fopen(file_name, "wb")) == NULL)
+			printf("\nCannot open file %s\n", file_name),	exit(-1);
+
+		sprintf(file_name, "LpsDw.lpSg.%s.%04d.%d_%d", Pref, nConf, comm_size(), comm_rank()); 
+
+		if	((sfpMu = fopen(file_name, "wb")) == NULL)
+			printf("\nCannot open file %s\n", file_name),	exit(-1);
+
+		for	(int ip=0; ip<Vol; ip++)
+			for	(int wt=0; wt<tdim; wt++)
+			{
+				if	((mom[ip][0]*mom[ip][0] + mom[ip][1]*mom[ip][1] + mom[ip][2]*mom[ip][2]) <= MaxP)
+				{
+			        	int	rT	 = wt+comm_coord(3)*tdim;
+
+					for	(int gm=0; gm<16; gm++)
+					{										// TEST
+						fprintf (sfp, "%03d %02d %02d %+d %+d %+d %+.7e %+.7e\n", nSols, rT, gm, mom[ip][0], mom[ip][1], mom[ip][2],
+							((float2*)cnRes_gv)[ip+Vol*wt+Vol*tdim*gm].x/((float) nSol), ((float2*)cnRes_gv)[ip+Vol*wt+Vol*tdim*gm].y/((float) nSol));
+
+						for	(int mu = 0; mu < 4; mu++)
+						{
+							fprintf (sfpMu, "%03d %02d %d %02d %+d %+d %+d %+.7e %+.7e %+.7e %+.7e\n", nSols, rT, mu, gm, mom[ip][0], mom[ip][1], mom[ip][2],
+								((float2**)cnD_gv)[mu][ip+Vol*wt+Vol*tdim*gm].x/((float) nSol), ((float2**)cnD_gv)[mu][ip+Vol*wt+Vol*tdim*gm].y/((float) nSol),
+								((float2**)cnC_gv)[mu][ip+Vol*wt+Vol*tdim*gm].x/((float) nSol), ((float2**)cnC_gv)[mu][ip+Vol*wt+Vol*tdim*gm].y/((float) nSol));
+						}
+					}
+
+					fflush  (sfp);
+					fflush  (sfpMu);
+				}
+			}
+	}
 
 	fclose(sfp);
 	fclose(sfpMu);
 
-	sprintf(file_name, "Scalar.loop.%s.%04d.%d_%d", Pref, nConf, comm_size(), comm_rank()); 
+	if	(prec == QUDA_DOUBLE_PRECISION)
+	{
+		sprintf(file_name, "Scalar.loop.%s.%04d.%d_%d", Pref, nConf, comm_size(), comm_rank()); 
 
-	if	((sfp = fopen(file_name, "wb")) == NULL)
-		printf("\nCannot open file %s\n", file_name),	exit(-1);
+		if	((sfp = fopen(file_name, "wb")) == NULL)
+			printf("\nCannot open file %s\n", file_name),	exit(-1);
 
-	sprintf(file_name, "Loops.loop.%s.%04d.%d_%d", Pref, nConf, comm_size(), comm_rank()); 
+		sprintf(file_name, "Loops.loop.%s.%04d.%d_%d", Pref, nConf, comm_size(), comm_rank()); 
 
-	if	((sfpMu = fopen(file_name, "wb")) == NULL)
-		printf("\nCannot open file %s\n", file_name),	exit(-1);
+		if	((sfpMu = fopen(file_name, "wb")) == NULL)
+			printf("\nCannot open file %s\n", file_name),	exit(-1);
 
-//	printf	("\n\n\n");										// TEST
-
-	for	(int ip=0; ip<Vol; ip++)
-		for	(int wt=0; wt<tdim; wt++)
-		{
-			if	((mom[ip][0]*mom[ip][0] + mom[ip][1]*mom[ip][1] + mom[ip][2]*mom[ip][2]) <= MaxP)
+		for	(int ip=0; ip<Vol; ip++)
+			for	(int wt=0; wt<tdim; wt++)
 			{
-		        	int	rT	 = wt+comm_coord(3)*tdim;
+				if	((mom[ip][0]*mom[ip][0] + mom[ip][1]*mom[ip][1] + mom[ip][2]*mom[ip][2]) <= MaxP)
+				{
+			        	int	rT	 = wt+comm_coord(3)*tdim;
+	
+					for	(int gm=0; gm<16; gm++)
+					{										// TEST
+						fprintf (sfp, "%03d %02d %02d %+d %+d %+d %+.10le %+.10le\n", nSols, rT, gm, mom[ip][0], mom[ip][1], mom[ip][2],
+							((double2*)cnRes_vv)[ip+Vol*wt+Vol*tdim*gm].x/((double) nSol), ((double2*)cnRes_vv)[ip+Vol*wt+Vol*tdim*gm].y/((double) nSol));
 
-				double	testR[4]	 = { 0., 0., 0., 0.};								// TEST
-				double	testI[4]	 = { 0., 0., 0., 0.};								// TEST
-				double	testRO		 = 0.;										// TEST
-				double	testIO		 = 0.;										// TEST
-
-				for	(int gm=0; gm<16; gm++)
-				{										// TEST
-					fprintf (sfp, "%03d %02d %02d %+d %+d %+d %+.10le %+.10le\n", nSols, rT, gm, mom[ip][0], mom[ip][1], mom[ip][2],
-						((double2*)cnRes_vv)[ip+Vol*wt+Vol*tdim*gm].x/((double) nSol), ((double2*)cnRes_vv)[ip+Vol*wt+Vol*tdim*gm].y/((double) nSol));
-
-					for	(int mu = 0; mu < 4; mu++)
-					{
-						fprintf (sfpMu, "%03d %02d %d %02d %+d %+d %+d %+.10le %+.10le %+.10le %+.10le\n", nSols, rT, mu, gm, mom[ip][0], mom[ip][1], mom[ip][2],
-							((double2**)cnD_vv)[mu][ip+Vol*wt+Vol*tdim*gm].x/((double) nSol), ((double2**)cnD_vv)[mu][ip+Vol*wt+Vol*tdim*gm].y/((double) nSol),
-							((double2**)cnC_vv)[mu][ip+Vol*wt+Vol*tdim*gm].x/((double) nSol), ((double2**)cnC_vv)[mu][ip+Vol*wt+Vol*tdim*gm].y/((double) nSol));
-
-						if	((ip == testMom)&&((gm == 0)||(gm == 5)||(gm == 10)||(gm == 15)))			// TEST
+						for	(int mu = 0; mu < 4; mu++)
 						{
-							testR[mu]	+= ((double2**)cnC_vv)[mu][ip+Vol*wt+Vol*tdim*gm].x;
-							testI[mu]	+= ((double2**)cnC_vv)[mu][ip+Vol*wt+Vol*tdim*gm].y;
-
-							if	(mu == 0)
-							{
-								testRO	+= ((double2*)cnRes_vv)[ip+Vol*wt+Vol*tdim*gm].x;
-								testIO	+= ((double2*)cnRes_vv)[ip+Vol*wt+Vol*tdim*gm].y;
-							}
+							fprintf (sfpMu, "%03d %02d %d %02d %+d %+d %+d %+.10le %+.10le %+.10le %+.10le\n", nSols, rT, mu, gm, mom[ip][0], mom[ip][1], mom[ip][2],
+								((double2**)cnD_vv)[mu][ip+Vol*wt+Vol*tdim*gm].x/((double) nSol), ((double2**)cnD_vv)[mu][ip+Vol*wt+Vol*tdim*gm].y/((double) nSol),
+								((double2**)cnC_vv)[mu][ip+Vol*wt+Vol*tdim*gm].x/((double) nSol), ((double2**)cnC_vv)[mu][ip+Vol*wt+Vol*tdim*gm].y/((double) nSol));
 						}
 					}
 				}
-/*
-				if	(ip == testMom)
-					for	(int mu = 0; mu < 4; mu++)
-						printf	("%d %02d %+le %+le\n", mu, rT, testR[mu], testI[mu]);					// END TEST
 
-				if	(ip == testMom)
-					printf	("S %02d %+le %+le\n", rT, testRO, testIO);					// END TESTi
-*/
 				fflush  (sfp);
 				fflush  (sfpMu);
 			}
-		}
+	}
+	else if	(prec == QUDA_SINGLE_PRECISION)
+	{
+		sprintf(file_name, "Scalar.lpSg.%s.%04d.%d_%d", Pref, nConf, comm_size(), comm_rank()); 
 
+		if	((sfp = fopen(file_name, "wb")) == NULL)
+			printf("\nCannot open file %s\n", file_name),	exit(-1);
+
+		sprintf(file_name, "Loops.lpSg.%s.%04d.%d_%d", Pref, nConf, comm_size(), comm_rank()); 
+
+		if	((sfpMu = fopen(file_name, "wb")) == NULL)
+			printf("\nCannot open file %s\n", file_name),	exit(-1);
+
+		for	(int ip=0; ip<Vol; ip++)
+			for	(int wt=0; wt<tdim; wt++)
+			{
+				if	((mom[ip][0]*mom[ip][0] + mom[ip][1]*mom[ip][1] + mom[ip][2]*mom[ip][2]) <= MaxP)
+				{
+			        	int	rT	 = wt+comm_coord(3)*tdim;
+	
+					for	(int gm=0; gm<16; gm++)
+					{										// TEST
+						fprintf (sfp, "%03d %02d %02d %+d %+d %+d %+.7e %+.7e\n", nSols, rT, gm, mom[ip][0], mom[ip][1], mom[ip][2],
+							((float2*)cnRes_vv)[ip+Vol*wt+Vol*tdim*gm].x/((float) nSol), ((float2*)cnRes_vv)[ip+Vol*wt+Vol*tdim*gm].y/((float) nSol));
+
+						for	(int mu = 0; mu < 4; mu++)
+						{
+							fprintf (sfpMu, "%03d %02d %d %02d %+d %+d %+d %+.7e %+.7e %+.7e %+.7e\n", nSols, rT, mu, gm, mom[ip][0], mom[ip][1], mom[ip][2],
+								((float2**)cnD_vv)[mu][ip+Vol*wt+Vol*tdim*gm].x/((float) nSol), ((float2**)cnD_vv)[mu][ip+Vol*wt+Vol*tdim*gm].y/((float) nSol),
+								((float2**)cnC_vv)[mu][ip+Vol*wt+Vol*tdim*gm].x/((float) nSol), ((float2**)cnC_vv)[mu][ip+Vol*wt+Vol*tdim*gm].y/((float) nSol));
+						}
+					}
+				}
+
+				fflush  (sfp);
+				fflush  (sfpMu);
+			}
+	}
 
 	fclose(sfp);
 	fclose(sfpMu);
@@ -1041,20 +1212,36 @@ int	main	(int argc, char **argv)
 			fclose	(out);
 		#endif
 
-		doCudaFFT	(1, cnRes_vv, cnRes_gv, cnD_vv, cnD_gv, cnC_vv, cnC_gv);
+		doCudaFFT	(1, cnRes_vv, cnRes_gv, cnD_vv, cnD_gv, cnC_vv, cnC_gv, cuda_prec);
 
 		sprintf		(name, "H%03d.S%03d", numberHP, i);
-		dumpData	(1, name, mom, cnRes_vv, cnRes_gv, cnD_vv, cnD_gv, cnC_vv, cnC_gv, 0);
+		dumpData	(1, name, mom, cnRes_vv, cnRes_gv, cnD_vv, cnD_gv, cnC_vv, cnC_gv, 0, cuda_prec);
 
-		cudaMemset	(cnRes_vv, 0, tdim*16*Vol*sizeof(double2));
-		cudaMemset	(cnRes_gv, 0, tdim*16*Vol*sizeof(double2));
-
-		for	(int nu=0; nu<4; nu++)
+		if	(cuda_prec == QUDA_DOUBLE_PRECISION)
 		{
-			cudaMemset	(cnD_vv[nu], 0, tdim*16*Vol*sizeof(double2));
-			cudaMemset	(cnD_gv[nu], 0, tdim*16*Vol*sizeof(double2));
-			cudaMemset	(cnC_vv[nu], 0, tdim*16*Vol*sizeof(double2));
-			cudaMemset	(cnC_gv[nu], 0, tdim*16*Vol*sizeof(double2));
+			cudaMemset	(cnRes_vv, 0, tdim*16*Vol*sizeof(double2));
+			cudaMemset	(cnRes_gv, 0, tdim*16*Vol*sizeof(double2));
+
+			for	(int nu=0; nu<4; nu++)
+			{
+				cudaMemset	(cnD_vv[nu], 0, tdim*16*Vol*sizeof(double2));
+				cudaMemset	(cnD_gv[nu], 0, tdim*16*Vol*sizeof(double2));
+				cudaMemset	(cnC_vv[nu], 0, tdim*16*Vol*sizeof(double2));
+				cudaMemset	(cnC_gv[nu], 0, tdim*16*Vol*sizeof(double2));
+			}
+		}
+		else if	(cuda_prec == QUDA_SINGLE_PRECISION)
+		{
+			cudaMemset	(cnRes_vv, 0, tdim*16*Vol*sizeof(float2));
+			cudaMemset	(cnRes_gv, 0, tdim*16*Vol*sizeof(float2));
+
+			for	(int nu=0; nu<4; nu++)
+			{
+				cudaMemset	(cnD_vv[nu], 0, tdim*16*Vol*sizeof(float2));
+				cudaMemset	(cnD_gv[nu], 0, tdim*16*Vol*sizeof(float2));
+				cudaMemset	(cnC_vv[nu], 0, tdim*16*Vol*sizeof(float2));
+				cudaMemset	(cnC_gv[nu], 0, tdim*16*Vol*sizeof(float2));
+			}
 		}
 
 		if	(numberLP > 0)
@@ -1062,26 +1249,40 @@ int	main	(int argc, char **argv)
 			inv_param.tol	 = precisionLP;
 			oneEndTrickCG	(spinorOut, spinorIn, &inv_param, cnRes_gv, cnRes_vv, cnD_gv, cnD_vv, cnC_gv, cnC_vv);
 
-			doCudaFFT	(1, cnRes_vv, cnRes_gv, cnD_vv, cnD_gv, cnC_vv, cnC_gv);
+			doCudaFFT	(1, cnRes_vv, cnRes_gv, cnD_vv, cnD_gv, cnC_vv, cnC_gv, cuda_prec);
 
 			sprintf		(name, "M%03d.S%03d", numberHP, i);
-			dumpData	(1, name, mom, cnRes_vv, cnRes_gv, cnD_vv, cnD_gv, cnC_vv, cnC_gv, 0);
+			dumpData	(1, name, mom, cnRes_vv, cnRes_gv, cnD_vv, cnD_gv, cnC_vv, cnC_gv, 0, cuda_prec);
 
-			cudaMemset	(cnRes_vv, 0, tdim*16*Vol*sizeof(double2));
-			cudaMemset	(cnRes_gv, 0, tdim*16*Vol*sizeof(double2));
-
-			for	(int mu=0; mu<4; mu++)
+			if	(cuda_prec == QUDA_DOUBLE_PRECISION)
 			{
-				cudaMemset	(cnD_vv[mu], 0, tdim*16*Vol*sizeof(double2));
-				cudaMemset	(cnD_gv[mu], 0, tdim*16*Vol*sizeof(double2));
-				cudaMemset	(cnC_vv[mu], 0, tdim*16*Vol*sizeof(double2));
-				cudaMemset	(cnC_gv[mu], 0, tdim*16*Vol*sizeof(double2));
+				cudaMemset	(cnRes_vv, 0, tdim*16*Vol*sizeof(double2));
+				cudaMemset	(cnRes_gv, 0, tdim*16*Vol*sizeof(double2));
+
+				for	(int mu=0; mu<4; mu++)
+				{
+					cudaMemset	(cnD_vv[mu], 0, tdim*16*Vol*sizeof(double2));
+					cudaMemset	(cnD_gv[mu], 0, tdim*16*Vol*sizeof(double2));
+					cudaMemset	(cnC_vv[mu], 0, tdim*16*Vol*sizeof(double2));
+					cudaMemset	(cnC_gv[mu], 0, tdim*16*Vol*sizeof(double2));
+				}
+			}
+			else if	(cuda_prec == QUDA_SINGLE_PRECISION)
+			{
+				cudaMemset	(cnRes_vv, 0, tdim*16*Vol*sizeof(float2));
+				cudaMemset	(cnRes_gv, 0, tdim*16*Vol*sizeof(float2));
+
+				for	(int mu=0; mu<4; mu++)
+				{
+					cudaMemset	(cnD_vv[mu], 0, tdim*16*Vol*sizeof(float2));
+					cudaMemset	(cnD_gv[mu], 0, tdim*16*Vol*sizeof(float2));
+					cudaMemset	(cnC_vv[mu], 0, tdim*16*Vol*sizeof(float2));
+					cudaMemset	(cnC_gv[mu], 0, tdim*16*Vol*sizeof(float2));
+				}
 			}
 		}
 	}
 
-//	if	(numberLP > 0)
-//	{
 	for	(k=0; k<maxSources; k++)
 	{
 		if	((maxSources == 1) && (dataLP[k] == 0))
@@ -1096,25 +1297,42 @@ int	main	(int argc, char **argv)
 			oneEndTrickCG	(spinorOut, spinorIn, &inv_param, cnRes_gv, cnRes_vv, cnD_gv, cnD_vv, cnC_gv, cnC_vv);
 		}
 
-		doCudaFFT	(1, cnRes_vv, cnRes_gv, cnD_vv, cnD_gv, cnC_vv, cnC_gv);
+		doCudaFFT	(1, cnRes_vv, cnRes_gv, cnD_vv, cnD_gv, cnC_vv, cnC_gv, cuda_prec);
 
 		if	(flag && (k == (maxSources - 1)))
 			sprintf	(name, "L9999");
 		else
 			sprintf	(name, "L%04d", dataLP[k]);
-//		sprintf		(name, "L%04d", numberLP);
-		dumpData	(dataLP[k], name, mom, cnRes_vv, cnRes_gv, cnD_vv, cnD_gv, cnC_vv, cnC_gv, 0);	//dataLP[k] -> numberLP, el 1 se va
 
-		cudaMemset	(cnRes_vv, 0, tdim*16*Vol*sizeof(double2));
-		cudaMemset	(cnRes_gv, 0, tdim*16*Vol*sizeof(double2));
+		dumpData	(dataLP[k], name, mom, cnRes_vv, cnRes_gv, cnD_vv, cnD_gv, cnC_vv, cnC_gv, 0, cuda_prec);	//dataLP[k] -> numberLP, el 1 se va
 
-		for	(int mu=0; mu<4; mu++)							//*Todo esto se va al carajo
+		if	(cuda_prec == QUDA_DOUBLE_PRECISION)
 		{
-			cudaMemset	(cnD_vv[mu], 0, tdim*16*Vol*sizeof(double2));
-			cudaMemset	(cnD_gv[mu], 0, tdim*16*Vol*sizeof(double2));
-			cudaMemset	(cnC_vv[mu], 0, tdim*16*Vol*sizeof(double2));
-			cudaMemset	(cnC_gv[mu], 0, tdim*16*Vol*sizeof(double2));
-		}										//*---Hasta aquí---
+			cudaMemset	(cnRes_vv, 0, tdim*16*Vol*sizeof(double2));
+			cudaMemset	(cnRes_gv, 0, tdim*16*Vol*sizeof(double2));
+
+			for	(int mu=0; mu<4; mu++)							//*Todo esto se va al carajo
+			{
+				cudaMemset	(cnD_vv[mu], 0, tdim*16*Vol*sizeof(double2));
+				cudaMemset	(cnD_gv[mu], 0, tdim*16*Vol*sizeof(double2));
+				cudaMemset	(cnC_vv[mu], 0, tdim*16*Vol*sizeof(double2));
+				cudaMemset	(cnC_gv[mu], 0, tdim*16*Vol*sizeof(double2));
+			}										//*---Hasta aquí---
+		}
+		else
+		{
+			cudaMemset	(cnRes_vv, 0, tdim*16*Vol*sizeof(float2));
+			cudaMemset	(cnRes_gv, 0, tdim*16*Vol*sizeof(float2));
+
+			for	(int mu=0; mu<4; mu++)							//*Todo esto se va al carajo
+			{
+				cudaMemset	(cnD_vv[mu], 0, tdim*16*Vol*sizeof(float2));
+				cudaMemset	(cnD_gv[mu], 0, tdim*16*Vol*sizeof(float2));
+				cudaMemset	(cnC_vv[mu], 0, tdim*16*Vol*sizeof(float2));
+				cudaMemset	(cnC_gv[mu], 0, tdim*16*Vol*sizeof(float2));
+			}										//*---Hasta aquí---
+		}
+
 	}
 
 //	doCudaFFT	(0, NULL, NULL, NULL, NULL, NULL, NULL);

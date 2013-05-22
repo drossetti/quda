@@ -11,7 +11,11 @@ namespace quda
 	void	contractGamma5Cuda	(const cudaColorSpinorField &x, const cudaColorSpinorField &y, void *result, const int sign, const dim3 &blockDim, int *XS, const int Parity);
 	void	contractTsliceCuda	(const cudaColorSpinorField &x, const cudaColorSpinorField &y, void *result, const int sign, const dim3 &blockDim, int *XS, const int tslice, const int Parity);
 	void	gamma5Cuda		(cudaColorSpinorField *out, const cudaColorSpinorField *in, const dim3 &block);
+
+	template<typename Float, typename Float2>
 	void	covDevQuda		(cudaColorSpinorField *out, const cudaGaugeField &gauge, const cudaColorSpinorField *in, const int parity, const int mu, const int *commOverride);
+
+	void	covDev			(cudaColorSpinorField *out, const cudaGaugeField &gauge, const cudaColorSpinorField *in, const int parity, const int mu, const int *commOverride);
 }
 
 	void	loopPlainCG	(void *hp_x, void *hp_b, QudaInvertParam *param, void *ct, void *cDgv[4]);

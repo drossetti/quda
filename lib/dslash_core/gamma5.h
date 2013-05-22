@@ -61,16 +61,6 @@ __global__ void gamma5Kernel(double2 *spinor, float *null, DslashParam param, in
    I9.x = tmp3_re;
    I9.y = tmp3_im;
   
-/* 
-   I0.x = tmp2_re;
-   I0.y = tmp2_im;
-   I3.x = tmp3_re;
-   I3.y = tmp3_im;
-   I6.x = tmp0_re;
-   I6.y = tmp0_im;
-   I9.x = tmp1_re;
-   I9.y = tmp1_im;
-*/
    //get the 2nd color component:    
    
    tmp0_re = I7.x;
@@ -93,16 +83,7 @@ __global__ void gamma5Kernel(double2 *spinor, float *null, DslashParam param, in
    I7.y  = tmp2_im;
    I10.x = tmp3_re;
    I10.y = tmp3_im;
-/*
-   I1.x = tmp2_re;
-   I1.y = tmp2_im;
-   I4.x = tmp3_re;
-   I4.y = tmp3_im;
-   I7.x = tmp0_re;
-   I7.y = tmp0_im;
-   I10.x = tmp1_re;
-   I10.y = tmp1_im;
-*/
+
    //get the 3d color component:    
    
    tmp0_re = I8.x;
@@ -125,16 +106,7 @@ __global__ void gamma5Kernel(double2 *spinor, float *null, DslashParam param, in
    I8.y  = tmp2_im;
    I11.x = tmp3_re;
    I11.y = tmp3_im;
-/*
-   I2.x  = tmp2_re;
-   I2.y  = tmp2_im;
-   I5.x  = tmp3_re;
-   I5.y  = tmp3_im;
-   I8.x  = tmp0_re;
-   I8.y  = tmp0_im;
-   I11.x = tmp1_re;
-   I11.y = tmp1_im;
-*/
+
    spinor[sid +  0 * myStride] = I0;   
    spinor[sid +  1 * myStride] = I1;   
    spinor[sid +  2 * myStride] = I2;   
