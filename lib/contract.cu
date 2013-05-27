@@ -147,15 +147,15 @@ namespace quda
 			{
 				default:
 				case	0:
-				contractTsliceKernelD     <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
+				contractTsliceKernel     <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
 				break;
 		
 				case	1:
-				contractTslicePlusKernelD <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
+				contractTslicePlusKernel <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
 				break;
 
 				case	2:
-				contractTsliceMinusKernelD<<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
+				contractTsliceMinusKernel<<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
 				break;
 			}
 
@@ -183,15 +183,15 @@ namespace quda
 			{
 				default:
 				case	0:
-				contractTsliceKernelS     <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
+				contractTsliceKernel     <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
 				break;
 		
 				case	1:
-				contractTslicePlusKernelS <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
+				contractTslicePlusKernel <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
 				break;
 
 				case	2:
-				contractTsliceMinusKernelS<<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
+				contractTsliceMinusKernel<<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), tVolume, x.Stride(), XS[0], XS[1], XS[2], Tslice, Parity, dslashParam);
 				break;
 			}
 
@@ -233,15 +233,15 @@ namespace quda
 			{
 				default:
 				case	0:
-				contractKernelD     <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractKernel     <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 	
 				case	1:
-				contractPlusKernelD <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractPlusKernel <<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 
 				case	2:
-				contractMinusKernelD<<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractMinusKernel<<<gridDim, blockDim, blockDim.x*32*sizeof(double)>>>((double2*)result, (double2*)x.V(), (double2*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 			}
 
@@ -269,15 +269,15 @@ namespace quda
 			{
 				default:
 				case	0:
-				contractKernelS     <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractKernel     <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 	
 				case	1:
-				contractPlusKernelS <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractPlusKernel <<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 
 				case	2:
-				contractMinusKernelS<<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
+				contractMinusKernel<<<gridDim, blockDim, blockDim.x*32*sizeof(float)>>>((float2*)result, (float4*)x.V(), (float4*)y.V(), x.Volume(), x.Stride(), XS[0], XS[1], XS[2], Parity, dslashParam);
 				break;
 			}
 
