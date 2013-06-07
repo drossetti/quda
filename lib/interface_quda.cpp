@@ -200,7 +200,7 @@ void initCommsGridQuda(int nDim, const int *dims, QudaCommsMap func, void *fdata
   the communications topology since this is used to determine the
   device number if a negative device number is given.
  */
-void initQudaDevice(int dev) {
+void initQudaDevice(int dev,bool setCUDADevice) {
 
   //static bool initialized = false;
   if (initialized) return;
@@ -266,22 +266,28 @@ void initQudaDevice(int dev) {
   if (getVerbosity() >= QUDA_SUMMARIZE) {
     printfQuda("Using device %d: %s\n", dev, deviceProp.name);
   }
-  cudaSetDevice(dev);
-  checkCudaErrorNoSync(); // "NoSync" for correctness in HOST_DEBUG mode
+  if (setCUDADevice) {
+    cudaSetDevice(dev);     // Messes with GPU direct
+    checkCudaErrorNoSync(); // "NoSync" for correctness in HOST_DEBUG mode
+  }
 
 #ifdef NUMA_AFFINITY
   if(numa_affinity_enabled){
-    setNumaAffinity(dev);
+    if (setCUDADevice) {
+      setNumaAffinity(dev);  // Messes with GPU direct
+    }
   }
 #endif
 
-  // if the device supports host-mapped memory, then enable this
-  if(deviceProp.canMapHostMemory) cudaSetDeviceFlags(cudaDeviceMapHost);
-  checkCudaError();
-
+    // if the device supports host-mapped memory, then enable this
+  if (setCUDADevice) {
+    if(deviceProp.canMapHostMemory) cudaSetDeviceFlags(cudaDeviceMapHost);  // Messes with GPU direct
+    checkCudaError();
+  }    
   cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
   //cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
   cudaGetDeviceProperties(&deviceProp, dev);
+
 }
 
 /*

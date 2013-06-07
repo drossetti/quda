@@ -299,7 +299,7 @@ extern "C" {
    *               per-process basis or set to -1 to enable a default
    *               allocation of devices to processes.  
    */
-  void initQudaDevice(int device);
+  void initQudaDevice(int device, bool setCUDADevice=true);
 
   /**
    * Initialize the library persistant memory allocations (both host
