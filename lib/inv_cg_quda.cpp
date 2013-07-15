@@ -88,7 +88,8 @@ namespace quda {
     }
     
     const bool use_heavy_quark_res = 
-      (param.residual_type & QUDA_HEAVY_QUARK_RESIDUAL) ? true : false;
+      //(param.residual_type & QUDA_HEAVY_QUARK_RESIDUAL) ? true : false;
+      (param.tol_hq > 0) ? true : false;
     
     profile.Stop(QUDA_PROFILE_INIT);
     profile.Start(QUDA_PROFILE_PREAMBLE);

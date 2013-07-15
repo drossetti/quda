@@ -220,7 +220,8 @@ namespace quda {
     double b2 = normCuda(b);
 
     const bool use_heavy_quark_res = 
-      (param.residual_type & QUDA_HEAVY_QUARK_RESIDUAL) ? true : false;
+      //(param.residual_type & QUDA_HEAVY_QUARK_RESIDUAL) ? true : false;
+      (param.tol_hq > 0) ? true : false;
     double stop = b2*param.tol*param.tol; // stopping condition of solver
     double heavy_quark_res = 0.0; // heavy quark residual
     if(use_heavy_quark_res) heavy_quark_res = sqrt(HeavyQuarkResidualNormCuda(x,r).z);

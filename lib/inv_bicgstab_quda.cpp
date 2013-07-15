@@ -138,7 +138,8 @@ namespace quda {
     double stop = b2*param.tol*param.tol; // stopping condition of solver
 
     const bool use_heavy_quark_res = 
-      (param.residual_type & QUDA_HEAVY_QUARK_RESIDUAL) ? true : false;
+      //(param.residual_type & QUDA_HEAVY_QUARK_RESIDUAL) ? true : false;
+        (param.tol_hq > 0) ? true : false;
     double heavy_quark_res = use_heavy_quark_res ? sqrt(HeavyQuarkResidualNormCuda(x,r).z) : 0.0;
     int heavy_quark_check = 10; // how often to check the heavy quark residual
 

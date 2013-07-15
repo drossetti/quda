@@ -1611,19 +1611,30 @@ void invertMultiShiftQuda(void **_hp_x, void *_hp_b, QudaInvertParam *param)
   */
 
   // check each shift has the desired tolerance and use sequential CG to refine
+  // SGottlieb, does not seem to work for heavy quark so skip those
   
   cudaParam.create = QUDA_ZERO_FIELD_CREATE;
   cudaColorSpinorField r(*b, cudaParam);
   for(int i=0; i < param->num_offset; i++) { 
-    double rsd_hq = param->residual_type & QUDA_HEAVY_QUARK_RESIDUAL ?
+    //double rsd_hq = param->residual_type & QUDA_HEAVY_QUARK_RESIDUAL ?
+    double rsd_hq = param->tol_hq_offset[i] > 0 ?
       param->true_res_hq_offset[i] : 0;
     
-    double tol_hq = param->residual_type & QUDA_HEAVY_QUARK_RESIDUAL ?
+    //double tol_hq = param->residual_type & QUDA_HEAVY_QUARK_RESIDUAL ?
+    double tol_hq = param->tol_hq_offset[i] > 0 ?
       param->tol_hq_offset[i] : 0;
+
+    double rsd_l2 = param->tol_offset[i] > 0 ?
+      param->true_res_offset[i] : 0;
+
+    double tol_l2 = param->tol_offset[i] > 0 ?
+      param->tol_offset[i] : 0;
     
     // refine if either L2 or heavy quark residual tolerances have not been met
-    if (param->true_res_offset[i] > param->tol_offset[i] || rsd_hq > tol_hq) {
-      if (getVerbosity() >= QUDA_VERBOSE) 
+    //if (param->true_res_offset[i] > param->tol_offset[i] || rsd_hq > tol_hq) {
+// SGottlieb, don't want heavy quark case refined!!
+ if (rsd_l2 > tol_l2 &&  tol_hq == 0 ) {
+      //if (getVerbosity() >= QUDA_VERBOSE) 
 	printfQuda("Refining shift %d: L2 residual %e / %e, heavy quark %e / %e (actual / requested)\n",
 		   i, param->true_res_offset[i], param->tol_offset[i], rsd_hq, tol_hq);
       
@@ -1658,6 +1669,10 @@ void invertMultiShiftQuda(void **_hp_x, void *_hp_b, QudaInvertParam *param)
 	diracSloppy.setMass(sqrt(param->offset[0]/4)); // restore just in case
       }
     }
+    else
+        printfQuda("NOT Refining shift %d: L2 residual %e / %e, heavy quark %e / %e (actual / requested)\n",
+                   i, param->true_res_offset[i], param->tol_offset[i], rsd_hq, tol_hq);
+
   }
 
   // restore shifts -- avoid side effects

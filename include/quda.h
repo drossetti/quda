@@ -212,7 +212,7 @@ extern "C" {
      * p.residual_type = (QudaResidualType) (QUDA_L2_RELATIVE_RESIDUAL
      *                                     | QUDA_HEAVY_QUARK_RESIDUAL);
      */
-    QudaResidualType residual_type;
+    /* QudaResidualType residual_type; */
 
   } QudaInvertParam;
 
