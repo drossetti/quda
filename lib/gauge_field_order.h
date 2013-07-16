@@ -213,29 +213,19 @@ namespace quda {
       Reconstruct<reconLen,Float> reconstruct;
       Float *gauge[2];
       Float *ghost[4];
-      Float *gauge_phase[2];
-      Float *ghost_phase[4];
       int faceVolumeCB[QUDA_MAX_DIM];
       const int volumeCB;
       const int stride;
-      const int has_phase; // Still don't know when to set has_phase
+      const int hasPhase; 
 
       FloatNOrder(const GaugeField &u, Float *gauge_=0, Float **ghost_=0, Float *gauge_phase_=0, Float **ghost_phase_=0) : 
-        reconstruct(u), volumeCB(u.VolumeCB()), stride(u.Stride()) {
+        reconstruct(u), volumeCB(u.VolumeCB()), stride(u.Stride()), hasPhase((u.Reconstruct() == QUDA_RECONSTRUCT_9 || u.Reconstruct() == QUDA_RECONSTRUCT_13) ? 1 : 0) {
           if (gauge_) { gauge[0] = gauge_; gauge[1] = (Float*)((char*)gauge_ + u.Bytes()/2);
           } else { gauge[0] = (Float*)u.Gauge_p(); gauge[1] = (Float*)((char*)u.Gauge_p() + u.Bytes()/2);	}
-
-          if(gauge_phase_) { 
-            gauge_phase[0] = gauge_phase_;
-            gauge_phase[1] = gauge_phase_ + (Float*)((char*)gauge_phase_ + u.Bytes()/2);  
-            // This should work, I think.
-          }
-
 
 
           for (int i=0; i<4; i++) {
             ghost[i] = ghost_ ? ghost_[i] : 0; 
-            ghost_phase[i] = ghost_phase_ ? ghost_phase[i] : 0;
             faceVolumeCB[i] = u.SurfaceCB(i)*u.Nface(); // face volume equals surface * depth	  
           }
         }
@@ -243,14 +233,11 @@ namespace quda {
 
 
       FloatNOrder(const FloatNOrder &order) 
-        : reconstruct(order.reconstruct), volumeCB(order.volumeCB), stride(order.stride) {
+        : reconstruct(order.reconstruct), volumeCB(order.volumeCB), stride(order.stride), hasPhase(order.hasPhase) {
           gauge[0] = order.gauge[0];
           gauge[1] = order.gauge[1];
-          gauge_phase[0] = order.gauge_phase[0];
-          gauge_phase[1] = order.gauge_phase[1];
           for (int i=0; i<4; i++) {
             ghost[i] = order.ghost[i];
-            ghost_phase[i] = order.ghost_phase[i];
             faceVolumeCB[i] = order.faceVolumeCB[i];
           }
         }
@@ -264,14 +251,14 @@ namespace quda {
           for (int j=0; j<N; j++) {
             int intIdx = i*N + j; // internal dof index
             int padIdx = intIdx / N;
-            copy(tmp[i*N+j], gauge[parity][dir*stride*(M*N + has_phase) + (padIdx*stride + x)*N + intIdx%N]);
+            copy(tmp[i*N+j], gauge[parity][dir*stride*(M*N + hasPhase) + (padIdx*stride + x)*N + intIdx%N]);
           }
         }
         RegType phase = 0.;
-        if(has_phase) copy(phase, gauge[parity][(dir*stride)*(M*N+1) + stride*M*N + x]);
+        if(hasPhase) copy(phase, gauge[parity][(dir*stride)*(M*N+1) + stride*M*N + x]);
         // The phases come after the ghost matrices
         // Hence the M*N+1
-        // Note above that has_phase should be either 0 or 1
+        // Note above that hasPhase should be either 0 or 1
         reconstruct.Unpack(v, tmp, x, dir, phase);
       }
 
@@ -283,10 +270,10 @@ namespace quda {
           for (int j=0; j<N; j++) {
             int intIdx = i*N + j;
             int padIdx = intIdx / N;
-            copy(gauge[parity][dir*stride*(M*N + has_phase) + (padIdx*stride + x)*N + intIdx%N], tmp[i*N+j]);
+            copy(gauge[parity][dir*stride*(M*N + hasPhase) + (padIdx*stride + x)*N + intIdx%N], tmp[i*N+j]);
           }
         }
-        if(has_phase){
+        if(hasPhase){
           RegType phase;
           reconstruct.getPhase(&phase,v);
           copy(gauge[parity][dir*stride*(M*N + 1) + stride*M*N + x], phase); 
@@ -299,7 +286,7 @@ namespace quda {
       __device__ __host__ inline void loadGhost(RegType v[length], int x, int dir, int parity) const {
         if (!ghost[dir]) { // load from main field not separate array
           load(v, volumeCB+x, dir, parity); // an offset of size volumeCB puts us at the padded region
-                                            // This also works perfectly when phases are stored. No need to change this.
+          // This also works perfectly when phases are stored. No need to change this.
         } else {
           // J.F. Need to worry about phases here at some point. 
           // If we are packing MPI buffers, the phases need to be sent as well.
@@ -309,14 +296,13 @@ namespace quda {
             for (int j=0; j<N; j++) {
               int intIdx = i*N + j; // internal dof index
               int padIdx = intIdx / N;
-              copy(tmp[i*N+j], ghost[dir][parity*faceVolumeCB[dir]*(M*N + has_phase) + (padIdx*faceVolumeCB[dir]+x)*N + intIdx%N]);
+              copy(tmp[i*N+j], ghost[dir][parity*faceVolumeCB[dir]*(M*N + hasPhase) + (padIdx*faceVolumeCB[dir]+x)*N + intIdx%N]);
               // Layout is ghost[dir][parity][reconLen*spacetime + spacetime], 
               // where the "spacetime" tacked on to the end holds the phase.
             }
           }
-      
           RegType phase=0.; 
-          copy(phase, ghost[dir][parity*faceVolumeCB[dir]*(M*N + 1) + faceVolumeCB[dir]*M*N + x]); 
+          if(hasPhase) copy(phase, ghost[dir][parity*faceVolumeCB[dir]*(M*N + 1) + faceVolumeCB[dir]*M*N + x]); 
           reconstruct.Unpack(v, tmp, x, dir, phase);	 
         }
       }
@@ -333,21 +319,22 @@ namespace quda {
               int intIdx = i*N + j;
               int padIdx = intIdx / N;
               //copy(ghost[dir][(parity*faceVolumeCB[dir]*M + padIdx*faceVolumeCB[dir]+x)*N + intIdx%N], tmp[i*N+j]);
-              copy(ghost[dir][parity*faceVolumeCB[dir]*(M*N + has_phase) + (padIdx*faceVolumeCB[dir]+x)*N + intIdx%N], tmp[i*N+j]);
+              copy(ghost[dir][parity*faceVolumeCB[dir]*(M*N + hasPhase) + (padIdx*faceVolumeCB[dir]+x)*N + intIdx%N], tmp[i*N+j]);
             }
           }
-          if(has_phase){
+          if(hasPhase){
             // J.F. - Need to rethink this. Don't want to recalculate the phase everytime if it is unnecessary.
             // For example, if the output tolerance is lower.
             // I could always just pass the phase as an argument to saveGhost. 
-            // If the value passed in is zero and has_phase is specified then recompute. 
+            // If the value passed in is zero and hasPhase is specified then recompute. 
             // Otherwise use the value passed in.
             RegType phase=0.;
-            reconstruct.getPhase(&phase, v); /
+            reconstruct.getPhase(&phase, v); 
             copy(ghost[dir][parity*faceVolumeCB[dir]*(M*N + 1) + faceVolumeCB[dir]*M*N + x], phase);
           }
         }
       }
+
 
       size_t Bytes() const { return reconLen * sizeof(Float); }
     };

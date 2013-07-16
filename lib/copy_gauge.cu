@@ -182,7 +182,8 @@ namespace quda {
 	sites = 0;
 	for (int d=0; d<4; d++) sites += arg.faceVolumeCB[d];
       }
-      return 2 * sites * (arg.in.Bytes() + arg.out.Bytes()); 
+      return 2 * sites * (  arg.in.Bytes() + arg.in.hasPhase*sizeof(FloatIn) 
+                          + arg.out.Bytes() + arg.out.hasPhase*sizeof(FloatOut) ); 
     } 
   };
 
