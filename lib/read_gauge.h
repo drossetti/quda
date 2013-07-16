@@ -491,13 +491,13 @@
   float exp_iphase_re, exp_iphase_im;                        \
   __sincosf(phase, &exp_iphase_im, &exp_iphase_re);          \
   float A_re, A_im;                                          \
-  COMPLEX_DOT_PRODUCT(A, exp_iphase, gauge##20);             \
+  COMPLEX_PRODUCT(A, exp_iphase, gauge##20);                 \
   gauge##20_re = A_re;                                       \
   gauge##20_im = A_im;                                       \
-  COMPLEX_DOT_PRODUCT(A, exp_iphase, gauge##21);             \
+  COMPLEX_PRODUCT(A, exp_iphase, gauge##21);                 \
   gauge##21_re = A_re;                                       \
   gauge##21_im = A_im;                                       \
-  COMPLEX_DOT_PRODUCT(A, exp_iphase, gauge##22);             \
+  COMPLEX_PRODUCT(A, exp_iphase, gauge##22);                 \
   gauge##22_re = A_re;                                       \
   gauge##22_im = A_im;                                       \
 }
@@ -507,13 +507,13 @@
   double exp_iphase_re, exp_iphase_im;                        \
   sincos(phase, &exp_iphase_im, &exp_iphase_re);              \
   double A_re, A_im;                                          \
-  COMPLEX_DOT_PRODUCT(A, exp_iphase, gauge##20);              \
+  COMPLEX_PRODUCT(A, exp_iphase, gauge##20);                  \
   gauge##20_re = A_re;                                        \
   gauge##20_im = A_im;                                        \
-  COMPLEX_DOT_PRODUCT(A, exp_iphase, gauge##21);              \
+  COMPLEX_PRODUCT(A, exp_iphase, gauge##21);                  \
   gauge##21_re = A_re;                                        \
   gauge##21_im = A_im;                                        \
-  COMPLEX_DOT_PRODUCT(A, exp_iphase, gauge##22);              \
+  COMPLEX_PRODUCT(A, exp_iphase, gauge##22);                  \
   gauge##22_re = A_re;                                        \
   gauge##22_im = A_im;                                        \
 }
@@ -606,13 +606,13 @@
   float exp_iphase_re, exp_iphase_im;                         \
   __sincosf(phase, &exp_iphase_im, &exp_iphase_re);           \
   float B_re, B_im;                                           \
-  COMPLEX_DOT_PRODUCT(B, exp_iphase, gauge##20);              \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##20);                  \
   gauge##20_re = B_re;                                        \
   gauge##20_im = B_im;                                        \
-  COMPLEX_DOT_PRODUCT(B, exp_iphase, gauge##21);              \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##21);                  \
   gauge##21_re = B_re;                                        \
   gauge##21_im = B_im;                                        \
-  COMPLEX_DOT_PRODUCT(B, exp_iphase, gauge##22);              \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##22);                  \
   gauge##22_re = B_re;                                        \
   gauge##22_im = B_im;                                        \
 }   
@@ -623,13 +623,13 @@
   double exp_iphase_re, exp_iphase_im;                       \
   sincos(phase, &exp_iphase_im, &exp_iphase_re);             \
   double B_re, B_im;                                         \
-  COMPLEX_DOT_PRODUCT(B, exp_iphase, gauge##20);             \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##20);                 \
   gauge##20_re = B_re;                                       \
   gauge##20_im = B_im;                                       \
-  COMPLEX_DOT_PRODUCT(B, exp_iphase, gauge##21);             \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##21);                 \
   gauge##21_re = B_re;                                       \
   gauge##21_im = B_im;                                       \
-  COMPLEX_DOT_PRODUCT(B, exp_iphase, gauge##22);             \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##22);                 \
   gauge##22_re = B_re;                                       \
   gauge##22_im = B_im;                                       \
 }   

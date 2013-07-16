@@ -11,6 +11,13 @@ namespace quda {
       a[1] += sign*(b[0]*c[1] + b[1]*c[0]);
     }
 
+  // a = b*c
+  template <typename Float>
+    __device__ __host__ inline void complexProduct(Float *a, Float *b, Float *c, Float sign) {
+      a[0] = b[0]*c[0] - b[1]*c[1];
+      a[1] = b[0]*c[1] + b[1]*c[0];
+    }
+
   // a = conj(b)*c
   template <typename Float>
     __device__ __host__ inline void complexDotProduct(Float *a, Float *b, Float *c) {
@@ -41,7 +48,7 @@ namespace quda {
       __device__ __host__ inline void Pack(RegType out[N], const RegType in[N]) const {
         for (int i=0; i<N; i++) out[i] = in[i];
       }
-      __device__ __host__ inline void Unpack(RegType out[N], const RegType in[N], int idx, int dir, const RegType phase=0.) const {
+      __device__ __host__ inline void Unpack(RegType out[N], const RegType in[N], int idx, int dir, const RegType phase) const {
         for (int i=0; i<N; i++) out[i] = in[i];
       }
     };
@@ -105,7 +112,14 @@ namespace quda {
       }
 
       __device__ __host__ inline void Unpack(RegType out[18], const RegType in[12], int idx, int dir, const RegType phase) const {
-        reconstruct_12.Unpack(out, in, idx, dir);
+        reconstruct_12.Unpack(out, in, idx, dir, phase);
+        // Multiply the third row by exp(I*phase)
+        RegType sin_cos[2];
+        Trig<isHalf<Float>::value>::SinCos(phase, &sin_cos[0], &sin_cos[1]);     
+        RegType tmp[2];
+        complexProduct(tmp, sin_cos, &out[12]); out[12] = tmp[0]; out[13] = tmp[1];
+        complexProduct(tmp, sin_cos, &out[14]); out[14] = tmp[0]; out[15] = tmp[1];
+        complexProduct(tmp, sin_cos, &out[16]); out[16] = tmp[0]; out[17] = tmp[1];
       }
     };
 
@@ -127,7 +141,7 @@ namespace quda {
       }
 
       __device__ __host__ inline void Unpack(RegType out[18], const RegType in[8],
-          int idx, int dir, const RegType phase=0.) const {
+          int idx, int dir, const RegType phase) const {
         // First reconstruct first row
         RegType row_sum = 0.0;
         for (int i=2; i<6; i++) {
@@ -202,7 +216,14 @@ namespace quda {
       }
 
       __device__ __host__ inline void Unpack(RegType out[18], const RegType in[8], int idx, int dir, const RegType phase) const {
-        reconstruct_8.Unpack(out, in, idx, dir);
+        reconstruct_8.Unpack(out, in, idx, dir, phase);
+        // Multiply the third row by exp(I*phase)
+        RegType sin_cos[2];
+        Trig<isHalf<Float>::value>::SinCos(phase, &sin_cos[0], &sin_cos[1]);     
+        RegType tmp[2];
+        complexProduct(tmp, sin_cos, &out[12]); out[12] = tmp[0]; out[13] = tmp[1];
+        complexProduct(tmp, sin_cos, &out[14]); out[14] = tmp[0]; out[15] = tmp[1];
+        complexProduct(tmp, sin_cos, &out[16]); out[16] = tmp[0]; out[17] = tmp[1];
       }
     };
 
