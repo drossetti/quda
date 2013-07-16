@@ -485,6 +485,42 @@
     gauge##20_re *=u0;gauge##20_im *=u0; gauge##21_re *=u0; gauge##21_im *=u0; \
     gauge##22_re *=u0;gauge##22_im *=u0;}
 
+
+#define RECONSTRUCT_GAUGE_MATRIX_13_SINGLE(dir, gauge, idx, sign) { \
+  RECONSTRUCT_GAUGE_MATRIX_12_SINGLE(dir, gauge, idx, sign)  \
+  float exp_iphase_re, exp_iphase_im;                        \
+  __sincosf(phase, &exp_iphase_im, &exp_iphase_re);          \
+  float A_re, A_im;                                          \
+  COMPLEX_DOT_PRODUCT(A, exp_iphase, gauge##20);             \
+  gauge##20_re = A_re;                                       \
+  gauge##20_im = A_im;                                       \
+  COMPLEX_DOT_PRODUCT(A, exp_iphase, gauge##21);             \
+  gauge##21_re = A_re;                                       \
+  gauge##21_im = A_im;                                       \
+  COMPLEX_DOT_PRODUCT(A, exp_iphase, gauge##22);             \
+  gauge##22_re = A_re;                                       \
+  gauge##22_im = A_im;                                       \
+}
+
+#define RECONSTRUCT_GAUGE_MATRIX_13_DOUBLE(dir, gauge, idx, sign) { \
+  RECONSTRUCT_GAUGE_MATRIX_12_DOUBLE(dir, gauge, idx, sign)   \
+  double exp_iphase_re, exp_iphase_im;                        \
+  sincos(phase, &exp_iphase_im, &exp_iphase_re);              \
+  double A_re, A_im;                                          \
+  COMPLEX_DOT_PRODUCT(A, exp_iphase, gauge##20);              \
+  gauge##20_re = A_re;                                        \
+  gauge##20_im = A_im;                                        \
+  COMPLEX_DOT_PRODUCT(A, exp_iphase, gauge##21);              \
+  gauge##21_re = A_re;                                        \
+  gauge##21_im = A_im;                                        \
+  COMPLEX_DOT_PRODUCT(A, exp_iphase, gauge##22);              \
+  gauge##22_re = A_re;                                        \
+  gauge##22_im = A_im;                                        \
+}
+
+
+
+
 #define RECONSTRUCT_GAUGE_MATRIX_8_DOUBLE(dir, gauge, idx, sign)	\
   double row_sum = gauge##01_re*gauge##01_re + gauge##01_im*gauge##01_im; \
   row_sum += gauge##02_re*gauge##02_re + gauge##02_im*gauge##02_im;	\
@@ -562,6 +598,44 @@
     ACC_COMPLEX_PROD(gauge##22, A, gauge##02);				\
     gauge##22_re *= -r_inv2;						\
     gauge##22_im *= -r_inv2;}
+
+
+
+#define RECONSTRUCT_GAUGE_MATRIX_9_SINGLE(dir, gauge, idx, sign) { \
+  RECONSTRUCT_GAUGE_MATRIX_8_SINGLE(dir, gauge, idx, sign)    \
+  float exp_iphase_re, exp_iphase_im;                         \
+  __sincosf(phase, &exp_iphase_im, &exp_iphase_re);           \
+  float B_re, B_im;                                           \
+  COMPLEX_DOT_PRODUCT(B, exp_iphase, gauge##20);              \
+  gauge##20_re = B_re;                                        \
+  gauge##20_im = B_im;                                        \
+  COMPLEX_DOT_PRODUCT(B, exp_iphase, gauge##21);              \
+  gauge##21_re = B_re;                                        \
+  gauge##21_im = B_im;                                        \
+  COMPLEX_DOT_PRODUCT(B, exp_iphase, gauge##22);              \
+  gauge##22_re = B_re;                                        \
+  gauge##22_im = B_im;                                        \
+}   
+
+
+#define RECONSTRUCT_GAUGE_MATRIX_9_DOUBLE(dir, gauge, idx, sign) { \
+  RECONSTRUCT_GAUGE_MATRIX_8_DOUBLE(dir, gauge, idx, sign)   \
+  double exp_iphase_re, exp_iphase_im;                       \
+  sincos(phase, &exp_iphase_im, &exp_iphase_re);             \
+  double B_re, B_im;                                         \
+  COMPLEX_DOT_PRODUCT(B, exp_iphase, gauge##20);             \
+  gauge##20_re = B_re;                                       \
+  gauge##20_im = B_im;                                       \
+  COMPLEX_DOT_PRODUCT(B, exp_iphase, gauge##21);             \
+  gauge##21_re = B_re;                                       \
+  gauge##21_im = B_im;                                       \
+  COMPLEX_DOT_PRODUCT(B, exp_iphase, gauge##22);             \
+  gauge##22_re = B_re;                                       \
+  gauge##22_im = B_im;                                       \
+}   
+
+
+
 
 // Fermi patch to disable double-precision texture reads
 #ifdef FERMI_NO_DBLE_TEX

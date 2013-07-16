@@ -107,7 +107,7 @@
 #define fat22_re FAT8.x
 #define fat22_im FAT8.y
 
-#if (DD_RECON == 2) //18 (no) reconstruct
+#if (DD_RECON == 18) //18 (no) reconstruct
 #define long00_re LONG0.x
 #define long00_im LONG0.y
 #define long01_re LONG1.x
@@ -304,6 +304,14 @@ VOLATILE spinorFloat *s = ss_data + SHARED_FLOATS_PER_THREAD*SHARED_STRIDE*(thre
   VOUT##2_im -= M##22_im * V##02_re;
 
 
+#if (DD_RECON==9 || DD_RECON==13)
+#if (DD_PREC==0) // double precision
+  double phase = 0.;
+#else
+  float phase = 0.f;
+#endif
+#endif
+
 int sid = blockIdx.x*blockDim.x + threadIdx.x;
 if(sid >= param.threads) return;
 
@@ -421,7 +429,7 @@ o02_re = o02_im = 0.f;
 {
     //direction: +X
 
-#if (DD_RECON < 2)
+#if (DD_RECON < 18)
     int sign = (x4%2 == 1) ? -1 : 1;
 #endif
 
@@ -499,7 +507,7 @@ o02_re = o02_im = 0.f;
 
 {
     // direction: -X
-#if (DD_RECON < 2)
+#if (DD_RECON < 18)
     int sign = (x4%2 == 1) ? -1 : 1;
 #endif
     int dir =1;
@@ -588,7 +596,7 @@ o02_re = o02_im = 0.f;
 
 {
     //direction: +Y
-#if (DD_RECON < 2)
+#if (DD_RECON < 18)
     int sign = ((x4+x1)%2 == 1) ? -1 : 1;
 #endif
    
@@ -664,7 +672,7 @@ o02_re = o02_im = 0.f;
 {
     //direction: -Y
 
-#if (DD_RECON < 2)
+#if (DD_RECON < 18)
     int sign = ((x4+x1)%2 == 1) ? -1 : 1;
 #endif
 
@@ -752,7 +760,7 @@ o02_re = o02_im = 0.f;
 {
     //direction: +Z
 
-#if (DD_RECON < 2)
+#if (DD_RECON < 18)
     int sign = ((x4+x1+x2)%2 == 1) ? -1 : 1;
 #endif
 
@@ -829,7 +837,7 @@ if ( (kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[2]) || x3 < X3m3))|| (
 {
     //direction: -Z
 
-#if (DD_RECON < 2)
+#if (DD_RECON < 18)
     int sign = ((x4+x1+x2)%2 == 1) ? -1 : 1;
 #endif
 
@@ -917,7 +925,7 @@ if ( (kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[2]) || x3 < X3m3))|| (
 
 {
     //direction: +T
-#if (DD_RECON < 2)
+#if (DD_RECON < 18)
     int sign = (x4 >= (X4-3)) ? -1 : 1;
 #endif
 
@@ -994,7 +1002,7 @@ if ( (kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[2]) || x3 < X3m3))|| (
 
 {
     //direction: -T
-#if (DD_RECON < 2)
+#if (DD_RECON < 18)
     int sign = ( ((x4+X4m3)%X4)>= X4m3 ) ? -1 : 1;
 #endif
     
