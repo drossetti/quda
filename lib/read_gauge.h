@@ -769,9 +769,7 @@
 
 #define READ_GAUGE_PHASE_SHORT_TEX(P, phase, dir, idx, stride)  READ_GAUGE_PHASE_FLOAT_TEX
 
-// Need to change this. How does one read a single double from a texture?
 #define READ_GAUGE_PHASE_DOUBLE_TEX(P, phase, dir, idx, stride) { \
-  P = TEX1DFETCH(float, idx + (dir/2)*stride); \
 }
 
 /*!For DW only*/
