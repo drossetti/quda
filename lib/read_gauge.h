@@ -488,32 +488,33 @@
 
 #define RECONSTRUCT_GAUGE_MATRIX_13_SINGLE(dir, gauge, idx, sign) { \
   RECONSTRUCT_GAUGE_MATRIX_12_SINGLE(dir, gauge, idx, sign)  \
-  float exp_iphase_re, exp_iphase_im;                        \
-  __sincosf(phase, &exp_iphase_im, &exp_iphase_re);          \
+  float exp_miphase_re, exp_miphase_im;                      \
+  __sincosf(-phase, &exp_miphase_im, &exp_miphase_re);       \
   float A_re, A_im;                                          \
-  COMPLEX_PRODUCT(A, exp_iphase, gauge##20);                 \
+  COMPLEX_PRODUCT(A, exp_miphase, gauge##20);                \
   gauge##20_re = A_re;                                       \
   gauge##20_im = A_im;                                       \
-  COMPLEX_PRODUCT(A, exp_iphase, gauge##21);                 \
+  COMPLEX_PRODUCT(A, exp_miphase, gauge##21);                \
   gauge##21_re = A_re;                                       \
   gauge##21_im = A_im;                                       \
-  COMPLEX_PRODUCT(A, exp_iphase, gauge##22);                 \
+  COMPLEX_PRODUCT(A, exp_miphase, gauge##22);                \
   gauge##22_re = A_re;                                       \
   gauge##22_im = A_im;                                       \
 }
 
+
 #define RECONSTRUCT_GAUGE_MATRIX_13_DOUBLE(dir, gauge, idx, sign) { \
   RECONSTRUCT_GAUGE_MATRIX_12_DOUBLE(dir, gauge, idx, sign)   \
-  double exp_iphase_re, exp_iphase_im;                        \
-  sincos(phase, &exp_iphase_im, &exp_iphase_re);              \
+  double exp_miphase_re, exp_miphase_im;                      \
+  sincos(-phase, &exp_miphase_im, &exp_miphase_re);           \
   double A_re, A_im;                                          \
-  COMPLEX_PRODUCT(A, exp_iphase, gauge##20);                  \
+  COMPLEX_PRODUCT(A, exp_miphase, gauge##20);                 \
   gauge##20_re = A_re;                                        \
   gauge##20_im = A_im;                                        \
-  COMPLEX_PRODUCT(A, exp_iphase, gauge##21);                  \
+  COMPLEX_PRODUCT(A, exp_miphase, gauge##21);                 \
   gauge##21_re = A_re;                                        \
   gauge##21_im = A_im;                                        \
-  COMPLEX_PRODUCT(A, exp_iphase, gauge##22);                  \
+  COMPLEX_PRODUCT(A, exp_miphase, gauge##22);                 \
   gauge##22_re = A_re;                                        \
   gauge##22_im = A_im;                                        \
 }
@@ -606,6 +607,24 @@
   float exp_iphase_re, exp_iphase_im;                         \
   __sincosf(phase, &exp_iphase_im, &exp_iphase_re);           \
   float B_re, B_im;                                           \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##00);                  \
+  gauge##00_re = B_re;                                        \
+  gauge##00_im = B_im;                                        \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##01);                  \
+  gauge##01_re = B_re;                                        \
+  gauge##01_im = B_im;                                        \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##02);                  \
+  gauge##02_re = B_re;                                        \
+  gauge##02_im = B_im;                                        \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##10);                  \
+  gauge##10_re = B_re;                                        \
+  gauge##10_im = B_im;                                        \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##11);                  \
+  gauge##11_re = B_re;                                        \
+  gauge##11_im = B_im;                                        \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##12);                  \
+  gauge##12_re = B_re;                                        \
+  gauge##12_im = B_im;                                        \
   COMPLEX_PRODUCT(B, exp_iphase, gauge##20);                  \
   gauge##20_re = B_re;                                        \
   gauge##20_im = B_im;                                        \
@@ -619,9 +638,43 @@
 
 
 #define RECONSTRUCT_GAUGE_MATRIX_9_DOUBLE(dir, gauge, idx, sign) { \
+  RECONSTRUCT_GAUGE_MATRIX_8_SINGLE(dir, gauge, idx, sign)    \
+  double exp_iphase_re, exp_iphase_im;                        \
+  sincos(phase, &exp_iphase_im, &exp_iphase_re);              \
+  double B_re, B_im;                                          \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##00);                  \
+  gauge##00_re = B_re;                                        \
+  gauge##00_im = B_im;                                        \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##01);                  \
+  gauge##01_re = B_re;                                        \
+  gauge##01_im = B_im;                                        \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##02);                  \
+  gauge##02_re = B_re;                                        \
+  gauge##02_im = B_im;                                        \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##10);                  \
+  gauge##10_re = B_re;                                        \
+  gauge##10_im = B_im;                                        \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##11);                  \
+  gauge##11_re = B_re;                                        \
+  gauge##11_im = B_im;                                        \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##12);                  \
+  gauge##12_re = B_re;                                        \
+  gauge##12_im = B_im;                                        \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##20);                  \
+  gauge##20_re = B_re;                                        \
+  gauge##20_im = B_im;                                        \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##21);                  \
+  gauge##21_re = B_re;                                        \
+  gauge##21_im = B_im;                                        \
+  COMPLEX_PRODUCT(B, exp_iphase, gauge##22);                  \
+  gauge##22_re = B_re;                                        \
+  gauge##22_im = B_im;                                        \
+}
+
+#define RECONSTRUCT_GAUGE_MATRIX_9_DOUBLE(dir, gauge, idx, sign) { \
   RECONSTRUCT_GAUGE_MATRIX_8_DOUBLE(dir, gauge, idx, sign)   \
   double exp_iphase_re, exp_iphase_im;                       \
-  sincos(phase, &exp_iphase_im, &exp_iphase_re);             \
+  sincos(-phase, &exp_iphase_im, &exp_iphase_re);            \
   double B_re, B_im;                                         \
   COMPLEX_PRODUCT(B, exp_iphase, gauge##20);                 \
   gauge##20_re = B_re;                                       \

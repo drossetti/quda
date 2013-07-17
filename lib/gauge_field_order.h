@@ -25,6 +25,16 @@ namespace quda {
       a[1] = b[0]*c[1] - b[1]*c[0];
     }
 
+
+  // a = b/c
+  template <typename Float> 
+    __device__ __host__ inline void complexQuotient(Float *a, Float *b, Float *c){
+      complexDotProduct(a, c, b);
+      Float denom = c[0]*c[0] + c[1]*c[1];
+      a[0] /= denom;
+      a[1] /= denom;
+    }
+
   // a += conj(b) * conj(c)
   template <typename Float>
     __device__ __host__ inline void accumulateConjugateProduct(Float *a, Float *b, Float *c, int sign) {
@@ -51,6 +61,24 @@ namespace quda {
       __device__ __host__ inline void Unpack(RegType out[N], const RegType in[N], int idx, int dir, const RegType phase) const {
         for (int i=0; i<N; i++) out[i] = in[i];
       }
+
+
+      __device__ __host__ inline void getPhase(RegType *phase, const RegType in[18]) const {
+
+        RegType num[2];
+        // numerator = U[0][0]*U[1][1] - U[0][1]*U[1][0]
+        complexProduct(num, in, in+8);
+        accumulateComplexProduct(num, in+2, in+6, -1);
+
+        RegType expIPhase[2];
+        // denominator = U[2][2]
+        complexQuotient(expIPhase, num, in+16);
+
+        *phase = Trig<isHalf<Float>::value>::Atan2(expIPhase[1], expIPhase[0]);
+
+        return;
+      }
+
     };
 
   /** No reconstruction but we scale the result. This is used for
@@ -108,19 +136,21 @@ namespace quda {
       Reconstruct(const GaugeField &u) : reconstruct_12(u) {}
 
       __device__ __host__ inline void Pack(RegType out[12], const RegType in[18]) const {
+        // No need to rescale here
         reconstruct_12.Pack(out, in); 
       }
 
       __device__ __host__ inline void Unpack(RegType out[18], const RegType in[12], int idx, int dir, const RegType phase) const {
         reconstruct_12.Unpack(out, in, idx, dir, phase);
-        // Multiply the third row by exp(I*phase)
+        // Multiply the third row by exp(-I*phase)
         RegType sin_cos[2];
-        Trig<isHalf<Float>::value>::SinCos(phase, &sin_cos[0], &sin_cos[1]);     
+        Trig<isHalf<Float>::value>::SinCos(-phase, &cos_sin[1], &cos_sin[0]);     
         RegType tmp[2];
-        complexProduct(tmp, sin_cos, &out[12]); out[12] = tmp[0]; out[13] = tmp[1];
-        complexProduct(tmp, sin_cos, &out[14]); out[14] = tmp[0]; out[15] = tmp[1];
-        complexProduct(tmp, sin_cos, &out[16]); out[16] = tmp[0]; out[17] = tmp[1];
+        complexProduct(tmp, cos_sin, &out[12]); out[12] = tmp[0]; out[13] = tmp[1];
+        complexProduct(tmp, cos_sin, &out[14]); out[14] = tmp[0]; out[15] = tmp[1];
+        complexProduct(tmp, cos_sin, &out[16]); out[16] = tmp[0]; out[17] = tmp[1];
       }
+
     };
 
 
@@ -212,19 +242,39 @@ namespace quda {
       Reconstruct(const GaugeField &u) : reconstruct_8(u) {}
 
       __device__ __host__ inline void Pack(RegType out[8], const RegType in[18]) const {
-        reconstruct_8.Pack(out, in); 
+
+        RegType phase;
+        getPhase(&phase,in);
+        RegType cos_sin[2];
+        sincos(-phase, &cos_sin[1], &cos_sin[0]);       
+        
+        // Rescale the U3 input matrix by exp(-I*phase) to obtain an SU3 matrix
+        RegType su3[18];
+        for(int i=0; i<9; ++i){
+          complexProduct(su3 + 2*i, cos_sin, in + 2*i);
+        }
+        reconstruct_8.Pack(out, su3); 
       }
 
       __device__ __host__ inline void Unpack(RegType out[18], const RegType in[8], int idx, int dir, const RegType phase) const {
         reconstruct_8.Unpack(out, in, idx, dir, phase);
         // Multiply the third row by exp(I*phase)
-        RegType sin_cos[2];
-        Trig<isHalf<Float>::value>::SinCos(phase, &sin_cos[0], &sin_cos[1]);     
+        RegType cos_sin[2];
+        Trig<isHalf<Float>::value>::SinCos(phase, &cos_sin[1], &cos_sin[0]);     
         RegType tmp[2];
-        complexProduct(tmp, sin_cos, &out[12]); out[12] = tmp[0]; out[13] = tmp[1];
-        complexProduct(tmp, sin_cos, &out[14]); out[14] = tmp[0]; out[15] = tmp[1];
-        complexProduct(tmp, sin_cos, &out[16]); out[16] = tmp[0]; out[17] = tmp[1];
+
+        // rescale the matrix by exp(I*phase)
+        complexProduct(tmp, cos_sin, &out[0]);  out[0] = tmp[0]; out[1] = tmp[1];
+        complexProduct(tmp, cos_sin, &out[2]);  out[2] = tmp[0]; out[3] = tmp[1];
+        complexProduct(tmp, cos_sin, &out[4]);  out[4] = tmp[0]; out[5] = tmp[1];
+        complexProduct(tmp, cos_sin, &out[6]);  out[6] = tmp[0]; out[7] = tmp[1];
+        complexProduct(tmp, cos_sin, &out[8]);  out[8] = tmp[0]; out[9] = tmp[1];
+        complexProduct(tmp, cos_sin, &out[10]); out[10] = tmp[0]; out[11] = tmp[1];
+        complexProduct(tmp, cos_sin, &out[12]); out[12] = tmp[0]; out[13] = tmp[1];
+        complexProduct(tmp, cos_sin, &out[14]); out[14] = tmp[0]; out[15] = tmp[1];
+        complexProduct(tmp, cos_sin, &out[16]); out[16] = tmp[0]; out[17] = tmp[1];
       }
+
     };
 
 
