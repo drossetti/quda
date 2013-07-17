@@ -249,10 +249,15 @@ namespace quda {
         sincos(-phase, &cos_sin[1], &cos_sin[0]);       
         
         // Rescale the U3 input matrix by exp(-I*phase) to obtain an SU3 matrix
+        // NB: Only 5 complex matrix elements are used in the reconstruct 8 packing routine, 
+        // so only need to rescale those elements.
         RegType su3[18];
-        for(int i=0; i<9; ++i){
+        for(int i=0; i<4; ++i){ 
           complexProduct(su3 + 2*i, cos_sin, in + 2*i);
         }
+        complexProduct(&su3[12], cos_sin, &in[12])
+        
+      
         reconstruct_8.Pack(out, su3); 
       }
 
