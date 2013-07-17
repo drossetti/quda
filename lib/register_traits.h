@@ -37,6 +37,9 @@ namespace quda {
 
       template<typename T>
       __device__ static void SinCos(const T& a, T *s, T *c){ sincos(a,s,c); }
+
+      template<typename T>
+      __host__ static void SinCos(const T& a, T *s, T *c) { *s = sin(a); *c = cos(a); }
     };
   
   /**
@@ -50,9 +53,15 @@ namespace quda {
       __device__ __host__ static T Sin( const T &a ) { return sin(a*M_PI); }
     template<typename T> 
       __device__ __host__ static T Cos( const T &a ) { return cos(a*M_PI); }
-      
+     
+   /* 
     template<typename T>
       __device__ static void SinCos(const T & a, T *s, T*c){ sincos(a*M_PI,s,c); }
+
+      template<typename T>
+      __host__ static void SinCos(const T& a, T *s, T *c) { *s = sin(a); *c = cos(a*M_PI); }
+    */
+    
   };
 
   

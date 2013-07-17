@@ -294,6 +294,11 @@ namespace quda {
 
     if (a.Precision() == QUDA_HALF_PRECISION) 
       errorQuda("Casting a cudaGaugeField into cudaColorSpinorField not possible in half precision");
+    
+    if (a.Reconstruct() == QUDA_RECONSTRUCT_13 || a.Reconstruct() == QUDA_RECONSTRUCT_9)
+      errorQuda("Unsupported field reconstruct %d", a.Reconstruct());
+      
+
 
     ColorSpinorParam spinor_param;
     spinor_param.nColor = a.Reconstruct()/2;

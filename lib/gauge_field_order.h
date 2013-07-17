@@ -294,7 +294,7 @@ namespace quda {
       const int stride;
       const int hasPhase; 
 
-      FloatNOrder(const GaugeField &u, Float *gauge_=0, Float **ghost_=0, Float *gauge_phase_=0, Float **ghost_phase_=0) : 
+      FloatNOrder(const GaugeField &u, Float *gauge_=0, Float **ghost_=0) : 
         reconstruct(u), volumeCB(u.VolumeCB()), stride(u.Stride()), hasPhase((u.Reconstruct() == QUDA_RECONSTRUCT_9 || u.Reconstruct() == QUDA_RECONSTRUCT_13) ? 1 : 0) {
           if (gauge_) { gauge[0] = gauge_; gauge[1] = (Float*)((char*)gauge_ + u.Bytes()/2);
           } else { gauge[0] = (Float*)u.Gauge_p(); gauge[1] = (Float*)((char*)u.Gauge_p() + u.Bytes()/2);	}
@@ -335,7 +335,7 @@ namespace quda {
         // The phases come after the ghost matrices
         // Hence the M*N+1
         // Note above that hasPhase should be either 0 or 1
-        reconstruct.Unpack(v, tmp, x, dir, phase);
+        reconstruct.Unpack(v, tmp, x, dir, 2.*M_PI*phase);
       }
 
       __device__ __host__ inline void save(const RegType v[length], int x, int dir, int parity) {
@@ -352,7 +352,7 @@ namespace quda {
         if(hasPhase){
           RegType phase;
           reconstruct.getPhase(&phase,v);
-          copy(gauge[parity][dir*stride*(M*N + 1) + stride*M*N + x], phase); 
+          copy(gauge[parity][dir*stride*(M*N + 1) + stride*M*N + x], phase/(2.*M_PI)); 
           // Stride is still determined by volumeCB + pad
           // NB: the inclusion of a phase DOES NOT change stride! 
           // We just have to be careful about how we define the gauge-field stride.
@@ -379,7 +379,7 @@ namespace quda {
           }
           RegType phase=0.; 
           if(hasPhase) copy(phase, ghost[dir][parity*faceVolumeCB[dir]*(M*N + 1) + faceVolumeCB[dir]*M*N + x]); 
-          reconstruct.Unpack(v, tmp, x, dir, phase);	 
+          reconstruct.Unpack(v, tmp, x, dir, 2.*M_PI*phase);	 
         }
       }
 
@@ -406,7 +406,7 @@ namespace quda {
             // Otherwise use the value passed in.
             RegType phase=0.;
             reconstruct.getPhase(&phase, v); 
-            copy(ghost[dir][parity*faceVolumeCB[dir]*(M*N + 1) + faceVolumeCB[dir]*M*N + x], phase);
+            copy(ghost[dir][parity*faceVolumeCB[dir]*(M*N + 1) + faceVolumeCB[dir]*M*N + x], phase/(2.*M_PI));
           }
         }
       }

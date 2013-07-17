@@ -32,6 +32,8 @@
 #endif
 
 
+#define READ_LONG_PHASE(phase, dir, idx)
+
 #if (DD_RECON==8) // reconstruct from 8 reals
 #define DD_RECON_F 8
 
@@ -97,8 +99,10 @@
 #endif // DIRECT_ACCESS_FAT_LINK
 #ifdef DIRECT_ACCESS_LONG_LINK
 #define READ_LONG_MATRIX(gauge, dir, idx) READ_GAUGE_MATRIX_8_DOUBLE2(LONG, gauge, dir, idx, long_ga_stride)
+#define READ_LONG_PHASE(phase, dir, idx) READ_GAUGE_PHASE_DOUBLE(PHASE, phase, dir, idx, long_ga_stride);
 #else
 #define READ_LONG_MATRIX(gauge, dir, idx) READ_GAUGE_MATRIX_8_DOUBLE2_TEX(LONG, gauge, dir, idx, long_ga_stride)
+#define READ_LONG_PHASE(phase, dir, idx) READ_GAUGE_PHASE_DOUBLE_TEX(PHASE, phase, dir, idx, long_ga_stride);
 #endif // DIRECT_ACCESS_LONG_LINK
 
 #elif (DD_PREC==1) // SINGLE PRECISION
@@ -112,8 +116,10 @@
 #endif // DIRECT_ACCESS_FAT_LINK
 #ifdef DIRECT_ACCESS_LONG_LINK
 #define READ_LONG_MATRIX(gauge, dir, idx) READ_GAUGE_MATRIX_8_FLOAT4(LONG, gauge, dir, idx, long_ga_stride)
+#define READ_LONG_PHASE(phase, dir, idx) READ_GAUGE_PHASE_FLOAT(PHASE, phase, dir, idx, long_ga_stride);
 #else
 #define READ_LONG_MATRIX(gauge, dir, idx) READ_GAUGE_MATRIX_8_FLOAT4_TEX(LONG, gauge, dir, idx, long_ga_stride)
+#define READ_LONG_PHASE(phase, dir, idx) READ_GAUGE_PHASE_FLOAT_TEX(PHASE, phase, dir, idx, long_ga_stride);
 #endif // DIRECT_ACCESS_LONG_LINK
 
 #else // HALF PRECISION
@@ -129,6 +135,7 @@
 #define READ_LONG_MATRIX(gauge, dir, idx) READ_GAUGE_MATRIX_8_SHORT4(LONG, gauge, dir, idx, long_ga_stride)
 #else*/
 #define READ_LONG_MATRIX(gauge, dir, idx) READ_GAUGE_MATRIX_8_SHORT4_TEX(LONG, gauge, dir, idx, long_ga_stride)
+#define READ_LONG_PHASE(phase, dir, idx) READ_GAUGE_PHASE_SHORT_TEX(PHASE, phase, dir, idx, long_ga_stride);
 //#endif // DIRECT_ACCESS_LONG_LINK
 
 #endif // DD_PREC
@@ -198,8 +205,10 @@
 #endif // DIRECT_ACCESS_FAT_LINK
 #ifdef DIRECT_ACCESS_LONG_LINK
 #define READ_LONG_MATRIX(gauge, dir, idx) READ_GAUGE_MATRIX_12_DOUBLE2(LONG, gauge, dir, idx, long_ga_stride)
+#define READ_LONG_PHASE(phase, dir, idx) READ_GAUGE_PHASE_DOUBLE(PHASE, phase, dir, idx, long_ga_stride);
 #else
 #define READ_LONG_MATRIX(gauge, dir, idx) READ_GAUGE_MATRIX_12_DOUBLE2_TEX(LONG, gauge, dir, idx, long_ga_stride)
+#define READ_LONG_PHASE(phase, dir, idx) READ_GAUGE_PHASE_DOUBLE_TEX(PHASE, phase, dir, idx, long_ga_stride);
 #endif // DIRECT_ACCESS_LONG_LINK
 
 #elif (DD_PREC==1) // SINGLE PRECISION
@@ -213,8 +222,10 @@
 #endif // DIRECT_ACCESS_FAT_LINK
 #ifdef DIRECT_ACCESS_LONG_LINK
 #define READ_LONG_MATRIX(gauge, dir, idx) READ_GAUGE_MATRIX_12_FLOAT4(LONG, gauge, dir, idx, long_ga_stride)
+#define READ_LONG_PHASE(phase, dir, idx) READ_GAUGE_PHASE_FLOAT(PHASE, phase, dir, idx, long_ga_stride);
 #else
 #define READ_LONG_MATRIX(gauge, dir, idx) READ_GAUGE_MATRIX_12_FLOAT4_TEX(LONG, gauge, dir, idx, long_ga_stride)
+#define READ_LONG_PHASE(phase, dir, idx) READ_GAUGE_PHASE_FLOAT_TEX(PHASE, phase, dir, idx, long_ga_stride);
 #endif // DIRECT_ACCESS_LONG_LINK
 
 #else // HALF PRECISION
@@ -230,6 +241,7 @@
 #define READ_LONG_MATRIX(gauge, dir, idx) READ_GAUGE_MATRIX_12_SHORT4(LONG, gauge, dir, idx, long_ga_stride)
 #else*/
 #define READ_LONG_MATRIX(gauge, dir, idx) READ_GAUGE_MATRIX_12_SHORT4_TEX(LONG, gauge, dir, idx, long_ga_stride)
+#define READ_LONG_PHASE(phase, dir, idx) READ_GAUGE_PHASE_SHORT_TEX(PHASE, phase, dir, idx, long_ga_stride); // probably need to rescale here
 									//#endif // DIRECT_ACCCESS_LONG_LINK
 
 #endif // DD_PREC

@@ -188,6 +188,19 @@
   (G##3).z = (G##0).x = pi_f*(G##0).x;						\
   (G##3).w = (G##0).y = pi_f*(G##0).y;
 
+
+#define READ_GAUGE_PHASE_DOUBLE(P, phase, dir, idx, stride){ \
+  P = 2.*M_PI*phase[idx + (dir/2)*stride]; \
+}
+
+#define READ_GAUGE_PHASE_FLOAT(P, phase, dir, idx, stride){ \
+  P = 2.*M_PI*phase[idx + (dir/2)*stride];  \
+}
+
+#define READ_GAUGE_PHASE_SHORT(P, phase, dir, idx, stride){ \
+  P = 2.*M_PI*short2float(phase[idx + (dir/2)*stride]);  \
+} 
+
 /*!----For DW only----!*/
 
 #define ASSN_GAUGE_MATRIX_18_FLOAT2_TEX(G, gauge, dir, idx, stride)	\
@@ -489,7 +502,7 @@
 #define RECONSTRUCT_GAUGE_MATRIX_13_SINGLE(dir, gauge, idx, sign) { \
   RECONSTRUCT_GAUGE_MATRIX_12_SINGLE(dir, gauge, idx, sign)  \
   float exp_miphase_re, exp_miphase_im;                      \
-  __sincosf(-phase, &exp_miphase_im, &exp_miphase_re);       \
+  __sincosf(-PHASE, &exp_miphase_im, &exp_miphase_re);       \
   float A_re, A_im;                                          \
   COMPLEX_PRODUCT(A, exp_miphase, gauge##20);                \
   gauge##20_re = A_re;                                       \
@@ -506,7 +519,7 @@
 #define RECONSTRUCT_GAUGE_MATRIX_13_DOUBLE(dir, gauge, idx, sign) { \
   RECONSTRUCT_GAUGE_MATRIX_12_DOUBLE(dir, gauge, idx, sign)   \
   double exp_miphase_re, exp_miphase_im;                      \
-  sincos(-phase, &exp_miphase_im, &exp_miphase_re);           \
+  sincos(-PHASE, &exp_miphase_im, &exp_miphase_re);           \
   double A_re, A_im;                                          \
   COMPLEX_PRODUCT(A, exp_miphase, gauge##20);                 \
   gauge##20_re = A_re;                                        \
@@ -605,7 +618,7 @@
 #define RECONSTRUCT_GAUGE_MATRIX_9_SINGLE(dir, gauge, idx, sign) { \
   RECONSTRUCT_GAUGE_MATRIX_8_SINGLE(dir, gauge, idx, sign)    \
   float exp_iphase_re, exp_iphase_im;                         \
-  __sincosf(phase, &exp_iphase_im, &exp_iphase_re);           \
+  __sincosf(PHASE, &exp_iphase_im, &exp_iphase_re);           \
   float B_re, B_im;                                           \
   COMPLEX_PRODUCT(B, exp_iphase, gauge##00);                  \
   gauge##00_re = B_re;                                        \
@@ -640,7 +653,7 @@
 #define RECONSTRUCT_GAUGE_MATRIX_9_DOUBLE(dir, gauge, idx, sign) { \
   RECONSTRUCT_GAUGE_MATRIX_8_SINGLE(dir, gauge, idx, sign)    \
   double exp_iphase_re, exp_iphase_im;                        \
-  sincos(phase, &exp_iphase_im, &exp_iphase_re);              \
+  sincos(PHASE, &exp_iphase_im, &exp_iphase_re);              \
   double B_re, B_im;                                          \
   COMPLEX_PRODUCT(B, exp_iphase, gauge##00);                  \
   gauge##00_re = B_re;                                        \
@@ -698,6 +711,7 @@
   READ_GAUGE_MATRIX_12_DOUBLE2(G, gauge, dir, idx, stride)
 #define READ_GAUGE_MATRIX_8_DOUBLE2_TEX(G, gauge, dir, idx, stride)	\
   READ_GAUGE_MATRIX_8_DOUBLE2(G, gauge, dir, idx, stride)
+#define READ_GAUGE_PHASE_DOUBLE_TEX(P, phase, dir, idx, stride)  
 
 /*!For DW only*/
 
@@ -746,6 +760,20 @@
   (G##7).x = (G##0).x;							\
   (G##7).y = (G##0).y;
 
+
+
+
+#define READ_GAUGE_PHASE_FLOAT_TEX(P, phase, dir, idx, stride) { \
+  P = TEX1DFETCH(float, idx + (dir/2)*stride); \
+}
+
+#define READ_GAUGE_PHASE_SHORT_TEX(P, phase, dir, idx, stride)  READ_GAUGE_PHASE_FLOAT_TEX
+
+// Need to change this. How does one read a single double from a texture?
+#define READ_GAUGE_PHASE_DOUBLE_TEX(P, phase, dir, idx, stride) { \
+  P = TEX1DFETCH(float, idx + (dir/2)*stride); \
+}
+
 /*!For DW only*/
   
 #define ASSN_GAUGE_MATRIX_18_DOUBLE2_TEX(G, gauge, dir, idx, stride) \
@@ -783,6 +811,8 @@
    G##8 = make_double2(0,0);					\
   (G##7).x = (G##0).x;							\
   (G##7).y = (G##0).y;
+
+
   
 #endif
 
