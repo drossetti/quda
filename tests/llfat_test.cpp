@@ -179,22 +179,25 @@ llfat_test(int test)
   //the first one is for creating the cpu/cuda data structures
   struct timeval t0, t1;
   
+
+  void* longlink = NULL;
+
   for(int i=0;i < 2;i++){
     gettimeofday(&t0, NULL);
     if(gauge_order == QUDA_QDP_GAUGE_ORDER){
       if(test == 0){
-	computeFatLinkQuda(fatlink, sitelink, act_path_coeff, &qudaGaugeParam,
+	computeFatLongLinkQuda(fatlink, longlink, sitelink, act_path_coeff, &qudaGaugeParam,
 			   QUDA_COMPUTE_FAT_STANDARD);
       }else{
-	computeFatLinkQuda(fatlink, sitelink_ex, act_path_coeff, &qudaGaugeParam,
+	computeFatLongLinkQuda(fatlink, longlink, sitelink_ex, act_path_coeff, &qudaGaugeParam,
 			   QUDA_COMPUTE_FAT_EXTENDED_VOLUME);
       }
     }else if(gauge_order == QUDA_MILC_GAUGE_ORDER){
       if(test == 0){
-	computeFatLinkQuda(fatlink, (void**)milc_sitelink, act_path_coeff, &qudaGaugeParam,
+	computeFatLongLinkQuda(fatlink, longlink, (void**)milc_sitelink, act_path_coeff, &qudaGaugeParam,
 			   QUDA_COMPUTE_FAT_STANDARD);
       }else{
-	computeFatLinkQuda(fatlink, (void**)milc_sitelink_ex, act_path_coeff, &qudaGaugeParam,
+	computeFatLongLinkQuda(fatlink, longlink, (void**)milc_sitelink_ex, act_path_coeff, &qudaGaugeParam,
 			   QUDA_COMPUTE_FAT_EXTENDED_VOLUME);
       }
     }

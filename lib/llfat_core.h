@@ -1463,6 +1463,75 @@ LLFAT_KERNEL_EX(llfatOneLink, RECONSTRUCT)(const FloatN* sitelink_even, const Fl
   return;
 }
 
+
+te<int oddBit>
+__global__ void LLFAT_CONCAT(LLFAT_CONCAT(computeLongLinkParity,RECONSTRUCT),Kernel)(
+    FloatN* const outField,
+    const FloatN* const sitelink_even, const FloatN* const sitelink_odd,
+    Float coeff,
+    const llfat_kernel_param_t kparam)
+{
+  int mem_idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if(mem_idx >= kparam.threads) return;
+
+
+  int z1 = mem_idx/D1h;
+  short x1h = mem_idx - z1*D1h;
+  int z2 = z1/D2;
+  short x2 = z1 - z2*D2;
+  short x4 = z2/D3;
+  short x3 = z2 - x4*D3;
+
+  short x1odd = (x2 + x3 + x4 + oddBit) & 1;
+  short x1 = 2*x1h + x1odd;
+
+#ifdef MULTI_GPU
+  x1 += 2;  
+  x2 += 2;  
+  x3 += 2;  
+  x4 += 2;
+  int X = x4*E3E2E1 + x3*E2E1 + x2*E1 + x1;
+#else 
+  int X = x4*D3*D2*D1 + x3*D2*D1 + x2*D1 + x1;
+#endif 
+
+  int new_mem_idx;
+  DECLARE_VAR_SIGN;
+  DECLARE_NEW_X;
+
+  for(int dir=0; dir<4; ++dir){
+    LOAD_EVEN_SITE_MATRIX(dir, mem_idx, A);
+    COMPUTE_RECONSTRUCT_SIGN(sign, dir, x1, x2, x3, x4);
+    RECONSTRUCT_SITE_LINK(sign, a);
+
+#ifdef MULTI_GPU
+    LLFAT_COMPUTE_NEW_IDX_PLUS_EX(dir, 1, X);
+#else
+    LLFAT_COMPUTE_NEW_IDX_PLUS(dir, 1, X);
+#endif
+    LOAD_ODD_SITE_MATRIX(dir, new_mem_idx, B);
+    COMPUTE_RECONSTRUCT_SIGN(sign, dir, new_x1, new_x2, new_x3, new_x4);
+    RECONSTRUCT_SITE_LINK(sign, b);
+
+
+#ifdef MULTI_GPU
+    LLFAT_COMPUTE_NEW_IDX_PLUS_EX(dir, 2, X);
+#else
+    LLFAT_COMPUTE_NEW_IDX_PLUS(dir, 2, X);
+#endif
+    LOAD_EVEN_SITE_MATRIX(dir, new_mem_idx, C);
+    COMPUTE_RECONSTRUCT_SIGN(sign, dir, new_x1, new_x2, new_x3, new_x4);
+    RECONSTRUCT_SITE_LINK(sign, c);
+   
+    SCALAR_MULT_SU3_MATRIX(coeff, a, f); 
+    MULT_SU3_NN(f,b,a);
+    MULT_SU3_NN(a,c,f);
+  
+    WRITE_LONG_MATRIX(outField, F, dir, mem_idx, fl.long_ga_stride);
+  } 
+  return; 
+}
+
 #undef D1
 #undef D2
 #undef D3

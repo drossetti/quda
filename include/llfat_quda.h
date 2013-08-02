@@ -29,15 +29,26 @@ namespace quda {
   } llfat_kernel_param_t;
   
 
-  void llfat_cuda(cudaGaugeField& cudaFatLink, cudaGaugeField& cudaSiteLink, 
+  void llfat_cuda(cudaGaugeField* cudaFatLink, 
+                  cudaGaugeField* cudaLongLink,
+                  cudaGaugeField& cudaSiteLink, 
 		  cudaGaugeField& cudaStaple, cudaGaugeField& cudaStaple1,
 		  QudaGaugeParam* param, double* act_path_coeff);
-  void llfat_cuda_ex(cudaGaugeField& cudaFatLink, cudaGaugeField& cudaSiteLink, 
+
+  void llfat_cuda_ex(cudaGaugeField* cudaFatLink, 
+                     cudaGaugeField* cudaLongLink,
+                     cudaGaugeField& cudaSiteLink, 
 		     cudaGaugeField& cudaStaple, cudaGaugeField& cudaStaple1,
 		     QudaGaugeParam* param, double* act_path_coeff);
   
   void llfat_init_cuda(QudaGaugeParam* param);
   void llfat_init_cuda_ex(QudaGaugeParam* param_ex);
+
+  void computeLongLinkCuda(void* outEven, void* outOdd,
+                           const void* const inEven, const void* const inOdd,
+                           double coeff, QudaReconstructType recon. QudaPrecision prec,
+                           dim3 halfGridDim, llfat_kernel_param_t kparam);           
+                
 
   void computeGenStapleFieldParityKernel(void* staple_even, void* staple_odd, 
 					 const void* sitelink_even, const void* sitelink_odd,

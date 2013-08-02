@@ -1809,9 +1809,9 @@ namespace quda {
     
     profile.Start(QUDA_PROFILE_COMPUTE);
     if (method == QUDA_COMPUTE_FAT_STANDARD) {
-      llfat_cuda(*cudaFatLink, *cudaSiteLink, *cudaStapleField, *cudaStapleField1, qudaGaugeParam, act_path_coeff);
+      llfat_cuda(cudaFatLink, NULL, *cudaSiteLink, *cudaStapleField, *cudaStapleField1, qudaGaugeParam, act_path_coeff);
     } else { //method == QUDA_COMPUTE_FAT_EXTENDED_VOLUME
-      llfat_cuda_ex(*cudaFatLink, *cudaSiteLink, *cudaStapleField, *cudaStapleField1, qudaGaugeParam, act_path_coeff);
+      llfat_cuda_ex(cudaFatLink, NULL, *cudaSiteLink, *cudaStapleField, *cudaStapleField1, qudaGaugeParam, act_path_coeff);
     }
     profile.Stop(QUDA_PROFILE_COMPUTE);
 
@@ -1831,7 +1831,7 @@ namespace quda {
 
 
 int
-computeFatLinkQuda(void* fatlink, void** sitelink, double* act_path_coeff, 
+computeFatLongLinkQuda(void* fatlink, void* longlink, void** sitelink, double* act_path_coeff, 
 		   QudaGaugeParam* qudaGaugeParam, 
 		   QudaComputeFatMethod method)
 {
