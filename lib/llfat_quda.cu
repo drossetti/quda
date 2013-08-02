@@ -33,6 +33,26 @@ namespace quda {
     gauge[idx + (dir*9+7) * fl.fat_ga_stride] = FAT7;		\
     gauge[idx + (dir*9+8) * fl.fat_ga_stride] = FAT8;} while(0)			
 
+#define WRITE_GAUGE_MATRIX_FLOAT2(gauge, MAT, dir, idx, stride)  { \
+    gauge[idx + dir*9*stride] = MAT##0;                            \
+    gauge[idx + (dir*9 + 1)*stride] = MAT##1;                      \
+    gauge[idx + (dir*9 + 2)*stride] = MAT##2;                      \
+    gauge[idx + (dir*9 + 3)*stride] = MAT##3;                      \
+    gauge[idx + (dir*9 + 4)*stride] = MAT##4;                      \
+    gauge[idx + (dir*9 + 5)*stride] = MAT##5;                      \
+    gauge[idx + (dir*9 + 6)*stride] = MAT##6;                      \
+    gauge[idx + (dir*9 + 7)*stride] = MAT##7;                      \
+    gauge[idx + (dir*9 + 8)*stride] = MAT##8;                      \
+};
+
+
+#define WRITE_GAUGE_MATRIX_FLOAT4(gauge, MAT, dir, idx, stride)  { \
+    gauge[idx + dir*3*stride] = MAT##0;                            \
+    gauge[idx + (dir*3 + 1)*stride] = MAT##1;                      \
+    gauge[idx + (dir*3 + 2)*stride] = MAT##2;                      \
+};
+
+
 
 #define WRITE_STAPLE_MATRIX(gauge, idx)		\
   gauge[idx] = STAPLE0;				\

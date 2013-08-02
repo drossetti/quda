@@ -91,6 +91,27 @@
 #define c22_re C4.x
 #define c22_im C4.y
 
+#define f00_re F0.x
+#define f00_im F0.y
+#define f01_re F0.z
+#define f01_im F0.w
+#define f02_re F1.x
+#define f02_im F1.y
+#define f10_re F1.z
+#define f10_im F1.w
+#define f11_re F2.x
+#define f11_im F2.y
+#define f12_re F2.z
+#define f12_im F2.w
+#define f20_re F3.x
+#define f20_im F3.y
+#define f21_re F3.z
+#define f21_im F3.w
+#define f22_re F4.x
+#define f22_im F4.y
+
+#define WRITE_LONG_MATRIX WRITE_GAUGE_MATRIX_FLOAT4
+
 #else
 #define a00_re A0.x
 #define a00_im A0.y
@@ -104,7 +125,6 @@
 #define a11_im A4.y
 #define a12_re A5.x
 #define a12_im A5.y
-
 #define a20_re A6.x
 #define a20_im A6.y
 #define a21_re A7.x
@@ -150,6 +170,30 @@
 #define c22_re C8.x
 #define c22_im C8.y
 
+#define f00_re F0.x
+#define f00_im F0.y
+#define f01_re F1.x
+#define f01_im F1.y
+#define f02_re F2.x
+#define f02_im F2.y
+#define f10_re F3.x
+#define f10_im F3.y
+#define f11_re F4.x
+#define f11_im F4.y
+#define f12_re F5.x
+#define f12_im F5.y
+#define f20_re F6.x
+#define f20_im F6.y
+#define f21_re F7.x
+#define f21_im F7.y
+#define f22_re F8.x
+#define f22_im F8.y
+
+#define WRITE_LONG_MATRIX WRITE_GAUGE_MATRIX_FLOAT2
+
+#endif
+
+#define bb00_re BB0.x
 #endif
 
 #define bb00_re BB0.x
@@ -1505,6 +1549,28 @@ LLFAT_KERNEL_EX(llfatOneLink, RECONSTRUCT)(const FloatN* sitelink_even, const Fl
 #undef c22_re 
 #undef c22_im 
 
+#undef f00_re 
+#undef f00_im 
+#undef f01_re 
+#undef f01_im 
+#undef f02_re 
+#undef f02_im 
+#undef f10_re 
+#undef f10_im 
+#undef f11_re 
+#undef f11_im 
+#undef f12_re 
+#undef f12_im 
+#undef f20_re 
+#undef f20_im 
+#undef f21_re 
+#undef f21_im 
+#undef f22_re 
+#undef f22_im 
+
+#undef aT00_re 
+#undef aT00_im 
+#undef aT01_re 
 #undef aT00_re 
 #undef aT00_im 
 #undef aT01_re 
@@ -1619,3 +1685,6 @@ LLFAT_KERNEL_EX(llfatOneLink, RECONSTRUCT)(const FloatN* sitelink_even, const Fl
 #undef fat21_im 
 #undef fat22_re 
 #undef fat22_im 
+
+#undef WRITE_LONG_MATRIX
+
