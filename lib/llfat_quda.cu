@@ -966,7 +966,7 @@ namespace quda {
 	  <<<halfGridDim, blockDim, sbytes_dp>>>((double2*)staple_even, (double2*)staple_odd, \
 						 (const double2*)sitelink_even, (const double2*)sitelink_odd, \
 						 (double2*)fatlink_even, (double2*)fatlink_odd, \
-					 (double)mycoeff, kparam); \
+						 (double)mycoeff, kparam); \
 	do_siteComputeGenStapleParity12Kernel_ex<mu,nu, 1>		\
 	  <<<halfGridDim, blockDim, sbytes_dp>>>((double2*)staple_odd, (double2*)staple_even, \
 						 (const double2*)sitelink_odd, (const double2*)sitelink_even, \
