@@ -303,19 +303,20 @@
 #undef UPDATE_COOR_LOWER_STAPLE_EX
 #undef COMPUTE_RECONSTRUCT_SIGN
 #if (RECONSTRUCT  != 18)
-#define UPDATE_COOR_PLUS(mydir, idx) do {				\
+#define UPDATE_COOR_PLUS(mydir, n, idx) do {				\
     new_x1 = x1; new_x2 = x2; new_x4 = x4;				\
     switch(mydir){                                                      \
     case 0:                                                             \
-      new_x1 = x1+1;							\
+      new_x1 = x1+n;							\
       break;                                                            \
     case 1:                                                             \
-      new_x2 = x2+1;							\
+      new_x2 = x2+n;							\
       break;                                                            \
     case 2:                                                             \
+      new_x3 = x3+n;                                                     \
       break;                                                            \
     case 3:								\
-      new_x4 = x4+1;							\
+      new_x4 = x4+n;							\
       break;                                                            \
     }                                                                   \
   }while(0)
@@ -470,7 +471,7 @@
 
 #else
 
-#define UPDATE_COOR_PLUS(mydir, idx)
+#define UPDATE_COOR_PLUS(mydir, n, idx)
 #define UPDATE_COOR_MINUS(mydir, idx)
 #define UPDATE_COOR_LOWER_STAPLE(mydir1, mydir2)
 #define UPDATE_COOR_LOWER_STAPLE_DIAG(nu, mu, dir1, dir2)
@@ -495,7 +496,7 @@
       new_mem_idx = ( (x4==X4m1)? ((Vh+2*(Vsh_x+Vsh_y+Vsh_z)+Vsh_t+spacecon_t))*tcomm+(idx-X4X3X2X1mX3X2X1)/2*(1-tcomm): (idx+X3X2X1)>>1); \
       break;                                                            \
     }                                                                   \
-    UPDATE_COOR_PLUS(mydir, idx);					\
+    UPDATE_COOR_PLUS(mydir, 1, idx);					\
   }while(0)
 
 
@@ -623,7 +624,7 @@
       new_mem_idx = ( (x4==X4m1)?idx-X4X3X2X1mX3X2X1: idx+X3X2X1)>>1;	\
       break;                                                            \
     }                                                                   \
-    UPDATE_COOR_PLUS(mydir, idx);					\
+    UPDATE_COOR_PLUS(mydir, 1, idx);					\
   }while(0)
 
 
@@ -681,22 +682,22 @@
 #endif
 
 
-#define LLFAT_COMPUTE_NEW_IDX_PLUS_EX(mydir, idx) do {                  \
+#define LLFAT_COMPUTE_NEW_IDX_PLUS_EX(mydir, n, idx) do {               \
     switch(mydir){                                                      \
     case 0:                                                             \
-      new_mem_idx = (idx+1)>>1;                                         \
+      new_mem_idx = (idx+n)>>1;                                         \
       break;                                                            \
     case 1:                                                             \
-      new_mem_idx = (idx+E1)>>1;                                        \
+      new_mem_idx = (idx+n*E1)>>1;                                      \
       break;                                                            \
     case 2:                                                             \
-      new_mem_idx = (idx+E2E1)>>1;                                      \
+      new_mem_idx = (idx+n*E2E1)>>1;                                    \
       break;                                                            \
     case 3:                                                             \
-      new_mem_idx = (idx+E3E2E1)>>1;                                    \
+      new_mem_idx = (idx+n*E3E2E1)>>1;                                  \
       break;                                                            \
     }                                                                   \
-    UPDATE_COOR_PLUS(mydir, idx);                                       \
+    UPDATE_COOR_PLUS(mydir, n, idx);                                    \
   }while(0)
 
 #define LLFAT_COMPUTE_NEW_IDX_MINUS_EX(mydir, idx) do {                 \
@@ -1163,7 +1164,7 @@ template<int mu, int nu, int odd_bit>
 
     
     /* load matrix B*/  
-    LLFAT_COMPUTE_NEW_IDX_PLUS_EX(nu, X);    
+    LLFAT_COMPUTE_NEW_IDX_PLUS_EX(nu, 1, X);    
     LOAD_ODD_SITE_MATRIX(mu, new_mem_idx, B);
     COMPUTE_RECONSTRUCT_SIGN(sign, mu, (new_x1-2), (new_x2-2), (new_x3-2), (new_x4-2));    
     RECONSTRUCT_SITE_LINK(sign, b);
@@ -1173,7 +1174,7 @@ template<int mu, int nu, int odd_bit>
     
     /* load matrix C*/
         
-    LLFAT_COMPUTE_NEW_IDX_PLUS_EX(mu, X);    
+    LLFAT_COMPUTE_NEW_IDX_PLUS_EX(mu, 1, X);    
     LOAD_ODD_SITE_MATRIX(nu, new_mem_idx, C);
     COMPUTE_RECONSTRUCT_SIGN(sign, nu, (new_x1-2), (new_x2-2), (new_x3-2), (new_x4-2));    
     RECONSTRUCT_SITE_LINK(sign, c);
@@ -1292,12 +1293,12 @@ template<int mu, int nu, int odd_bit, int save_staple>
     RECONSTRUCT_SITE_LINK(sign, a);
     
     /* load matrix BB*/
-    LLFAT_COMPUTE_NEW_IDX_PLUS_EX(nu, X);    
+    LLFAT_COMPUTE_NEW_IDX_PLUS_EX(nu, 1, X);    
     LOAD_ODD_MULINK_MATRIX(0, new_mem_idx, BB);
     MULT_SU3_NN(a, bb, tempa);    
     
     /* load matrix C*/
-    LLFAT_COMPUTE_NEW_IDX_PLUS_EX(mu, X);    
+    LLFAT_COMPUTE_NEW_IDX_PLUS_EX(mu, 1, X);    
     LOAD_ODD_SITE_MATRIX(nu, new_mem_idx, C);
     COMPUTE_RECONSTRUCT_SIGN(sign, nu, (new_x1-2), (new_x2-2), (new_x3-2), (new_x4-2));
     RECONSTRUCT_SITE_LINK(sign, c);
