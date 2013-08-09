@@ -2,7 +2,6 @@
 #define Vsh_y ghostFace[1]
 #define Vsh_z ghostFace[2]
 #define Vsh_t ghostFace[3]
-
 #define xcomm kparam.ghostDim[0]
 #define ycomm kparam.ghostDim[1]
 #define zcomm kparam.ghostDim[2]
@@ -27,7 +26,7 @@
 #else //RECONSTRUCT == 12
 #define DECLARE_VAR_SIGN short sign=1
 #define DECLARE_NEW_X short new_x1=x1; short new_x2=x2; \
-  /*short new_x3=x3; */short new_x4=x4; 
+  short new_x3=x3; short new_x4=x4; 
 #define DECLARE_X_ARRAY int x[4] = {x1,x2,x3, x4};
 
 #endif
@@ -193,8 +192,6 @@
 
 #endif
 
-#define bb00_re BB0.x
-#endif
 
 #define bb00_re BB0.x
 #define bb00_im BB0.y
@@ -348,7 +345,7 @@
 #undef COMPUTE_RECONSTRUCT_SIGN
 #if (RECONSTRUCT  != 18)
 #define UPDATE_COOR_PLUS(mydir, n, idx) do {				\
-    new_x1 = x1; new_x2 = x2; new_x4 = x4;				\
+    new_x1 = x1; new_x2 = x2; new_x3=x3; new_x4 = x4;			\
     switch(mydir){                                                      \
     case 0:                                                             \
       new_x1 = x1+n;							\
@@ -659,7 +656,7 @@
       new_mem_idx = ( (x1>=(X1-n))?idx-(X1-n):idx+n)>>1;                    \
       break;                                                            \
     case 1:                                                             \
-      new_mem_idx = ( (x2>=(X2-n))?idx-(X2-n)X1:idx+n*X1)>>1;                \
+      new_mem_idx = ( (x2>=(X2-n))?idx-(X2-n)*X1:idx+n*X1)>>1;                \
       break;                                                            \
     case 2:                                                             \
       new_mem_idx = ( (x3>=(X3-n))?idx-(X3-n)*X2X1:idx+n*X2X1)>>1;          \
@@ -805,7 +802,7 @@ template<int mu, int nu, int odd_bit>
 							   FloatM* fatlink_even, FloatM* fatlink_odd,	
 							   Float mycoeff, llfat_kernel_param_t kparam)
 {
-  __shared__ FloatM sd_data[NUM_FLOATS*64];
+  __shared__ FloatM sd_data[NUM_FLOATS*BLOCK_DIM];
   
   //FloatM TEMPA0, TEMPA1, TEMPA2, TEMPA3, TEMPA4, TEMPA5, TEMPA6, TEMPA7, TEMPA8;
   FloatM TEMPA5, TEMPA6, TEMPA7, TEMPA8;
@@ -949,7 +946,7 @@ template<int mu, int nu, int odd_bit, int save_staple>
 							   const FloatM* mulink_even, const FloatM* mulink_odd, 
 							   Float mycoeff, llfat_kernel_param_t kparam)
 {
-  __shared__ FloatM sd_data[NUM_FLOATS*64];
+  __shared__ FloatM sd_data[NUM_FLOATS*BLOCK_DIM];
   //FloatM TEMPA0, TEMPA1, TEMPA2, TEMPA3, TEMPA4, TEMPA5, TEMPA6, TEMPA7, TEMPA8;  
   FloatM  TEMPA5, TEMPA6, TEMPA7, TEMPA8;  
   FloatM TEMPB0, TEMPB1, TEMPB2, TEMPB3, TEMPB4, TEMPB5, TEMPB6, TEMPB7, TEMPB8;
@@ -1451,6 +1448,15 @@ LLFAT_KERNEL_EX(llfatOneLink, RECONSTRUCT)(const FloatN* sitelink_even, const Fl
     LOAD_SITE_MATRIX(my_sitelink, dir, mem_idx, A);
     COMPUTE_RECONSTRUCT_SIGN(sign, dir, (x1-2), (x2-2), (x3-2), (x4-2));
     RECONSTRUCT_SITE_LINK(sign, a);
+  
+    if(X==1171 && dir==0){
+      printf("X = %d\n", X);
+      printf("One link A = \n");
+      printf("%lf %lf, %lf %lf, %lf %lf\n", a00_re, a00_im, a01_re, a01_im, a02_re, a02_im);
+      printf("%lf %lf, %lf %lf, %lf %lf\n", a10_re, a10_im, a11_re, a11_im, a12_re, a12_im);
+      printf("%lf %lf, %lf %lf, %lf %lf\n", a20_re, a20_im, a21_re, a21_im, a22_re, a22_im);
+      printf("\n");
+    }
 
     LOAD_FAT_MATRIX(my_fatlink, dir, idx);
     
@@ -1464,16 +1470,16 @@ LLFAT_KERNEL_EX(llfatOneLink, RECONSTRUCT)(const FloatN* sitelink_even, const Fl
 }
 
 
-te<int oddBit>
-__global__ void LLFAT_CONCAT(LLFAT_CONCAT(computeLongLinkParity,RECONSTRUCT),Kernel)(
-    FloatN* const outField,
+template<int odd_bit>
+__global__ void LLFAT_KERNEL(computeLongLinkParity,RECONSTRUCT)
+    (FloatN* const outField,
     const FloatN* const sitelink_even, const FloatN* const sitelink_odd,
     Float coeff,
     const llfat_kernel_param_t kparam)
 {
-  int mem_idx = blockIdx.x*blockDim.x + threadIdx.x;
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  int mem_idx = idx;
   if(mem_idx >= kparam.threads) return;
-
 
   int z1 = mem_idx/D1h;
   short x1h = mem_idx - z1*D1h;
@@ -1482,7 +1488,7 @@ __global__ void LLFAT_CONCAT(LLFAT_CONCAT(computeLongLinkParity,RECONSTRUCT),Ker
   short x4 = z2/D3;
   short x3 = z2 - x4*D3;
 
-  short x1odd = (x2 + x3 + x4 + oddBit) & 1;
+  short x1odd = (x2 + x3 + x4 + odd_bit) & 1;
   short x1 = 2*x1h + x1odd;
 
 #ifdef MULTI_GPU
@@ -1493,11 +1499,14 @@ __global__ void LLFAT_CONCAT(LLFAT_CONCAT(computeLongLinkParity,RECONSTRUCT),Ker
   int X = x4*E3E2E1 + x3*E2E1 + x2*E1 + x1;
 #else 
   int X = x4*D3*D2*D1 + x3*D2*D1 + x2*D1 + x1;
-#endif 
+#endif
+  mem_idx = X/2;
 
   int new_mem_idx;
   DECLARE_VAR_SIGN;
   DECLARE_NEW_X;
+  
+  FloatN F0, F1, F2, F3, F4, F5, F6, F7, F8;
 
   for(int dir=0; dir<4; ++dir){
     LOAD_EVEN_SITE_MATRIX(dir, mem_idx, A);
@@ -1513,22 +1522,22 @@ __global__ void LLFAT_CONCAT(LLFAT_CONCAT(computeLongLinkParity,RECONSTRUCT),Ker
     COMPUTE_RECONSTRUCT_SIGN(sign, dir, new_x1, new_x2, new_x3, new_x4);
     RECONSTRUCT_SITE_LINK(sign, b);
 
-
 #ifdef MULTI_GPU
     LLFAT_COMPUTE_NEW_IDX_PLUS_EX(dir, 2, X);
 #else
     LLFAT_COMPUTE_NEW_IDX_PLUS(dir, 2, X);
 #endif
     LOAD_EVEN_SITE_MATRIX(dir, new_mem_idx, C);
+
     COMPUTE_RECONSTRUCT_SIGN(sign, dir, new_x1, new_x2, new_x3, new_x4);
     RECONSTRUCT_SITE_LINK(sign, c);
-   
+
     SCALAR_MULT_SU3_MATRIX(coeff, a, f); 
     MULT_SU3_NN(f,b,a);
     MULT_SU3_NN(a,c,f);
   
-    WRITE_LONG_MATRIX(outField, F, dir, mem_idx, fl.long_ga_stride);
-  } 
+    WRITE_LONG_MATRIX(outField, F, dir, idx, fl.fat_ga_stride);
+  }
   return; 
 }
 

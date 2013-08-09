@@ -2,6 +2,7 @@
 #define _LLFAT_QUDA_H
 
 #include "quda.h"
+#include "quda_internal.h"
 
 #define LLFAT_INTERIOR_KERNEL 0
 #define LLFAT_EXTERIOR_KERNEL_FWD_X 1
@@ -46,7 +47,7 @@ namespace quda {
 
   void computeLongLinkCuda(void* outEven, void* outOdd,
                            const void* const inEven, const void* const inOdd,
-                           double coeff, QudaReconstructType recon. QudaPrecision prec,
+                           double coeff, QudaReconstructType recon, QudaPrecision prec,
                            dim3 halfGridDim, llfat_kernel_param_t kparam);           
                 
 
@@ -91,7 +92,8 @@ namespace quda {
 
   void computeFatLinkCore(cudaGaugeField* cudaSiteLink, double* act_path_coeff,
 			  QudaGaugeParam* qudaGaugeParam, QudaComputeFatMethod method,
-			  cudaGaugeField* cudaFatLink, struct timeval time_array[]);
+			  cudaGaugeField* cudaFatLink, cudaGaugeField* cudaLongLink, 
+                          TimeProfile& profile);
   
 } // namespace quda
 

@@ -231,6 +231,8 @@ llfat_init_cuda(QudaGaugeParam* param)
   fl_h.site_ga_stride = param->site_ga_pad + Vh;
   fl_h.staple_stride = param->staple_pad + Vh;
   fl_h.fat_ga_stride = param->llfat_ga_pad + Vh;  
+  fl_h.long_ga_stride = param->llfat_ga_pad + Vh; // temporary
+
   cudaMemcpyToSymbol(fl, &fl_h, sizeof(fat_force_const_t));
 
   int dir1[16];
@@ -266,6 +268,9 @@ llfat_init_cuda(QudaGaugeParam* param)
 llfat_init_cuda_ex(QudaGaugeParam* param_ex)
 {
   static int llfat_init_cuda_flag = 0;
+
+  printfQuda("In llfat_init_cuda_ex: llfat_init_cuda_flag = %d\n", llfat_init_cuda_flag);
+  
   if (llfat_init_cuda_flag){
     return;
   }
@@ -279,6 +284,7 @@ llfat_init_cuda_ex(QudaGaugeParam* param_ex)
   fl_h.site_ga_stride = param_ex->site_ga_pad + Vh_ex;
   fl_h.staple_stride = param_ex->staple_pad + Vh_ex;
   fl_h.fat_ga_stride = param_ex->llfat_ga_pad + Vh;
+  fl_h.long_ga_stride = param_ex->llfat_ga_pad + Vh;
   cudaMemcpyToSymbol(fl, &fl_h, sizeof(fat_force_const_t));
 }
 
@@ -803,12 +809,20 @@ llfat_init_cuda_ex(QudaGaugeParam* param_ex)
 
 
 void computeLongLinkCuda(void* outEven, void* outOdd,
-    const void* const inEven, const void* const outOdd,
+    const void* const inEven, const void* const inOdd,
     double coeff, QudaReconstructType recon, QudaPrecision prec,
     dim3 halfGridDim, llfat_kernel_param_t kparam)
 {
   dim3 blockDim = kparam.blockDim;
-  dim3 halfGridDim = kparam.halfGridDim;
+
+  printfQuda("blockDim.x = %d\n", blockDim.x);
+  printfQuda("blockDim.y = %d\n", blockDim.z);
+  printfQuda("blockDim.z = %d\n", blockDim.z);
+
+  printfQuda("halfGridDim.x = %d\n", halfGridDim.x);
+  printfQuda("halfGridDim.y = %d\n", halfGridDim.y);
+  printfQuda("halfGridDim.z = %d\n", halfGridDim.z);
+
 
   if(prec == QUDA_DOUBLE_PRECISION){
     if(recon == QUDA_RECONSTRUCT_NO){

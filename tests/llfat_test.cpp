@@ -75,6 +75,11 @@ llfat_test(int test)
     errorQuda("ERROR: cudaMallocHost failed for fatlink\n");
   }
 
+  void* longlink;
+  if (cudaMallocHost((void**)&longlink, 4*V*gaugeSiteSize*gSize) == cudaErrorMemoryAllocation) {
+    errorQuda("ERROR: cudaMallocHost failed for longlink\n");
+  } // page-locked memory
+
   void* sitelink[4];
   for(int i=0;i < 4;i++){
     if (cudaMallocHost((void**)&sitelink[i], V*gaugeSiteSize*gSize) == cudaErrorMemoryAllocation) {
@@ -180,8 +185,6 @@ llfat_test(int test)
   struct timeval t0, t1;
   
 
-  void* longlink = NULL;
-
   for(int i=0;i < 2;i++){
     gettimeofday(&t0, NULL);
     if(gauge_order == QUDA_QDP_GAUGE_ORDER){
@@ -206,12 +209,15 @@ llfat_test(int test)
   
   double secs = TDIFF(t0,t1);
   
-  void* reflink[4];
+  void* fat_reflink[4];
+  void* long_reflink[4];
   for(int i=0;i < 4;i++){
-    reflink[i] = malloc(V*gaugeSiteSize*gSize);
-    if(reflink[i] == NULL){
-      errorQuda("ERROR; allocate reflink[%d] failed\n", i);
+    fat_reflink[i] = malloc(V*gaugeSiteSize*gSize);
+    if(fat_reflink[i] == NULL){
+      errorQuda("ERROR; allocate fat_reflink[%d] failed\n", i);
     }
+    long_reflink[i] = malloc(V*gaugeSiteSize*gSize);
+    if(long_reflink[i] == NULL) errorQuda("ERROR; allocate long_reflink[%d] failed\n", i);
   }
   
   if (verify_results){
@@ -277,9 +283,9 @@ llfat_test(int test)
     }
     
     exchange_cpu_sitelink(qudaGaugeParam.X, sitelink, ghost_sitelink, ghost_sitelink_diag, qudaGaugeParam.cpu_prec, &qudaGaugeParam, optflag);
-    llfat_reference_mg(reflink, sitelink, ghost_sitelink, ghost_sitelink_diag, qudaGaugeParam.cpu_prec, coeff);
+    llfat_reference_mg(fat_reflink, NULL, sitelink, ghost_sitelink, ghost_sitelink_diag, qudaGaugeParam.cpu_prec, coeff);
 #else
-    llfat_reference(reflink, sitelink, qudaGaugeParam.cpu_prec, coeff);
+    llfat_reference(fat_reflink, long_reflink, sitelink, qudaGaugeParam.cpu_prec, coeff);
 #endif
     
   }//verify_results
@@ -305,12 +311,12 @@ llfat_test(int test)
   
     int res=1;
     for(int i=0;i < 4;i++){
-      res &= compare_floats(reflink[i], myfatlink[i], V*gaugeSiteSize, 1e-3, qudaGaugeParam.cpu_prec);
+      res &= compare_floats(fat_reflink[i], myfatlink[i], V*gaugeSiteSize, 1e-3, qudaGaugeParam.cpu_prec);
     }
     int accuracy_level;
     
     accuracy_level = strong_check_link(myfatlink, "GPU results: ",
-				       reflink, "CPU reference results:",
+				       fat_reflink, "CPU reference results:",
 				       V, qudaGaugeParam.cpu_prec);
     
     printfQuda("Test %s\n",(1 == res) ? "PASSED" : "FAILED");
@@ -351,9 +357,10 @@ llfat_test(int test)
     for(int i=0;i < 4; i++){
       cudaFreeHost(sitelink[i]);
       cudaFreeHost(sitelink_ex[i]);
-      free(reflink[i]);
+      free(fat_reflink[i]);
     }
     cudaFreeHost(fatlink);
+    cudaFreeHost(longlink);
     if(milc_sitelink) free(milc_sitelink);
     if(milc_sitelink_ex) free(milc_sitelink_ex);
 #ifdef MULTI_GPU
