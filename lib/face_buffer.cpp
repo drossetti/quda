@@ -204,7 +204,7 @@ void FaceBuffer::flushPinnedCache()
 }
 
 
-void FaceBuffer::pack(cudaColorSpinorField &in, int parity, int dagger, 
+void FaceBuffer::pack(cudaColorSpinorField &in, int parity, int dim, int dir, int dagger, 
 		      cudaStream_t *stream_p, bool zeroCopyPack)
 {
   in.allocateGhostBuffer();   // allocate the ghost buffer if not yet allocated  
@@ -213,10 +213,17 @@ void FaceBuffer::pack(cudaColorSpinorField &in, int parity, int dagger,
   if (zeroCopyPack) {
     void *my_face_d;
     cudaHostGetDevicePointer(&my_face_d, my_face, 0); // set the matching device pointer
-    in.packGhost((QudaParity)parity, dagger, &stream[0], my_face_d);
+    in.packGhost((QudaParity)parity, dim, (QudaDirection)dir, dagger, &stream[0], my_face_d);
   } else {
-    in.packGhost((QudaParity)parity, dagger, &stream[Nstream-1]);
+    in.packGhost((QudaParity)parity, dim, (QudaDirection)dir, dagger, &stream[Nstream-1]);
   }
+}
+
+void FaceBuffer::pack(cudaColorSpinorField &in, int parity, int dagger, cudaStream_t *stream_p, bool zeroCopyPack)
+{
+  const int dim = -1;
+  const int dir = 2;
+  pack(in, parity, dim, dir, dagger, stream_p, zeroCopyPack);
 }
 
 void FaceBuffer::pack(cudaColorSpinorField &in, int parity, int dagger, 

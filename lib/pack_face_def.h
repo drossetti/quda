@@ -1834,10 +1834,8 @@ void packFaceNdegTM(void *ghost_buf, cudaColorSpinorField &in, const int dagger,
   } 
 }
 
-void packFace(void *ghost_buf, cudaColorSpinorField &in, const int dagger, const int parity, const cudaStream_t &stream)
+void packFace(void *ghost_buf, cudaColorSpinorField &in, const int dagger, const int parity, const int dim, const int face_num, const cudaStream_t &stream)
 {
-  int dim = -1; 
-  int face_num = 2;
 
   int nDimPack = 0;
   for (int d=0; d<4; d++) {

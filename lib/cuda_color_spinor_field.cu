@@ -516,12 +516,20 @@ namespace quda {
   }
 
   // pack the ghost zone into a contiguous buffer for communications
-  void cudaColorSpinorField::packGhost(const QudaParity parity, const int dagger, 
+  void cudaColorSpinorField::packGhost(const QudaParity parity, const int dim, const QudaDirection dir, const int dagger, 
 				       cudaStream_t *stream, void *buffer) 
   {
+    int face_num;
+    if(dir == QUDA_BACKWARDS){
+      face_num = 0;
+    }else if(dir == QUDA_FORWARDS){
+      face_num = 1;
+    }else{
+      face_num = 2;
+    }
 #ifdef MULTI_GPU
     void *packBuffer = buffer ? buffer : ghostFaceBuffer;
-    packFace(packBuffer, *this, dagger, parity, *stream); 
+    packFace(packBuffer, *this, dagger, parity, dim, face_num, *stream); 
 #else
     errorQuda("packGhost not built on single-GPU build");
 #endif

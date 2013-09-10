@@ -306,7 +306,7 @@ namespace quda {
        @param buffer Optional parameter where the ghost should be
        stored (default is to use cudaColorSpinorField::ghostFaceBuffer)
      */
-    void packGhost(const QudaParity parity, const int dagger, 
+    void packGhost(const QudaParity parity, const int dim, const QudaDirection dir, const int dagger, 
 		   cudaStream_t* stream, void *buffer=0);
 
     /**
