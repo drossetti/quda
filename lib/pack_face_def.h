@@ -796,6 +796,10 @@ struct PackParam {
   cudaTextureObject_t inTexNorm;
 #endif
 
+  int dim;
+  int face_num;
+
+
   int stride;
 };
 
@@ -1200,7 +1204,7 @@ class PackFace : public Tunable {
       }
     }else{
       if(dslashParam.commDim[dim] && dim!=3 || (kernelPackT || twistPack))
-        threads = (param.face_num==2) ? 2*nFace*in->GhostFace()[dim] : nFace*in->GhostFace()[dim];
+        threads = (face_num==2) ? 2*nFace*in->GhostFace()[dim] : nFace*in->GhostFace()[dim];
     }
     return threads;
   }
@@ -1265,8 +1269,8 @@ class PackFace : public Tunable {
 
  public:
   PackFace(FloatN *faces, const cudaColorSpinorField *in, 
-	   const int dagger, const int parity, const int nFace)
-    : faces(faces), in(in), dagger(dagger), parity(parity), nFace(nFace) { }
+	   const int dagger, const int parity, const int nFace, const int dim=-1, const int face_num=2)
+    : faces(faces), in(in), dagger(dagger), parity(parity), nFace(nFace), dim(dim), face_num(face_num) { }
   virtual ~PackFace() { }
   
   virtual int tuningIter() const { return 100; }
@@ -1544,7 +1548,7 @@ class PackFaceAsqtad : public PackFace<FloatN, Float> {
     TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
     
 #ifdef GPU_STAGGERED_DIRAC
-    PackParam<FloatN> param = this->prepareParam(dim, face_num);
+    PackParam<FloatN> param = this->prepareParam(this->dim, this->face_num);
     packFaceAsqtadKernel<<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param);
 #else
     errorQuda("Asqtad face packing kernel is not built");
