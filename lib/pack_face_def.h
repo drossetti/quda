@@ -1185,15 +1185,22 @@ class PackFace : public Tunable {
   const int dagger;
   const int parity;
   const int nFace;
+  const int dim;
+  const int face_num;
 
   // compute how many threads we need in total for the face packing
 
   unsigned int threads() const {
     unsigned int threads = 0;
-    for (int i=0; i<4; i++) {
-      if (!dslashParam.commDim[i]) continue;
-      if ((i==3 && !(kernelPackT || twistPack))) continue; 
-      threads += 2*nFace*in->GhostFace()[i]; // 2 for forwards and backwards faces
+    if(dim < 0){ // if dim is negative, pack all dimensions
+      for (int i=0; i<4; i++) {
+        if (!dslashParam.commDim[i]) continue;
+        if ((i==3 && !(kernelPackT || twistPack))) continue; 
+        threads += 2*nFace*in->GhostFace()[i]; // 2 for forwards and backwards faces
+      }
+    }else{
+      if(dslashParam.commDim[dim] && dim!=3 || (kernelPackT || twistPack))
+        threads = (param.face_num==2) ? 2*nFace*in->GhostFace()[dim] : nFace*in->GhostFace()[dim];
     }
     return threads;
   }
@@ -1202,10 +1209,12 @@ class PackFace : public Tunable {
   virtual int outputPerSite() const = 0;
 
   // prepare the param struct with kernel arguments
-  PackParam<FloatN> prepareParam() {
+  PackParam<FloatN> prepareParam(int dim=-1, int face_num=2) {
     PackParam<FloatN> param;
     param.in = (FloatN*)in->V();
     param.inNorm = (float*)in->Norm();
+    param.parity = parity;
+    param.dim = dim;
     param.parity = parity;
 #ifdef USE_TEXTURE_OBJECTS
     param.inTex = in->Tex();
@@ -1248,15 +1257,11 @@ class PackFace : public Tunable {
     return param;
   }
 
-  int sharedBytesPerThread() const { return 0; }
-  int sharedBytesPerBlock(const TuneParam &param) const { return 0; }
+  unsigned int sharedBytesPerThread() const { return 0; }
+  unsigned int sharedBytesPerBlock(const TuneParam &param) const { return 0; }
   
-  bool advanceGridDim(TuneParam &param) const { return false; } // Don't tune the grid dimensions.
-  bool advanceBlockDim(TuneParam &param) const {
-    bool advance = Tunable::advanceBlockDim(param);
-    if (advance) param.grid = dim3( (threads()+param.block.x-1) / param.block.x, 1, 1);
-    return advance;
-  }
+  bool tuneGridDim() const { return false; } // Don't tune the grid dimensions.
+  unsigned int minThreads() const { return threads(); }
 
  public:
   PackFace(FloatN *faces, const cudaColorSpinorField *in, 
@@ -1278,19 +1283,6 @@ class PackFace : public Tunable {
   
   virtual void apply(const cudaStream_t &stream) = 0;
   virtual void apply_twisted(Float a, Float b, const cudaStream_t &stream) = 0;//for twisted mass only
-
-  virtual void initTuneParam(TuneParam &param) const
-  {
-    Tunable::initTuneParam(param);
-    param.grid = dim3( (threads()+param.block.x-1) / param.block.x, 1, 1);
-  }
-  
-  /** sets default values for when tuning is disabled */
-  virtual void defaultTuneParam(TuneParam &param) const
-  {
-    Tunable::defaultTuneParam(param);
-    param.grid = dim3( (threads()+param.block.x-1) / param.block.x, 1, 1);
-  }
 
   long long bytes() const { 
     size_t faceBytes = (inputPerSite() + outputPerSite())*this->threads()*sizeof(((FloatN*)0)->x);
@@ -1544,15 +1536,15 @@ class PackFaceAsqtad : public PackFace<FloatN, Float> {
 
  public:
   PackFaceAsqtad(FloatN *faces, const cudaColorSpinorField *in, 
-		 const int dagger, const int parity)
-    : PackFace<FloatN, Float>(faces, in, dagger, parity, 3) { }
+		 const int dagger, const int parity, const int dim, const int face_num)
+    : PackFace<FloatN, Float>(faces, in, dagger, parity, 3, dim, face_num) { }
   virtual ~PackFaceAsqtad() { }
   
   void apply(const cudaStream_t &stream) {
     TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
     
 #ifdef GPU_STAGGERED_DIRAC
-    PackParam<FloatN> param = this->prepareParam();
+    PackParam<FloatN> param = this->prepareParam(dim, face_num);
     packFaceAsqtadKernel<<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param);
 #else
     errorQuda("Asqtad face packing kernel is not built");
@@ -1565,24 +1557,24 @@ class PackFaceAsqtad : public PackFace<FloatN, Float> {
 };
 
 void packFaceAsqtad(void *ghost_buf, cudaColorSpinorField &in, const int dagger, 
-		    const int parity, const cudaStream_t &stream) {
+		    const int parity, const int dim, const int face_num, const cudaStream_t &stream) {
 
   switch(in.Precision()) {
   case QUDA_DOUBLE_PRECISION:
     {
-      PackFaceAsqtad<double2, double> pack((double2*)ghost_buf, &in, dagger, parity);
+      PackFaceAsqtad<double2, double> pack((double2*)ghost_buf, &in, dagger, parity, dim, face_num);
       pack.apply(stream);
     }
     break;
   case QUDA_SINGLE_PRECISION:
     {
-      PackFaceAsqtad<float2, float> pack((float2*)ghost_buf, &in, dagger, parity);
+      PackFaceAsqtad<float2, float> pack((float2*)ghost_buf, &in, dagger, parity, dim, face_num);
       pack.apply(stream);
     }
     break;
   case QUDA_HALF_PRECISION:
     {
-      PackFaceAsqtad<short2, float> pack((short2*)ghost_buf, &in, dagger, parity);
+      PackFaceAsqtad<short2, float> pack((short2*)ghost_buf, &in, dagger, parity, dim, face_num);
       pack.apply(stream);
     }
     break;
@@ -1840,16 +1832,19 @@ void packFaceNdegTM(void *ghost_buf, cudaColorSpinorField &in, const int dagger,
 
 void packFace(void *ghost_buf, cudaColorSpinorField &in, const int dagger, const int parity, const cudaStream_t &stream)
 {
+  int dim = -1; 
+  int face_num = 2;
+
   int nDimPack = 0;
-  for (int dim=0; dim<4; dim++) {
-    if(!dslashParam.commDim[dim]) continue;
-    if (dim != 3 || getKernelPackT()) nDimPack++;
+  for (int d=0; d<4; d++) {
+    if(!dslashParam.commDim[d]) continue;
+    if (d != 3 || getKernelPackT()) nDimPack++;
   }
   if (!nDimPack) return; // if zero then we have nothing to pack 
 
   // Need to update this logic for other multi-src dslash packing
   if (in.Nspin() == 1) {
-    packFaceAsqtad(ghost_buf, in, dagger, parity, stream);
+    packFaceAsqtad(ghost_buf, in, dagger, parity, dim, face_num, stream);
   } else if (in.Ndim() == 5) {
     if(in.TwistFlavor() == QUDA_TWIST_INVALID) {
       packFaceDW(ghost_buf, in, dagger, parity, stream);
