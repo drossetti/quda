@@ -242,20 +242,26 @@ void FaceBuffer::pack(cudaColorSpinorField &in, int parity, int dagger,
 }
 
 
-void FaceBuffer::gather(cudaColorSpinorField &in, int dagger, int dir)
-{
+void FaceBuffer::gather(cudaColorSpinorField &in, int dagger, int dir, int stream_idx){
   int dim = dir/2;
   if(!commDimPartitioned(dim)) return;
 
   if (dir%2==0) {
     // backwards copy to host
-    in.sendGhost(my_back_face[dim], dim, QUDA_BACKWARDS, dagger, &stream[2*dim+sendBackStrmIdx]); 
+    in.sendGhost(my_back_face[dim], dim, QUDA_BACKWARDS, dagger, &stream[stream_idx]); 
   } else {
     // forwards copy to host
-    in.sendGhost(my_fwd_face[dim], dim, QUDA_FORWARDS, dagger, &stream[2*dim+sendFwdStrmIdx]);
+    in.sendGhost(my_fwd_face[dim], dim, QUDA_FORWARDS, dagger, &stream[stream_idx]);
   }
 }
 
+void FaceBuffer::gather(cudaColorSpinorField &in, int dagger, int dir){
+  
+  if(!commDimPartitioned(dir/2)) return;
+
+  const int stream_idx = (dir%2 == 0) ? dir+sendBackStrmIdx : dir-1+sendFwdStrmIdx;
+  gather(in, dagger, dir, stream_idx);
+}
 
 // experimenting with callbacks for GPU -> MPI interaction.
 // much slower though because callbacks are done on a background thread
@@ -357,17 +363,20 @@ int FaceBuffer::commsQuery(int dir)
 }
 
 
-void FaceBuffer::scatter(cudaColorSpinorField &out, int dagger, int dir)
+void FaceBuffer::scatter(cudaColorSpinorField &out, int dagger, int dir, int stream_idx)
 {
   int dim = dir/2;
   if(!commDimPartitioned(dim)) return;
 
-  // both scattering occurances now go through the same stream
-  if (dir%2==0) {// receive from forwards
-    out.unpackGhost(from_fwd_face[dim], dim, QUDA_FORWARDS, dagger, &stream[2*dim/*+recFwdStrmIdx*/]); // 0, 2, 4, 6
-  } else { // receive from backwards
-    out.unpackGhost(from_back_face[dim], dim, QUDA_BACKWARDS, dagger, &stream[2*dim/*+recBackStrmIdx*/]); // 1, 3, 5, 7
+  if(dir%2==0) { // receive from forwards
+    out.unpackGhost(from_fwd_face[dim], dim, QUDA_FORWARDS, dagger, &stream[stream_idx]); 
+  }else{ // receive from backwards 
+    out.unpackGhost(from_back_face[dim], dim, QUDA_BACKWARDS, dagger, &stream[stream_idx]);
   }
+}
+
+void FaceBuffer::scatter(cudaColorSpinorField &out, int dagger, int dir){
+  scatter(out, dagger, dir, (dir/2)*2);
 }
 
 

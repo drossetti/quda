@@ -97,12 +97,20 @@ namespace quda {
     void pack(quda::cudaColorSpinorField &in, int parity, int dagger, 
 	      double a, double b, cudaStream_t *stream, bool zeroCopyPack=false);
 
+
+    void gather(quda::cudaColorSpinorField &in, int dagger, int dir, int streamIdx);
+
     void gather(quda::cudaColorSpinorField &in, int dagger, int dir);
+
+
 
     void commsStart(int dir);
     int  commsQuery(int dir);
     void scatter(quda::cudaColorSpinorField &out, int dagger, int dir);
-    
+  
+    void scatter(quda::cudaColorSpinorField &out, int dagger, int dir, int streamIdx); 
+
+ 
     void exchangeCpuSpinor(quda::cpuColorSpinorField &in, int parity, int dagger);
     
     void exchangeLink(void** ghost_link, void** link_sendbuf, QudaFieldLocation location);
