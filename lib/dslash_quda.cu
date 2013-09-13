@@ -84,6 +84,8 @@ namespace quda {
     cudaTextureObject_t longPhase1Tex;
     cudaTextureObject_t cloverTex;
     cudaTextureObject_t cloverNormTex;
+    cudaTextureObject_t cloverInvTex;
+    cudaTextureObject_t cloverInvNormTex;
 #endif
   };
 
