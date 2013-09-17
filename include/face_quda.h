@@ -82,6 +82,9 @@ namespace quda {
     void pack(quda::cudaColorSpinorField &in, int dim, int dir, int parity, int dagger, 
 	      cudaStream_t *stream, bool zeroCopyPack=false);
 
+    void pack(quda::cudaColorSpinorField &in, int dir, int parity, int dagger, 
+              cudaStream_t *stream, bool zeroCopyPack=false);
+
     void pack(quda::cudaColorSpinorField &in, int parity, int dagger, 
 	      cudaStream_t *stream, bool zeroCopyPack=false);
     /**
