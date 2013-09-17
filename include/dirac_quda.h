@@ -29,6 +29,7 @@ namespace quda {
     cudaGaugeField *fatGauge;  // used by staggered only
     cudaGaugeField *longGauge; // used by staggered only
     cudaCloverField *clover;
+    cudaCloverField *cloverInv;
   
     double mu; // used by twisted mass only
     double epsilon; //2nd tm parameter (used by twisted mass only)
@@ -40,7 +41,7 @@ namespace quda {
 
   DiracParam() 
     : type(QUDA_INVALID_DIRAC), kappa(0.0), m5(0.0), matpcType(QUDA_MATPC_INVALID),
-      dagger(QUDA_DAG_INVALID), gauge(0), clover(0), mu(0.0), epsilon(0.0),
+      dagger(QUDA_DAG_INVALID), gauge(0), clover(0), cloverInv(0), mu(0.0), epsilon(0.0),
       tmp1(0), tmp2(0)
     {
 
@@ -342,6 +343,9 @@ namespace quda {
   protected:
     double mu;
     double epsilon;
+    cudaCloverField &clover;
+    cudaCloverField &cloverInv;
+    void checkParitySpinor(const cudaColorSpinorField &, const cudaColorSpinorField &) const;
     void twistedCloverApply(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
           const QudaTwistGamma5Type twistType) const;
 
@@ -354,7 +358,7 @@ namespace quda {
     virtual ~DiracTwistedClover();
     DiracTwistedClover& operator=(const DiracTwistedClover &dirac);
 
-    void TwistClover(cudaColorSpinorField &out, const cudaColorSpinorField &in) const;
+    void TwistClover(cudaColorSpinorField &out, const cudaColorSpinorField &in, const QudaParity parity) const;	//IS PARITY REQUIRED???
 
     virtual void M(cudaColorSpinorField &out, const cudaColorSpinorField &in) const;
     virtual void MdagM(cudaColorSpinorField &out, const cudaColorSpinorField &in) const;
@@ -376,7 +380,7 @@ namespace quda {
     virtual ~DiracTwistedCloverPC();
     DiracTwistedCloverPC& operator=(const DiracTwistedCloverPC &dirac);
 
-    void TwistCloverInv(cudaColorSpinorField &out, const cudaColorSpinorField &in) const;
+    void TwistCloverInv(cudaColorSpinorField &out, const cudaColorSpinorField &in, const QudaParity parity) const;
 
     virtual void Dslash(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
       const QudaParity parity) const;

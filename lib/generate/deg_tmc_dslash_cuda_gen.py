@@ -595,9 +595,9 @@ def gen(dir, pack_only=False):
             load_spinor += "#else\n"
         load_spinor += "READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);\n"
         if not dagger:
-            load_spinor += "APPLY_CLOVER_TWIST_INV(i, c, cinv, mubar, i);\n"
+            load_spinor += "APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);\n"
         else:
-            load_spinor += "APPLY_CLOVER_TWIST_INV(i, c, cinv, -mubar, i);\n"
+            load_spinor += "APPLY_CLOVER_TWIST_INV(c, cinv, -mubar, i);\n"
         if not pack_only:
             load_spinor += "#endif\n"
     elif row_cnt[2] == 0:
@@ -1123,14 +1123,14 @@ def generate_dslash_kernels(arch):
     dslash = True
     twist = True
     dagger = False
-    filename = 'dslash_core/tmc_dslash_' + name + '_core.h'
+    filename = '../dslash_core/tmc_dslash_' + name + '_core.h'
     print sys.argv[0] + ": generating " + filename;
     f = open(filename, 'w')
     f.write(generate_dslash())
     f.close()
 
     dagger = True
-    filename = 'dslash_core/tmc_dslash_dagger_' + name + '_core.h'
+    filename = '../dslash_core/tmc_dslash_dagger_' + name + '_core.h'
     print sys.argv[0] + ": generating " + filename + "\n";
     f = open(filename, 'w')
     f.write(generate_dslash())
@@ -1165,13 +1165,13 @@ twist = False
 dagger = False
 pack = True
 print sys.argv[0] + ": generating wilson_pack_clover_twisted_face_core.h";
-f = open('dslash_core/wilson_pack_clover_twisted_face_core.h', 'w')
+f = open('../dslash_core/wilson_pack_clover_twisted_face_core.h', 'w')
 f.write(generate_pack())
 f.close()
 
 dagger = True
 print sys.argv[0] + ": generating wilson_pack_clover_twisted_face_dagger_core.h";
-f = open('dslash_core/wilson_pack_clover_twisted_face_dagger_core.h', 'w')
+f = open('../dslash_core/wilson_pack_clover_twisted_face_dagger_core.h', 'w')
 f.write(generate_pack())
 f.close()
 dslash = False

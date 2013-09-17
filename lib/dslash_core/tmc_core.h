@@ -1,4 +1,4 @@
-#define APPLY_CLOVER_TWIST(c, a, reg)\
+#define APPLY_CLOVER_TWIST(c, mubar, reg)\
 \
 /* change to chiral basis*/\
 {\
@@ -416,7 +416,7 @@
 }\
 \
 
-#define APPLY_CLOVER_TWIST_INV(c, cinv, a, reg)\
+#define APPLY_CLOVER_TWIST_INV(c, cinv, mubar, reg)\
 \
 /* change to chiral basis*/\
 {\

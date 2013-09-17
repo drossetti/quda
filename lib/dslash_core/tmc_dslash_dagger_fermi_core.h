@@ -2225,7 +2225,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4>0)) ||
       READ_SPINOR_DOWN(SPINORTEX, sp_stride, sp_idx, sp_idx);
 #else
       READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
-      APPLY_CLOVER_TWIST_INV(i, c, cinv, -mubar, i);
+      APPLY_CLOVER_TWIST_INV(c, cinv, -mubar, i);
 #endif
       
       // project spinor into half spinors
@@ -2310,7 +2310,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4>0)) ||
       READ_SPINOR_DOWN(SPINORTEX, sp_stride, sp_idx, sp_idx);
 #else
       READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
-      APPLY_CLOVER_TWIST_INV(i, c, cinv, -mubar, i);
+      APPLY_CLOVER_TWIST_INV(c, cinv, -mubar, i);
 #endif
       
       // project spinor into half spinors

@@ -4,58 +4,76 @@
 
 namespace quda {
 
-  int DiracTwistedClover::initTMCFlag = 0;//set to 1 for parity spinors, and 2 for full spinors 
+	int DiracTwistedClover::initTMCFlag = 0;//set to 1 for parity spinors, and 2 for full spinors 
 
-  DiracTwistedClover::DiracTwistedClover(const DiracTwistedClover &dirac) : DiracWilson(dirac), mu(dirac.mu), epsilon(dirac.epsilon) { }
+	DiracTwistedClover::DiracTwistedClover(const DiracTwistedClover &dirac) : DiracWilson(dirac), mu(dirac.mu), epsilon(dirac.epsilon), clover(*(param.clover))
+	{
+		initCloverConstants(clover, profile);
+	}
 
-  DiracTwistedClover::DiracTwistedClover(const DiracParam &param, const int nDim) : DiracWilson(param, nDim), mu(param.mu), epsilon(param.epsilon) { }
+	DiracTwistedClover::DiracTwistedClover(const DiracParam &param, const int nDim) : DiracWilson(param, nDim), mu(param.mu), epsilon(param.epsilon), clover(*(param.clover))
+	{
+		initCloverConstants(clover, profile);
+	}
 
-  DiracTwistedClover::~DiracTwistedClover() { }
+	DiracTwistedClover::~DiracTwistedClover() { }
 
-  DiracTwistedClover& DiracTwistedClover::operator=(const DiracTwistedClover &dirac)
-  {
-    if (&dirac != this) {
-      DiracWilson::operator=(dirac);
-    }
-    return *this;
-  }
+	DiracTwistedClover& DiracTwistedClover::operator=(const DiracTwistedClover &dirac)
+	{
+		if (&dirac != this)
+		{
+			DiracWilson::operator=(dirac);
+			clover = dirac.clover;
+		}
 
-  void DiracTwistedClover::initConstants(const cudaColorSpinorField &a) const {
+		return *this;
+	}
 
-    if (a.SiteSubset() == QUDA_PARITY_SITE_SUBSET && initTMCFlag != 1) {
-      int flavor_stride = (a.TwistFlavor() != QUDA_TWIST_PLUS || a.TwistFlavor() != QUDA_TWIST_MINUS) ? a.VolumeCB()/2 : a.VolumeCB();
-      initSpinorConstants(a, profile);
-      initTwistedMassConstants(flavor_stride, profile);
-      initTMCFlag = 1;
-    } else if (a.SiteSubset() == QUDA_FULL_SITE_SUBSET && initTMCFlag != 2) {
-      int flavor_stride = (a.TwistFlavor() != QUDA_TWIST_PLUS || a.TwistFlavor() != QUDA_TWIST_MINUS) ? a.VolumeCB()/4 : a.VolumeCB()/2;
-      initSpinorConstants(a, profile);
-      initTwistedMassConstants(flavor_stride, profile);
-      initTMCFlag = 2;
-    }
+	void DiracTwistedClover::initConstants(const cudaColorSpinorField &a) const
+	{
+		if (a.SiteSubset() == QUDA_PARITY_SITE_SUBSET && initTMCFlag != 1)
+		{
+			int flavor_stride = (a.TwistFlavor() != QUDA_TWIST_PLUS || a.TwistFlavor() != QUDA_TWIST_MINUS) ? a.VolumeCB()/2 : a.VolumeCB();
+			initSpinorConstants(a, profile);
+			initTwistedMassConstants(flavor_stride, profile);
+			initTMCFlag = 1;
+		}
+		else if (a.SiteSubset() == QUDA_FULL_SITE_SUBSET && initTMCFlag != 2)
+		{
+			int flavor_stride = (a.TwistFlavor() != QUDA_TWIST_PLUS || a.TwistFlavor() != QUDA_TWIST_MINUS) ? a.VolumeCB()/4 : a.VolumeCB()/2;
+			initSpinorConstants(a, profile);
+			initTwistedMassConstants(flavor_stride, profile);
+			initTMCFlag = 2;
+		}
+	}
 
-  }
+	void DiracClover::checkParitySpinor(const cudaColorSpinorField &out, const cudaColorSpinorField &in) const
+	{
+		Dirac::checkParitySpinor(out, in);
 
+		if (out.Volume() != clover.VolumeCB())
+			errorQuda("Parity spinor volume %d doesn't match clover checkboard volume %d", out.Volume(), clover.VolumeCB());
+	}
 
-  // Protected method for applying twist
+	// Protected method for applying twist
 
-  void DiracTwistedClover::twistedApply(cudaColorSpinorField &out, const cudaColorSpinorField &in,
-				      const QudaTwistGamma5Type twistType) const
-  {
-    checkParitySpinor(out, in);
-    initConstants(in);
+	void DiracTwistedClover::twistedApply(cudaColorSpinorField &out, const cudaColorSpinorField &in, const QudaTwistGamma5Type twistType) const
+	{
+		checkParitySpinor(out, in);
+		initConstants(in);
 
-    if (in.TwistFlavor() == QUDA_TWIST_NO || in.TwistFlavor() == QUDA_TWIST_INVALID)
-      errorQuda("Twist flavor not set %d\n", in.TwistFlavor());
+		if (in.TwistFlavor() == QUDA_TWIST_NO || in.TwistFlavor() == QUDA_TWIST_INVALID)
+			errorQuda("Twist flavor not set %d\n", in.TwistFlavor());
 
-    if (in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS) {
-      double flavor_mu = in.TwistFlavor() * mu;
-      twistGamma5Cuda(&out, &in, dagger, kappa, flavor_mu, 0.0, twistType);
-      flops += 24ll*in.Volume();
-    } else {
-      errorQuda("DiracTwistedClover::twistedApply method for flavor doublet is not implemented..\n");  
-    }
-  }
+		if (in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS)
+		{
+			double flavor_mu = in.TwistFlavor() * mu;
+			twistGamma5Cuda(&out, &in, dagger, kappa, flavor_mu, 0.0, twistType);
+			flops += 24ll*in.Volume();
+		}
+		else
+      			errorQuda("DiracTwistedClover::twistedApply method for flavor doublet is not implemented..\n");  
+	}
 
 
   // Public method to apply the twist
@@ -87,16 +105,11 @@ namespace quda {
   
     if(in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS){
       double a = 2.0 * kappa * in.TwistFlavor() * mu;//for direct twist (must be daggered separately)  
-      twistedMassDslashCuda(&out.Odd(), gauge, &in.Even(), QUDA_ODD_PARITY, dagger, &in.Odd(), QUDA_DEG_DSLASH_TWIST_XPAY, a, -kappa, 0.0, 0.0, commDim, profile);
-      twistedMassDslashCuda(&out.Even(), gauge, &in.Odd(), QUDA_EVEN_PARITY, dagger, &in.Even(), QUDA_DEG_DSLASH_TWIST_XPAY, a, -kappa, 0.0, 0.0, commDim, profile);
+      twistedCloverDslashCuda(&out.Odd(), gauge, &in.Even(), QUDA_ODD_PARITY, dagger, &in.Odd(), QUDA_DEG_DSLASH_TWIST_XPAY, a, -kappa, 0.0, 0.0, commDim, profile);
+      twistedCloverDslashCuda(&out.Even(), gauge, &in.Odd(), QUDA_EVEN_PARITY, dagger, &in.Even(), QUDA_DEG_DSLASH_TWIST_XPAY, a, -kappa, 0.0, 0.0, commDim, profile);
       flops += (1320ll+72ll)*in.Volume();
     } else {
-      double a = -2.0 * kappa * mu; //for twist 
-      double b = -2.0 * kappa * epsilon;//for twist
-      twistedMassDslashCuda(&out.Odd(), gauge, &in.Even(), QUDA_ODD_PARITY, dagger, &in.Odd(), QUDA_NONDEG_DSLASH, a, b, 1.0, -kappa, commDim, profile);      
-      twistedMassDslashCuda(&out.Even(), gauge, &in.Odd(), QUDA_EVEN_PARITY, dagger, &in.Even(), QUDA_NONDEG_DSLASH, a, b, 1.0, -kappa, commDim, profile);      
-
-      flops += (1320ll+72ll+24ll)*in.Volume();//??
+      errorQuda("Non-deg twisted clover not implemented yet");
     }
     deleteTmp(&tmp, reset);
   }
