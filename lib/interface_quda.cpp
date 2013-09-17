@@ -114,6 +114,11 @@ static TimeProfile profileGaugeForce("computeGaugeForceQuda");
 //!<Profiler for updateGaugeFieldQuda 
 static TimeProfile profileGaugeUpdate("updateGaugeFieldQuda");
 
+
+//!<Profiler for computeStaggeredOprodQuda
+static TimeProfile profileStaggeredOprod("computeStaggeredOprodQuda");
+
+
 //!< Profiler for endQuda
 static TimeProfile profileEnd("endQuda");
 
@@ -714,6 +719,7 @@ void endQuda(void)
     profileFatLink.Print();
     profileGaugeForce.Print();
     profileGaugeUpdate.Print();
+    profileStaggeredOprod.Print();
     profileEnd.Print();
 
     printfQuda("\n");
@@ -2168,6 +2174,85 @@ computeGaugeForceQuda(void* mom, void* sitelink,  int*** input_path_buf, int* pa
 }
 
 #endif
+
+
+void computeStaggeredOprodQuda(void* oprod,   
+                               void* fermion,
+                               int displacement,
+                               double coeff,
+                               QudaGaugeParam* param)
+{
+  profileStaggeredOprod.Start(QUDA_PROFILE_TOTAL);
+
+  checkGaugeParam(param);
+  
+  profileStaggeredOprod.Start(QUDA_PROFILE_INIT);
+  GaugeFieldParam oParam(0, *param);
+    
+  // create the host outer-product field
+  oParam.pad = 0;
+  oParam.create = QUDA_REFERENCE_FIELD_CREATE;
+  oParam.link_type = QUDA_GENERAL_LINKS;
+  oParam.reconstruct = QUDA_RECONSTRUCT_NO;
+  oParam.gauge = oprod;
+  cpuGaugeField cpuOprod(oParam);
+
+  // create the device outer-product field
+  oParam.create = QUDA_ZERO_FIELD_CREATE;
+  oParam.order = QUDA_FLOAT2_GAUGE_ORDER;
+  cudaGaugeField cudaOprod(oParam);
+   
+
+  // create the host quark field
+  ColorSpinorParam qParam;
+  qParam.nColor = 3;
+  qParam.nSpin = 1;
+  qParam.siteSubset = QUDA_FULL_SITE_SUBSET;
+  qParam.create = QUDA_REFERENCE_FIELD_CREATE;
+  qParam.fieldOrder = QUDA_SPACE_COLOR_SPIN_FIELD_ORDER;
+  qParam.siteOrder = QUDA_EVEN_ODD_SITE_ORDER;
+  qParam.nDim = 4;
+  qParam.precision = oParam.precision;
+  qParam.pad = 0;
+  qParam.v = fermion;
+ 
+  for(int dir=0; dir<4; ++dir) qParam.x[dir] = oParam.x[dir];
+
+  cpuColorSpinorField cpuQuark(qParam);
+
+  // create the device quark field
+  qParam.create = QUDA_NULL_FIELD_CREATE;
+  qParam.fieldOrder = QUDA_FLOAT2_FIELD_ORDER;
+  
+  cudaColorSpinorField cudaQuark(qParam); 
+ 
+  profileStaggeredOprod.Stop(QUDA_PROFILE_INIT); 
+  
+  profileStaggeredOprod.Start(QUDA_PROFILE_H2D);
+
+  // load the quark field onto the device
+  cudaQuark = cpuQuark;
+  // load the outer-product field from host to device
+  // In reality, I probably won't actually do this. I don't think 
+  // there's any need to copy the host field to the device. 
+  // I can simply compute the result on the device, copy back to host,
+  // and append on the host. Nevertheless, this checks that the code is copying over 
+  // in the right format
+  cudaOprod.loadCPUField(cpuOprod,QUDA_CPU_FIELD_LOCATION);
+
+  profileStaggeredOprod.Stop(QUDA_PROFILE_H2D);
+
+  // copy the outer product field back to the host
+  profileStaggeredOprod.Start(QUDA_PROFILE_D2H);
+  cpuQuark = cudaQuark; // Copy the quark field back to the host - for testing purposes only
+  cudaOprod.saveCPUField(cpuOprod,QUDA_CPU_FIELD_LOCATION);
+  profileStaggeredOprod.Stop(QUDA_PROFILE_D2H); 
+
+  profileStaggeredOprod.Stop(QUDA_PROFILE_TOTAL);
+  return;
+}
+
+
 
 void updateGaugeFieldQuda(void* gauge, 
     void* momentum, 

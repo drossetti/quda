@@ -85,7 +85,7 @@ extern "C" {
     double gaugeGiB;  /**< The storage used by the gauge fields */
 
     int preserve_gauge; /**< Used by link fattening */
-    
+
   } QudaGaugeParam;
 
 
@@ -108,7 +108,7 @@ extern "C" {
 
     double mu;    /**< Twisted mass parameter */
     double epsilon; /**< Twisted mass parameter */
-    
+
     QudaTwistFlavorType twist_flavor;  /**< Twisted mass flavor */
 
     double tol;   /**< Solver tolerance in the L2 residual norm */
@@ -252,7 +252,7 @@ extern "C" {
    *                   printed.  The default is stdout.
    */
   void setVerbosityQuda(QudaVerbosity verbosity, const char prefix[],
-			FILE *outfile);
+      FILE *outfile);
 
   /**
    * initCommsGridQuda() takes an optional "rank_from_coords" argument that
@@ -387,7 +387,7 @@ extern "C" {
    * @param inv_param   Contains all metadata regarding host and device storage
    */
   void loadCloverQuda(void *h_clover, void *h_clovinv,
-		      QudaInvertParam *inv_param);
+      QudaInvertParam *inv_param);
 
   /**
    * Free QUDA's internal copy of the clover term and/or clover inverse.
@@ -423,7 +423,7 @@ extern "C" {
    * @param parity The destination parity of the field
    */
   void dslashQuda(void *h_out, void *h_in, QudaInvertParam *inv_param,
-		  QudaParity parity);
+      QudaParity parity);
 
   /**
    * Apply the clover operator or its inverse.
@@ -435,7 +435,7 @@ extern "C" {
    * @param inverse Whether to apply the inverse of the clover term
    */
   void cloverQuda(void *h_out, void *h_in, QudaInvertParam *inv_param,
-		  QudaParity *parity, int inverse);
+      QudaParity *parity, int inverse);
 
   /**
    * Apply the full Dslash matrix, possibly even/odd preconditioned.
@@ -463,18 +463,18 @@ extern "C" {
 
   void set_dim(int *);
   void pack_ghost(void **cpuLink, void **cpuGhost, int nFace,
-		  QudaPrecision precision);
+      QudaPrecision precision);
   void setFatLinkPadding(QudaComputeFatMethod method, QudaGaugeParam* param);
   int computeKSLinkQuda(void* fatlink, void* longlink, void** sitelink,
-			     double* act_path_coeff, QudaGaugeParam* param, 
-			     QudaComputeFatMethod method);
+      double* act_path_coeff, QudaGaugeParam* param, 
+      QudaComputeFatMethod method);
 
   /**
    * Compute the gauge force.
    */
   int computeGaugeForceQuda(void* mom, void* sitelink,  int*** input_path_buf, int* path_length,
-			    void* loop_coeff, int num_paths, int max_length, double eb3,
-			    QudaGaugeParam* qudaGaugeParam, double* timeinfo);
+      void* loop_coeff, int num_paths, int max_length, double eb3,
+      QudaGaugeParam* qudaGaugeParam, double* timeinfo);
 
   /**
    * Evolve the gauge field by step size dt, using the momentum field
@@ -486,6 +486,20 @@ extern "C" {
    * @param param The parameters of the external fields and the computation settings
    */
   void updateGaugeFieldQuda(void* gauge, void* momentum, double dt, QudaGaugeParam* param);
+
+
+  /**
+   * Compute the quark-field outer product needed for gauge generation
+   *  
+   * @param oprod The outer product to be computed.
+   * @param quark The input fermion field.
+   * @param displacement The fermion-field displacement in the outer product. 
+   * @param coeff The coefficient multiplying the fermion fields in the outer product
+   * @param param The parameters of the outer-product field.
+   */
+  void computeStaggeredOprodQuda(void* oprod, void* quark, int displacement, double coeff, QudaGaugeParam* param);
+
+
 
 #ifdef __cplusplus
 }
