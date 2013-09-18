@@ -66,13 +66,16 @@
 #if (DD_PREC == 0)
 #define DD_PARAMCLOVER const double2 *clover, const float *null3, const double2 *cloverInv, const float *null4
 #if (defined DIRECT_ACCESS_CLOVER) || (defined FERMI_NO_DBLE_TEX)
-#define CLOVERTEX clover
+#define TMCLOVERTEX clover
+#define TM_INV_CLOVERTEX cloverInv
 #define READ_CLOVER READ_CLOVER_DOUBLE_STR
 #else
 #ifdef USE_TEXTURE_OBJECTS
-#define CLOVERTEX (param.cloverTex)
+#define TMCLOVERTEX (param.cloverTex)
+#define TM_INVCLOVERTEX (param.cloverInvTex)
 #else
-#define CLOVERTEX cloverTexDouble
+#define TMCLOVERTEX cloverTexDouble
+#define TM_INV_CLOVERTEX cloverInvTexDouble
 #endif
 #define READ_CLOVER READ_CLOVER_DOUBLE_TEX
 #endif
@@ -80,13 +83,16 @@
 #elif (DD_PREC == 1)
 #define DD_PARAMCLOVER const float4 *clover,  const float *null3, const float4 *cloverInv,  const float *null4
 #ifdef DIRECT_ACCESS_CLOVER
-#define CLOVERTEX clover
+#define TMCLOVERTEX clover
+#define TM_INV_CLOVERTEX cloverInv
 #define READ_CLOVER READ_CLOVER_SINGLE
 #else
 #ifdef USE_TEXTURE_OBJECTS
-#define CLOVERTEX (param.cloverTex)
+#define TMCLOVERTEX (param.cloverTex)
+#define TM_INV_CLOVERTEX (param.cloverInvTex)
 #else
-#define CLOVERTEX cloverTexSingle
+#define TMCLOVERTEX cloverTexSingle
+#define TM_INV_CLOVERTEX cloverInvTexSingle
 #endif
 #define READ_CLOVER READ_CLOVER_SINGLE_TEX
 #endif
@@ -97,11 +103,15 @@
 #define READ_CLOVER READ_CLOVER_HALF
 #else
 #ifdef USE_TEXTURE_OBJECTS
-#define CLOVERTEX (param.cloverTex)
-#define CLOVERTEXNORM (param.cloverNormTex)
+#define TMCLOVERTEX (param.cloverTex)
+#define TMCLOVERTEXNORM (param.cloverNormTex)
+#define TM_INV_CLOVERTEX (param.cloverInvTex)
+#define TM_INV_CLOVERTEXNORM (param.cloverInvNormTex)
 #else
-#define CLOVERTEX cloverTexHalf
-#define CLOVERTEXNORM cloverTexNorm
+#define TMCLOVERTEX cloverTexHalf
+#define TMCLOVERTEXNORM cloverTexNorm
+#define TM_INV_CLOVERTEX cloverInvTexHalf
+#define TM_INV_CLOVERTEXNORM cloverInvTexNorm
 #endif
 #define READ_CLOVER READ_CLOVER_HALF_TEX
 #endif
@@ -571,7 +581,8 @@ __global__ void	DD_FUNC(DD_NAME_F, DD_RECON_F, DD_DAG_F, DD_XPAY_F)
 #undef SPINOR_DOUBLE
 
 #undef READ_CLOVER
-#undef CLOVERTEX
+#undef TMCLOVERTEX
+#undef TM_INV_CLOVERTEX
 #undef CLOVER_DOUBLE
 
 #undef SPINOR_HOP
