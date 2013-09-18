@@ -1175,6 +1175,242 @@ __global__ void packTwistedFaceWilsonKernel(Float a, Float b, PackParam<FloatN> 
 #endif // GPU_TWISTED_MASS_DIRAC
 
 
+#if defined(GPU_TWISTED_CLOVER_DIRAC)
+
+// double precision
+#if (defined DIRECT_ACCESS_WILSON_PACK_SPINOR) || (defined FERMI_NO_DBLE_TEX)
+#define READ_SPINOR READ_SPINOR_DOUBLE
+#define READ_SPINOR_UP READ_SPINOR_DOUBLE_UP
+#define READ_SPINOR_DOWN READ_SPINOR_DOUBLE_DOWN
+#define SPINORTEX in
+#else
+#define READ_SPINOR READ_SPINOR_DOUBLE_TEX
+#define READ_SPINOR_UP READ_SPINOR_DOUBLE_UP_TEX
+#define READ_SPINOR_DOWN READ_SPINOR_DOUBLE_DOWN_TEX
+#ifdef USE_TEXTURE_OBJECTS
+#define SPINORTEX param.inTex
+#else
+#define SPINORTEX spinorTexDouble
+#endif
+#endif
+#define WRITE_HALF_SPINOR WRITE_HALF_SPINOR_DOUBLE2
+#define SPINOR_DOUBLE
+
+#if (defined DIRECT_ACCESS_CLOVER) || (defined FERMI_NO_DBLE_TEX)
+#define TMCLOVERTEX clover
+#define TM_INV_CLOVERTEX cloverInv
+#define READ_CLOVER READ_CLOVER_DOUBLE_STR
+#else
+#ifdef USE_TEXTURE_OBJECTS
+#define TMCLOVERTEX (param.cloverTex)
+#define TM_INVCLOVERTEX (param.cloverInvTex)
+#else
+#define TMCLOVERTEX cloverTexDouble
+#define TM_INV_CLOVERTEX cloverInvTexDouble
+#endif
+#define READ_CLOVER READ_CLOVER_DOUBLE_TEX
+#endif
+#define CLOVER_DOUBLE
+
+template <int dim, int dagger, int face_num>
+static inline __device__ void packTwistedFaceWilsonCore(double2 *out, float *outNorm, const double2 *in, 
+						 const float *inNorm, double a, const double2 *cloverTerm, const int &idx, 
+						 const int &face_idx, const int &face_volume, 
+						 PackParam<double2> &param)
+{
+#if (__COMPUTE_CAPABILITY__ >= 130)
+    if (dagger) {
+#include "wilson_pack_tmclover_face_dagger_core.h"
+    } else {
+#include "wilson_pack_tmclover_face_core.h"
+    }
+#endif // (__COMPUTE_CAPABILITY__ >= 130)
+}
+#undef READ_SPINOR
+#undef READ_SPINOR_UP
+#undef READ_SPINOR_DOWN
+#undef SPINORTEX
+#undef WRITE_HALF_SPINOR
+#undef SPINOR_DOUBLE
+#undef CLOVER_DOUBLE
+#undef TMCLOVERTEX
+#undef TM_INV_CLOVERTEX
+#undef READ_CLOVER
+
+// single precision
+#ifdef DIRECT_ACCESS_WILSON_PACK_SPINOR
+#define READ_SPINOR READ_SPINOR_SINGLE
+#define READ_SPINOR_UP READ_SPINOR_SINGLE_UP
+#define READ_SPINOR_DOWN READ_SPINOR_SINGLE_DOWN
+#define SPINORTEX in
+#else
+#define READ_SPINOR READ_SPINOR_SINGLE_TEX
+#define READ_SPINOR_UP READ_SPINOR_SINGLE_UP_TEX
+#define READ_SPINOR_DOWN READ_SPINOR_SINGLE_DOWN_TEX
+#ifdef USE_TEXTURE_OBJECTS
+#define SPINORTEX param.inTex
+#else
+#define SPINORTEX spinorTexSingle
+#endif
+#endif
+#define WRITE_HALF_SPINOR WRITE_HALF_SPINOR_FLOAT4
+
+#ifdef DIRECT_ACCESS_CLOVER
+#define TMCLOVERTEX clover
+#define TM_INV_CLOVERTEX cloverInv
+#define READ_CLOVER READ_CLOVER_SINGLE
+#else
+#ifdef USE_TEXTURE_OBJECTS
+#define TMCLOVERTEX (param.cloverTex)
+#define TM_INV_CLOVERTEX (param.cloverInvTex)
+#else
+#define TMCLOVERTEX cloverTexSingle
+#define TM_INV_CLOVERTEX cloverInvTexSingle
+#endif
+#define READ_CLOVER READ_CLOVER_SINGLE_TEX
+#endif
+
+template <int dim, int dagger, int face_num>
+static inline __device__ void packTwistedCloverFaceWilsonCore(float4 *out, float *outNorm, const float4 *in, const float *inNorm, float a, const float4 *cloverTerm,
+						 const int &idx, const int &face_idx, 
+						 const int &face_volume, 
+						 const PackParam<float4> &param)
+{
+    if (dagger) {
+#include "wilson_pack_tmclover_face_dagger_core.h"
+    } else {
+#include "wilson_pack_tmclover_face_core.h"
+    }
+}
+#undef READ_SPINOR
+#undef READ_SPINOR_UP
+#undef READ_SPINOR_DOWN
+#undef SPINORTEX
+#undef WRITE_HALF_SPINOR
+#undef TMCLOVERTEX
+#undef TM_INV_CLOVERTEX
+#undef READ_CLOVER
+
+// half precision
+#ifdef DIRECT_ACCESS_WILSON_PACK_SPINOR
+#define READ_SPINOR READ_SPINOR_HALF
+#define READ_SPINOR_UP READ_SPINOR_HALF_UP
+#define READ_SPINOR_DOWN READ_SPINOR_HALF_DOWN
+#define SPINORTEX in
+#else
+#define READ_SPINOR READ_SPINOR_HALF_TEX
+#define READ_SPINOR_UP READ_SPINOR_HALF_UP_TEX
+#define READ_SPINOR_DOWN READ_SPINOR_HALF_DOWN_TEX
+#ifdef USE_TEXTURE_OBJECTS
+#define SPINORTEX param.inTex
+#else
+#define SPINORTEX spinorTexHalf
+#endif
+#endif
+#define WRITE_HALF_SPINOR WRITE_HALF_SPINOR_SHORT4
+
+#ifdef DIRECT_ACCESS_CLOVER
+#define CLOVERTEX clover
+#define READ_CLOVER READ_CLOVER_HALF
+#else
+#ifdef USE_TEXTURE_OBJECTS
+#define TMCLOVERTEX (param.cloverTex)
+#define TMCLOVERTEXNORM (param.cloverNormTex)
+#define TM_INV_CLOVERTEX (param.cloverInvTex)
+#define TM_INV_CLOVERTEXNORM (param.cloverInvNormTex)
+#else
+#define TMCLOVERTEX cloverTexHalf
+#define TMCLOVERTEXNORM cloverTexNorm
+#define TM_INV_CLOVERTEX cloverInvTexHalf
+#define TM_INV_CLOVERTEXNORM cloverInvTexNorm
+#endif
+#define READ_CLOVER READ_CLOVER_HALF_TEX
+#endif
+
+template <int dim, int dagger, int face_num>
+static inline __device__ void packTwistedCloverFaceWilsonCore(short4 *out, float *outNorm, const short4 *in, const float *inNorm, float a, const short4 *cloverTerm,
+						 const int &idx, const int &face_idx, 
+						 const int &face_volume, 
+						 const PackParam<short4> &param)
+{
+    if (dagger) {
+#include "wilson_pack_tmclover_face_dagger_core.h"
+    } else {
+#include "wilson_pack_tmclover_face_core.h"
+    }
+}
+#undef READ_SPINOR
+#undef READ_SPINOR_UP
+#undef READ_SPINOR_DOWN
+#undef SPINORTEX
+#undef WRITE_HALF_SPINOR
+#undef TMCLOVERTEX
+#undef TM_INV_CLOVERTEX
+#undef READ_CLOVER
+
+template <int dagger, typename FloatN, typename Float>
+__global__ void packTwistedCloverFaceWilsonKernel(Float a, const FloatN *cloverTerm, PackParam<FloatN> param)
+{
+  const int nFace = 1; // 1 face for Wilson
+
+  int face_idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if (face_idx >= param.threads) return;
+
+  // determine which dimension we are packing
+  const int dim = dimFromFaceIndex(face_idx, param);
+
+  // face_num determines which end of the lattice we are packing: 0 = start, 1 = end
+  const int face_num = (face_idx >= nFace*ghostFace[dim]) ? 1 : 0;
+  face_idx -= face_num*nFace*ghostFace[dim];
+
+  // compute where the output is located
+  // compute an index into the local volume from the index into the face
+  // read spinor, spin-project, and write half spinor to face
+  if (dim == 0) {
+    if (face_num == 0) {
+      const int idx = indexFromFaceIndex<0,nFace,0>(face_idx,ghostFace[0],param.parity);
+      packTwistedCloverFaceWilsonCore<0,dagger,0>(param.out[0], param.outNorm[0], param.in, 
+				    param.inNorm, a, cloverTerm, idx, face_idx, ghostFace[0], param);
+    } else {
+      const int idx = indexFromFaceIndex<0,nFace,1>(face_idx,ghostFace[0],param.parity);
+      packTwistedCloverFaceWilsonCore<0,dagger,1>(param.out[1], param.outNorm[1], param.in, 
+					    param.inNorm, a, cloverTerm, idx, face_idx, ghostFace[0], param);
+    }
+  } else if (dim == 1) {
+    if (face_num == 0) {
+      const int idx = indexFromFaceIndex<1,nFace,0>(face_idx,ghostFace[1],param.parity);
+      packTwistedCloverFaceWilsonCore<1, dagger,0>(param.out[2], param.outNorm[2], param.in, 
+				    param.inNorm, a, cloverTerm, idx, face_idx, ghostFace[1], param);
+    } else {
+      const int idx = indexFromFaceIndex<1,nFace,1>(face_idx,ghostFace[1],param.parity);
+      packTwistedCloverFaceWilsonCore<1, dagger,1>(param.out[3], param.outNorm[3], param.in, 
+				    param.inNorm, a, cloverTerm, idx, face_idx, ghostFace[1], param);
+    }
+  } else if (dim == 2) {
+    if (face_num == 0) {
+      const int idx = indexFromFaceIndex<2,nFace,0>(face_idx,ghostFace[2],param.parity);
+      packTwistedCloverFaceWilsonCore<2, dagger,0>(param.out[4], param.outNorm[4], param.in, 
+				      param.inNorm, a, cloverTerm, idx, face_idx, ghostFace[2], param);
+    } else {
+      const int idx = indexFromFaceIndex<2,nFace,1>(face_idx,ghostFace[2],param.parity);
+      packTwistedCloverFaceWilsonCore<2, dagger,1>(param.out[5], param.outNorm[5], param.in, 
+				      param.inNorm, a, cloverTerm, idx, face_idx, ghostFace[2], param);
+    }
+  } else {
+    if (face_num == 0) {
+      const int idx = indexFromFaceIndex<3,nFace,0>(face_idx,ghostFace[3],param.parity);
+      packTwistedCloverFaceWilsonCore<3, dagger,0>(param.out[6], param.outNorm[6], param.in, 
+				      param.inNorm, a, cloverTerm, idx, face_idx, ghostFace[3], param);
+    } else {
+      const int idx = indexFromFaceIndex<3,nFace,1>(face_idx,ghostFace[3],param.parity);
+      packTwistedCloverFaceWilsonCore<3, dagger,1>(param.out[7], param.outNorm[7], param.in, 
+				      param.inNorm, a, cloverTerm, idx, face_idx, ghostFace[3], param);
+    }
+  }
+
+}
+
+#endif	// GPU_TWISTED_CLOVER_DIRAC
 
 template <typename FloatN, typename Float>
 class PackFace : public Tunable {
@@ -1274,6 +1510,7 @@ class PackFace : public Tunable {
   
   virtual void apply(const cudaStream_t &stream) = 0;
   virtual void apply_twisted(Float a, Float b, const cudaStream_t &stream) = 0;//for twisted mass only
+  virtual void apply_twisted_clover(Float a, FloatN *cloverTerm, const cudaStream_t &stream) = 0;//for twisted mass only
 
   long long bytes() const { 
     size_t faceBytes = (inputPerSite() + outputPerSite())*this->threads()*sizeof(((FloatN*)0)->x);
@@ -1324,6 +1561,20 @@ class PackFaceWilson : public PackFace<FloatN, Float> {
     }
 #else
     errorQuda("Twisted face packing kernel is not built");
+
+#endif  
+  void apply_twisted_clover(Float a, FloatN *cloverTerm, const cudaStream_t &stream) {
+    TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
+
+#ifdef GPU_TWISTED_CLOVER_DIRAC
+    PackParam<FloatN> param = this->prepareParam();
+    if (this->dagger) {
+      packTwistedCloverFaceWilsonKernel<1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(a, cloverTerm, param);
+    } else {
+      packTwistedCloverFaceWilsonKernel<0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(a, cloverTerm, param);
+    }
+#else
+    errorQuda("Twisted clover face packing kernel is not built");
 #endif  
   }
 
@@ -1377,6 +1628,32 @@ void packTwistedFaceWilson(void *ghost_buf, cudaColorSpinorField &in, const int 
     {
       PackFaceWilson<short4, float> pack((short4*)ghost_buf, &in, dagger, parity);
       pack.apply_twisted((float)a, (float)b, stream);
+    }
+    break;
+  }  
+}
+
+//!	FIXME: I'm sure this is wrong...
+void packTwistedCloverFaceWilson(void *ghost_buf, cudaColorSpinorField &in, const int dagger, 
+		    const int parity, const double a, cudaCloverField &cloverTerm, const cudaStream_t &stream) {
+
+  switch(in.Precision()) {
+  case QUDA_DOUBLE_PRECISION:
+    {
+      PackFaceWilson<double2, double> pack((double2*)ghost_buf, &in, dagger, parity);
+      pack.apply_twisted_clover((double)a, (double2*)cloverTerm->V, stream);
+    }
+    break;
+  case QUDA_SINGLE_PRECISION:
+    {
+      PackFaceWilson<float4, float> pack((float4*)ghost_buf, &in, dagger, parity);
+      pack.apply_twisted_clover((float)a, (float4*)cloverTerm->V, stream);
+    }
+    break;
+  case QUDA_HALF_PRECISION:
+    {
+      PackFaceWilson<short4, float> pack((short4*)ghost_buf, &in, dagger, parity);
+      pack.apply_twisted_clover((float)a, (short4*)cloverTerm->V, stream);
     }
     break;
   }  

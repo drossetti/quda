@@ -284,7 +284,7 @@ if (face_num) {
     {
       // read spinor from device memory
       READ_SPINOR(SPINORTEX, sp_stride, idx, idx);
-      APPLY_CLOVER_TWIST_INV(i, c, cinv, mubar, i);
+      APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
       
       spinorFloat a0_re, a0_im;
       spinorFloat a1_re, a1_im;
