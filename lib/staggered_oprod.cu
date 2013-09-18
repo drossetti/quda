@@ -9,6 +9,7 @@
 
 namespace quda {
 
+#include <pack_face_def.h>
 #include <texture.h>
 
   static bool kernelPackT = false;
@@ -96,6 +97,28 @@ namespace quda {
       }
     };
 
+    __device__ __forceinline__
+    int neighborIndex(const unsigned int& cb_idx, const int (&shift)[4],  const bool (&partitioned)[4], const unsigned int& parity, 
+    const int (&X)[4]){
+
+      int idx;
+      int x[4]; 
+
+      coordsFromIndex(idx, x[0], x[1], x[2], x[3], cb_idx, parity);
+
+#ifdef MULTI_GPU
+      for(int dim = 0; dim<4; ++dim){
+        if(partitioned[dim])
+          if( (x[dim]+shift[dim])<0 || (x[dim]+shift[dim])>=X[dim]) return -1;
+      }
+#endif
+
+      for(int dim=0; dim<4; ++dim){
+        x[dim] = shift[dim] ? (x[dim]+shift[dim] + X[dim]) % X[dim] : x[dim];
+      }
+      return  (((x[3]*X[2] + x[2])*X[1] + x[1])*X[0] + x[0]) >> 1;
+    }
+
 
 
   template<typename Complex, typename Output, typename Input>
@@ -104,29 +127,28 @@ namespace quda {
       unsigned int idx = blockIdx.x*blockDim.x + threadIdx.x;
       const unsigned int gridSize = gridDim.x*blockDim.x;
 
+      typedef typename RealTypeId<Complex>::Type real;
       Complex x[3];
       Complex y[3];
       Matrix<Complex,3> result;
 
 
       while(idx<arg.length){
-        int a_loaded = 0;
+        bool a_loaded = false;
         for(int dir=0; dir<4; ++dir){
           int shift[4] = {0,0,0,0};
           shift[dir] = arg.displacement;
-          /*
-             const int nbr_idx = neighborIndex(idx, shift, arg.partitioned, arg.parity, arg.X);
-             if(nbr_idx>=0){
-             arg.inB.load(y, nbr_idx);
-             if(!a_loaded){ 
-             arg.inA.load(x, idx);
-             a_loaded=1;
-             }
-             outerProd(y,x,&result);
-             result *= arg.coeff;
-             arg.out.save(static_caste<real*>(result.data), idx, dir, arg.parity); 
-             } // nbr_idx >= 0
-           */
+          const int nbr_idx = neighborIndex(idx, shift, arg.partitioned, arg.parity, arg.X);
+          if(nbr_idx>=0){
+            arg.inB.load(y, nbr_idx);
+            if(!a_loaded){ 
+              arg.inA.load(x, idx);
+              a_loaded=true;
+            }
+            outerProd(y,x,&result);
+            result *= arg.coeff;
+            arg.out.save(reinterpret_cast<real*>(result.data), idx, dir, arg.parity); 
+          } // nbr_idx >= 0
         } // dir
         idx += gridSize;
       }
@@ -151,7 +173,7 @@ namespace quda {
 
       unsigned int x[4];
       while(cb_idx<arg.length){
-//        coordsFromIndex(x, cb_idx, arg.X, arg.dir, arg.parity); 
+        //        coordsFromIndex(x, cb_idx, arg.X, arg.dir, arg.parity); 
         // determines coords from idx such that ghost-zone accesses are coalesced
         // Note, in general, loads from the bulk and stores are not guaranteed to be coalesced.
         // However, I don't believe this is a problem in practice if we don't partition the X direction.
