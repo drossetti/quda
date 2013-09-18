@@ -424,6 +424,10 @@ static __device__ __forceinline__ void coordsFromIndex(int &idx, Int &X, Int &Y,
   T = t;
 }
 
+
+
+
+
 // compute coordinates from index into the checkerboard (used by the interior Dslash kernels)
 // This is the variant used byt the shared memory wilson dslash
 template <IndexType idxType, typename Int>

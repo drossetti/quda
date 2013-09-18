@@ -9,8 +9,8 @@
 
 namespace quda {
 
-#include <pack_face_def.h>
 #include <texture.h>
+#include <oprod_pack.h>
 
   static bool kernelPackT = false;
 
@@ -31,9 +31,7 @@ namespace quda {
 
 
   static cudaEvent_t packEnd;
-  static cudaEvent_t gatherStart[4];
   static cudaEvent_t gatherEnd[4];
-  static cudaEvent_t scatterStart[4];
   static cudaEvent_t scatterEnd[4];
   static cudaEvent_t oprodStart;
   static cudaEvent_t oprodEnd;
@@ -42,9 +40,7 @@ namespace quda {
   void createStaggeredOprodEvents(){
 #ifdef MULTI_GPU
     cudaEventCreate(packEnd, cudaEventDisableTiming);
-    createEventArray(gatherStart, cudaEventDisableTiming);
     createEventArray(gatherEnd, cudaEventDisableTiming);
-    createEventArray(scatterStart, cudaEventDisableTiming);
     createEventArray(scatterEnd, cudaEventDisableTiming);
 #endif
     cudaEventCreate(&oprodStart, cudaEventDisableTiming);
@@ -54,9 +50,7 @@ namespace quda {
 
   void destroyStaggeredOprodEvents(){
 #ifdef MULTI_GPU
-    destroyEventArray(gatherStart);
     destroyEventArray(gatherEnd);
-    destroyEventArray(scatterStart);
     destroyEventArray(scatterEnd);
     cudaEventDestroy(packEnd);
     cudaEventDestroy(oprodStart);
@@ -78,6 +72,7 @@ namespace quda {
       unsigned int displacement;
       KernelType kernelType;
       bool partitioned[4];
+      typename RealTypeId<Complex>::Type coeff;
       Input in;
       Output out;
 
@@ -88,23 +83,71 @@ namespace quda {
           const unsigned int ghostOffset,
           const unsigned int displacement,   
           const KernelType& kernelType, 
+          const double coeff,
           Input& in,
-          Output& out) : length(length), parity(parity), ghostOffset(ghostOffset), displacement(displacement), kernelType(kernelType),
-      in(in), out(out) 
+          Output& out) : length(length), parity(parity), ghostOffset(ghostOffset), 
+          displacement(displacement), kernelType(kernelType), coeff(coeff), in(in), out(out) 
       {
         for(int i=0; i<4; ++i) this->X[i] = X[i];
         for(int i=0; i<4; ++i) this->partitioned[i] = commDimPartitioned(i) ? true : false;
       }
     };
 
-    __device__ __forceinline__
-    int neighborIndex(const unsigned int& cb_idx, const int (&shift)[4],  const bool (&partitioned)[4], const unsigned int& parity, 
-    const int (&X)[4]){
 
-      int idx;
+
+  // Get the  coordinates for the exterior kernels
+  template<int Nspin>
+    void coordsFromIndex(unsigned int (&x)[4], const unsigned int cb_idx, const unsigned int (&X)[4], const unsigned int dir, const unsigned int parity)
+    {
+
+      if(Nspin == 1){
+        unsigned int Xh[2] = {X[0]/2, X[1]/2};
+        switch(dir){
+          case 0:
+            x[2] = cb_idx/Xh[1] % X[2];
+            x[3] = cb_idx/(Xh[1]*X[2]) % X[3];
+            x[0] = cb_idx/(Xh[1]*X[2]*X[3]);
+            x[1] = (cb_idx % Xh[1]) + ((x[0]+x[2]+x[3]+parity)&1);
+            break;
+
+          case 1:
+            x[2] = cb_idx/Xh[0] % X[2];
+            x[3] = cb_idx/(Xh[0]*X[2]) % X[3];
+            x[1] = cb_idx/(Xh[0]*X[2]*X[3]);
+            x[0] = (cb_idx % Xh[0]) + ((x[1]+x[2]+x[3]+parity)&1);
+            break;
+
+          case 2:
+            x[1] = cb_idx/Xh[0] % X[1];
+            x[3] = cb_idx/(Xh[0]*X[2]) % X[3];
+            x[2] = cb_idx/(Xh[0]*X[1]*X[3]);
+            x[0] = (cb_idx % Xh[0]) + ((x[1]+x[2]+x[3]+parity)&1);
+            break;
+
+          case 3:
+            x[1] = cb_idx/Xh[0] % X[1];
+            x[2] = cb_idx/(Xh[0]*X[1]) % X[2];
+            x[3] = cb_idx/(Xh[0]*X[1]*X[2]);
+            x[0] = (cb_idx % Xh[0]) + ((x[1]+x[2]+x[3]+parity)&1);
+            break;
+        }
+      }else if(Nspin == 3){
+        // currently unsupported
+      }
+      return;
+    }
+
+
+
+  __device__ __forceinline__
+    int neighborIndex(const unsigned int& cb_idx, const int shift[4],  const bool partitioned[4], const unsigned int& parity, 
+        const unsigned int X[4]){
+
+      int  full_idx;
       int x[4]; 
 
-      coordsFromIndex(idx, x[0], x[1], x[2], x[3], cb_idx, parity);
+
+      coordsFromIndex<EVEN_X>(full_idx, x, cb_idx, parity, X);
 
 #ifdef MULTI_GPU
       for(int dim = 0; dim<4; ++dim){
@@ -140,13 +183,13 @@ namespace quda {
           shift[dir] = arg.displacement;
           const int nbr_idx = neighborIndex(idx, shift, arg.partitioned, arg.parity, arg.X);
           if(nbr_idx>=0){
-            arg.inB.load(y, nbr_idx);
+            arg.in.load(y, nbr_idx);
             if(!a_loaded){ 
-              arg.inA.load(x, idx);
+              arg.in.load(x, idx);
               a_loaded=true;
             }
             outerProd(y,x,&result);
-            result *= arg.coeff;
+            result = result*arg.coeff;
             arg.out.save(reinterpret_cast<real*>(result.data), idx, dir, arg.parity); 
           } // nbr_idx >= 0
         } // dir
@@ -182,11 +225,11 @@ namespace quda {
 
         /*
            const unsigned int ghost_idx = arg.ghostOffset + ghostIndexFromCoords<3,3>(x, arg.X, arg.dir, arg.shift);
-           arg.inB.load(b, ghost_idx);
+           arg.in.load(b, ghost_idx);
+         */
 
            outerProd(b,a,&result);
-           result *= arg.coeff; // multiply the result by coeff
-         */
+           result = result*arg.coeff; // multiply the result by coeff
         arg.out.save(reinterpret_cast<real*>(result.data), bulk_cb_idx, arg.dir, arg.parity); 
 
         cb_idx += gridSize;
@@ -264,7 +307,7 @@ namespace quda {
     }; // StaggeredOprodField
 
   template<typename Complex, typename Output, typename Input>
-    void computeStaggeredOprodCuda(Output out, Input& in, cudaColorSpinorField& src, FaceBuffer& faceBuffer,  const unsigned int parity, const int faceVolumeCB[4], const unsigned int ghostOffset[4], const unsigned int displacement)
+    void computeStaggeredOprodCuda(Output out, Input& in, cudaColorSpinorField& src, FaceBuffer& faceBuffer,  const unsigned int parity, const int faceVolumeCB[4], const unsigned int ghostOffset[4], const double coeff, const unsigned int displacement)
     {
       assert(displacement == 1 || displacement == 3);
 
@@ -273,7 +316,7 @@ namespace quda {
 
       const unsigned int dim[4] = {src.X(0)*2, src.X(1), src.X(2), src.X(3)};
       // Create the arguments for the interior kernel 
-      StaggeredOprodArg<Complex,Output,Input> arg(out.volumeCB, dim, parity, 0, 0, displacement, OPROD_INTERIOR_KERNEL, in, out);
+      StaggeredOprodArg<Complex,Output,Input> arg(out.volumeCB, dim, parity, 0, 0, displacement, OPROD_INTERIOR_KERNEL, coeff, in, out);
       StaggeredOprodField<Complex,Output,Input> oprod(arg, QUDA_CUDA_FIELD_LOCATION);
 
       bool pack=false;
@@ -394,7 +437,7 @@ namespace quda {
 
   void computeStaggeredOprod(cudaGaugeField& out, cudaColorSpinorField& in,  
       FaceBuffer& faceBuffer,
-      const unsigned int parity, const unsigned int displacement)
+      const unsigned int parity, const double coeff, const unsigned int displacement)
   {
 
     if(out.Order() != QUDA_FLOAT2_GAUGE_ORDER)
@@ -412,10 +455,10 @@ namespace quda {
 
     if(in.Precision() == QUDA_DOUBLE_PRECISION){
       Spinor<double2, double2, double2, 3, 0, 0> spinor(in);
-      computeStaggeredOprodCuda<double2>(FloatNOrder<double, 18, 2, 18>(out), spinor, in, faceBuffer, parity, in.GhostFace(), ghostOffset, displacement);
+      computeStaggeredOprodCuda<double2>(FloatNOrder<double, 18, 2, 18>(out), spinor, in, faceBuffer, parity, in.GhostFace(), ghostOffset, coeff, displacement);
     }else if(in.Precision() == QUDA_SINGLE_PRECISION){
       Spinor<float2, float2, float2, 3, 0, 0> spinor(in);
-      computeStaggeredOprodCuda<float2>(FloatNOrder<float, 18, 2, 18>(out), spinor, in, faceBuffer, parity, in.GhostFace(), ghostOffset, displacement);
+      computeStaggeredOprodCuda<float2>(FloatNOrder<float, 18, 2, 18>(out), spinor, in, faceBuffer, parity, in.GhostFace(), ghostOffset, coeff, displacement);
     }else{
       errorQuda("Unsupported precision: %d\n", in.Precision());
     }
