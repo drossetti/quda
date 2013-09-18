@@ -87,8 +87,8 @@ namespace quda {
           const unsigned int ghostOffset,
           const unsigned int displacement,   
           const KernelType& kernelType, 
-          const Input& in,
-          const Output& out) : length(length), parity(parity), ghostOffset(ghostOffset), displacement(displacement), kernelType(kernelType),
+          Input& in,
+          Output& out) : length(length), parity(parity), ghostOffset(ghostOffset), displacement(displacement), kernelType(kernelType),
       in(in), out(out) 
       {
         for(int i=0; i<4; ++i) this->X[i] = X[i];
@@ -113,7 +113,7 @@ namespace quda {
         int a_loaded = 0;
         for(int dir=0; dir<4; ++dir){
           int shift[4] = {0,0,0,0};
-          shift[dir] = arg.shift;
+          shift[dir] = arg.displacement;
           /*
              const int nbr_idx = neighborIndex(idx, shift, arg.partitioned, arg.parity, arg.X);
              if(nbr_idx>=0){
@@ -138,11 +138,11 @@ namespace quda {
   template<typename Complex, typename Output, typename Input> 
     __global__ void exteriorOprodKernel(StaggeredOprodArg<Complex, Output, Input> arg)
     {
-      unsigned int idx = blockIdx.x*blockDim.x + threadIdx.x;
+      unsigned int cb_idx = blockIdx.x*blockDim.x + threadIdx.x;
       const unsigned int gridSize = gridDim.x*blockDim.x;
 
       int shift[4] = {0,0,0,0};
-      shift[arg.dir] = arg.shift;
+      shift[arg.dir] = arg.displacement;
 
       Complex a[3];
       Complex b[3];
@@ -150,60 +150,27 @@ namespace quda {
       typedef typename RealTypeId<Complex>::Type real;
 
       unsigned int x[4];
-      /*
-         while(cb_idx<arg.length){
-         coordsFromIndex(x, idx, arg.X, arg.dir, arg.parity); 
-      // determines coords from idx such that ghost-zone accesses are coalesced
-      // Note, in general, loads from the bulk and stores are not guaranteed to be coalesced.
-      // However, I don't believe this is a problem in practice if we don't partition the X direction.
-      const unsigned int bulk_cb_idx = (((x[3]*arg.X[2] + x[2])*arg.X[1] + x[1])*arg.X[0] >> 1);
-      arg.inA.load(a, bulk_cb_idx);
+      while(cb_idx<arg.length){
+//        coordsFromIndex(x, cb_idx, arg.X, arg.dir, arg.parity); 
+        // determines coords from idx such that ghost-zone accesses are coalesced
+        // Note, in general, loads from the bulk and stores are not guaranteed to be coalesced.
+        // However, I don't believe this is a problem in practice if we don't partition the X direction.
+        const unsigned int bulk_cb_idx = (((x[3]*arg.X[2] + x[2])*arg.X[1] + x[1])*arg.X[0] >> 1);
+        arg.in.load(a, bulk_cb_idx);
 
-      const unsigned int ghost_idx = arg.ghostOffset + ghostIndexFromCoords<3,3>(x, arg.X, arg.dir, arg.shift);
-      arg.inB.load(b, ghost_idx);
+        /*
+           const unsigned int ghost_idx = arg.ghostOffset + ghostIndexFromCoords<3,3>(x, arg.X, arg.dir, arg.shift);
+           arg.inB.load(b, ghost_idx);
 
-      outerProd(b,a,&result);
-      result *= arg.coeff; // multiply the result by coeff
+           outerProd(b,a,&result);
+           result *= arg.coeff; // multiply the result by coeff
+         */
+        arg.out.save(reinterpret_cast<real*>(result.data), bulk_cb_idx, arg.dir, arg.parity); 
 
-      arg.out.save(static_caste<real*>(result.data), bulk_cb_idx, arg.dir, arg.parity); 
-
-      cb_idx += gridSize;
+        cb_idx += gridSize;
       }
-       */
       return;
     }
-
-
-  /*
-     template<typename Complex, typename Output, typename Input>
-     struct StaggeredOprodArg {
-     unsigned int length;
-     unsigned int X[4];
-     unsigned int parity;
-     unsigned int dir;
-     unsigned int ghostOffset;
-     unsigned int displacement;
-     KernelType kernelType;
-     bool partitioned[4];
-     Input in;
-     Output out;
-
-     StaggeredOprodArg(const unsigned int length,
-     const unsigned int X[4],
-     const unsigned int parity,
-     const unsigned int dir,
-     const unsigned int ghostOffset,
-     const unsigned int displacement,   
-     const KernelType& kernelType, 
-     const Input& in,
-     const Output& out) : length(length), parity(parity), ghostOffset(ghostOffset), displacement(displacement), kernelType(kernelType),
-     in(in), out(out) 
-     {
-     for(int i=0; i<4; ++i) this->X[i] = X[i];
-     for(int i=0; i<4; ++i) this->partitioned[i] = commDimPartitioned(i) ? true : false;
-     }
-     };
-   */
 
 
 
@@ -228,7 +195,10 @@ namespace quda {
         virtual ~StaggeredOprodField() {}
 
         void set(const StaggeredOprodArg<Complex,Output,Input> &arg, QudaFieldLocation location){
-          this->arg = arg;
+          // This is a hack. Need to change this!
+          this->arg.dir = arg.dir;
+          this->arg.length = arg.length;
+          this->arg.ghostOffset = arg.ghostOffset;
           this->location = location;
         } // set
 
@@ -236,9 +206,9 @@ namespace quda {
           if(location == QUDA_CUDA_FIELD_LOCATION){
             TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
             if(arg.kernelType == OPROD_INTERIOR_KERNEL){
-              interiorOprodKernel(arg);
+              interiorOprodKernel<<<tp.grid,tp.block,tp.shared_bytes>>>(arg);
             }else if(arg.kernelType == OPROD_EXTERIOR_KERNEL){
-              exteriorOprodKernel(arg);
+              exteriorOprodKernel<<<tp.grid,tp.block,tp.shared_bytes>>>(arg);
             }else{
               errorQuda("Kernel type not supported\n");
             }
@@ -266,7 +236,7 @@ namespace quda {
           vol << arg.X[3] << "x";
 
           aux << "threads=" << arg.length << ",prec=" << sizeof(Complex)/2;
-          aux << "stride=" << arg.in.stride;
+          aux << "stride=" << arg.in.Stride();
           return TuneKey(vol.str(), typeid(*this).name(), aux.str());
         }
     }; // StaggeredOprodField
@@ -275,13 +245,13 @@ namespace quda {
     void computeStaggeredOprodCuda(Output out, Input& in, cudaColorSpinorField& src, FaceBuffer& faceBuffer,  const unsigned int parity, const int faceVolumeCB[4], const unsigned int ghostOffset[4], const unsigned int displacement)
     {
       assert(displacement == 1 || displacement == 3);
- 
+
 
       cudaEventRecord(oprodStart, streams[Nstream-1]);
 
       const unsigned int dim[4] = {src.X(0)*2, src.X(1), src.X(2), src.X(3)};
       // Create the arguments for the interior kernel 
-      StaggeredOprodArg<Complex,Output,Input> arg(out.volumeCB, dim, parity, 0, displacement, OPROD_INTERIOR_KERNEL, in, out);
+      StaggeredOprodArg<Complex,Output,Input> arg(out.volumeCB, dim, parity, 0, 0, displacement, OPROD_INTERIOR_KERNEL, in, out);
       StaggeredOprodField<Complex,Output,Input> oprod(arg, QUDA_CUDA_FIELD_LOCATION);
 
       bool pack=false;
@@ -293,7 +263,7 @@ namespace quda {
       } // i=3,..,0
 
       // source, dir(+/-1), parity, dagger, stream_ptr
-      faceBuffer.pack(in, -1, 1-parity, 0, streams); // packing is all done in streams[Nstream-1]
+      faceBuffer.pack(src, -1, 1-parity, 0, streams); // packing is all done in streams[Nstream-1]
 
       if(pack){
         cudaEventRecord(packEnd, streams[Nstream-1]);
@@ -417,7 +387,7 @@ namespace quda {
 #endif
 
     if(in.Precision() != out.Precision()) errorQuda("Mixed precision not supported: %d %d\n", in.Precision(), out.Precision());
-    
+
     if(in.Precision() == QUDA_DOUBLE_PRECISION){
       Spinor<double2, double2, double2, 3, 0, 0> spinor(in);
       computeStaggeredOprodCuda<double2>(FloatNOrder<double, 18, 2, 18>(out), spinor, in, faceBuffer, parity, in.GhostFace(), ghostOffset, displacement);
