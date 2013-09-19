@@ -9,7 +9,11 @@
 
 namespace quda {
 
-#include <texture.h>
+namespace { // anonymous
+ #include <texture.h>
+}
+
+
 #include <oprod_pack.h>
 
   static bool kernelPackT = false;
@@ -86,7 +90,7 @@ namespace quda {
           const double coeff,
           Input& in,
           Output& out) : length(length), parity(parity), ghostOffset(ghostOffset), 
-          displacement(displacement), kernelType(kernelType), coeff(coeff), in(in), out(out) 
+      displacement(displacement), kernelType(kernelType), coeff(coeff), in(in), out(out) 
       {
         for(int i=0; i<4; ++i) this->X[i] = X[i];
         for(int i=0; i<4; ++i) this->partitioned[i] = commDimPartitioned(i) ? true : false;
@@ -138,6 +142,64 @@ namespace quda {
     }
 
 
+  template<int Nspin, int Nface> 
+  __device__  int ghostIndexFromCoords(const unsigned int x[4], const unsigned int X[4], const unsigned int dir, const int shift){
+      return 0;
+    }
+
+
+
+  template<>
+  __device__  int ghostIndexFromCoords<3,3>(
+        const unsigned int x[4],
+        const unsigned int X[4], 
+        unsigned int dir, 
+        const int shift)
+    {
+      unsigned int ghost_idx;
+      if(shift > 0){
+        if((x[dir] + shift) >= X[dir]){
+          switch(dir){
+            case 0:
+              ghost_idx = (3*3 + (shift-1))*(X[3]*X[2]*X[1])/2 + ((x[3]*X[2] + x[2])*X[1] + x[1])/2;
+              break;          
+            case 1:
+              ghost_idx = (3*3 + (shift-1))*(X[3]*X[2]*X[0])/2 + (x[3]*X[2]*X[0] + x[2]*X[0] + x[0])/2;
+              break;
+            case 2:
+              ghost_idx = (3*3 + (shift-1))*(X[3]*X[1]*X[0])/2 + (x[3]*X[1]*X[0] + x[1]*X[0] + x[0])/2;
+              break;
+            case 3:
+              ghost_idx = (3*3 + (shift-1))*(X[2]*X[1]*X[0])/2 + (x[2]*X[1]*X[0] + x[1]*X[0] + x[0])/2;
+              break;
+            default:
+              break;
+          } // switch
+        } // x[dir] + shift[dir] >= X[dir]
+      }else{ // shift < 0
+        if(x[dir] + shift < 0){
+          switch(dir){
+            case 0:
+              ghost_idx = (3 + shift)*(X[3]*X[2]*X[1])/2 + ((x[3]*X[2] + x[2])*X[1] + x[1])/2;
+              break;
+            case 1:
+              ghost_idx = (3 + shift)*(X[3]*X[2]*X[0])/2 + ((x[3]*X[2] + x[2])*X[0] + x[0])/2;
+              break;
+            case 2:
+              ghost_idx = (3 + shift)*(X[3]*X[1]*X[0])/2 + ((x[3]*X[1] + x[1])*X[0]  + x[0])/2;
+              break;
+            case 3:
+              ghost_idx = (3 + shift)*(X[2]*X[1]*X[0])/2 + ((x[2]*X[1] + x[1])*X[0] + x[0])/2;
+              break;
+          } // switch(dir)
+        }
+      } // shift < 0
+
+      return ghost_idx;
+    }
+
+
+
 
   __device__ __forceinline__
     int neighborIndex(const unsigned int& cb_idx, const int shift[4],  const bool partitioned[4], const unsigned int& parity, 
@@ -175,23 +237,23 @@ namespace quda {
       Complex y[3];
       Matrix<Complex,3> result;
 
-
       while(idx<arg.length){
         bool a_loaded = false;
         for(int dir=0; dir<4; ++dir){
-          int shift[4] = {0,0,0,0};
-          shift[dir] = arg.displacement;
-          const int nbr_idx = neighborIndex(idx, shift, arg.partitioned, arg.parity, arg.X);
-          if(nbr_idx>=0){
-            arg.in.load(y, nbr_idx);
-            if(!a_loaded){ 
-              arg.in.load(x, idx);
-              a_loaded=true;
-            }
-            outerProd(y,x,&result);
+          //          int shift[4] = {0,0,0,0};
+          //          shift[dir] = arg.displacement;
+          //          const int nbr_idx = neighborIndex(idx, shift, arg.partitioned, arg.parity, arg.X);
+ //         if(nbr_idx>=0){
+   //            arg.in.load(y, nbr_idx);
+   //            if(!a_loaded){ 
+   //            arg.in.load(x, idx);
+   //            a_loaded=true;
+   //            }
+               outerProd(y,x,&result);
+            arg.out.load(reinterpret_cast<real*>(result.data), idx, dir, arg.parity);
             result = result*arg.coeff;
             arg.out.save(reinterpret_cast<real*>(result.data), idx, dir, arg.parity); 
-          } // nbr_idx >= 0
+   //       } // nbr_idx >= 0
         } // dir
         idx += gridSize;
       }
@@ -223,13 +285,11 @@ namespace quda {
         const unsigned int bulk_cb_idx = (((x[3]*arg.X[2] + x[2])*arg.X[1] + x[1])*arg.X[0] >> 1);
         arg.in.load(a, bulk_cb_idx);
 
-        /*
-           const unsigned int ghost_idx = arg.ghostOffset + ghostIndexFromCoords<3,3>(x, arg.X, arg.dir, arg.shift);
-           arg.in.load(b, ghost_idx);
-         */
+        const unsigned int ghost_idx = arg.ghostOffset + ghostIndexFromCoords<3,3>(x, arg.X, arg.dir, arg.displacement);
+        arg.in.load(b, ghost_idx);
 
-           outerProd(b,a,&result);
-           result = result*arg.coeff; // multiply the result by coeff
+        outerProd(b,a,&result);
+        result = result*arg.coeff; // multiply the result by coeff
         arg.out.save(reinterpret_cast<real*>(result.data), bulk_cb_idx, arg.dir, arg.parity); 
 
         cb_idx += gridSize;

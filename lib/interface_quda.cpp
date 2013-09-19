@@ -19,6 +19,7 @@
 #include <llfat_quda.h>
 #include <fat_force_quda.h>
 #include <hisq_links_quda.h>
+#include <staggered_oprod.h>
 
 #ifdef NUMA_AFFINITY
 #include <numa_affinity.h>
@@ -2182,6 +2183,7 @@ void computeStaggeredOprodQuda(void* oprod,
                                double coeff,
                                QudaGaugeParam* param)
 {
+  using namespace quda;
   profileStaggeredOprod.Start(QUDA_PROFILE_TOTAL);
 
   checkGaugeParam(param);
@@ -2241,6 +2243,22 @@ void computeStaggeredOprodQuda(void* oprod,
   cudaOprod.loadCPUField(cpuOprod,QUDA_CPU_FIELD_LOCATION);
 
   profileStaggeredOprod.Stop(QUDA_PROFILE_H2D);
+
+
+  const int Ls = 1;
+  const int Ninternal = 6;
+
+  FaceBuffer faceBuffer(cudaOprod.X(), 4, Ninternal, 3, cudaOprod.Precision(), Ls);
+
+
+  // Operate on even-parity sites
+  computeStaggeredOprod(cudaOprod, cudaQuark.Even(), faceBuffer, 0, coeff, 1);
+  checkCudaError();
+
+  // Operate on odd-parity sites
+  computeStaggeredOprod(cudaOprod, cudaQuark.Odd(), faceBuffer, 1, coeff, 1);
+  checkCudaError();
+
 
   // copy the outer product field back to the host
   profileStaggeredOprod.Start(QUDA_PROFILE_D2H);

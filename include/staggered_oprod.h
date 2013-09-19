@@ -10,8 +10,8 @@ namespace quda {
   void createStaggeredOprodEvents();
   void destroyStaggeredOprodEvents();
 
-  void computeStagggeredOprod(cudaGaugeField& out, const cudaColorSpinorField& in,
-                              FaceBuffer& facebuffer, const unsigned int parity, const unsigned int displacement);
+  void computeStaggeredOprod(cudaGaugeField& out, cudaColorSpinorField& in,
+                              FaceBuffer& facebuffer, const unsigned int parity, const double coeff, const unsigned int displacement);
 
 } // namespace quda
   
