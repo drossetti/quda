@@ -173,6 +173,7 @@ namespace quda {
 #include <dw_dslash_def.h>        // Domain Wall kernels
 #include <tm_dslash_def.h>        // Twisted Mass kernels
 #include <tm_core.h>              // solo twisted mass kernel
+#include <tmclover_core.h>        // solo twisted clover kernel
 #include <clover_def.h>           // kernels for applying the clover term alone
 #include <tm_ndeg_dslash_def.h>   // Non-degenerate twisted Mass
 #include <tmc_dslash_def.h>       // Twisted Clover kernels
@@ -1002,7 +1003,7 @@ namespace quda {
     long long flops() const { return (x ? 1416ll : 1392ll) * dslashConstants.VolumeCB(); } // FIXME for multi-GPU
   };
 
-  template <typename sFloat, typename gFloat>
+  template <typename sFloat, typename gFloat, typename cFloat>
   class TwistedCloverDslashCuda : public SharedDslashCuda {
 
   private:
@@ -2297,13 +2298,13 @@ namespace quda {
     TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
     dim3 gridDim( (dslashParam.threads+tp.block.x-1) / tp.block.x, 1, 1);
     if((in->TwistFlavor() == QUDA_TWIST_PLUS) || (in->TwistFlavor() == QUDA_TWIST_MINUS)) {	//Idea for the kernel, two spinor inputs (IN and clover applied IN), on output (Clover applied IN + ig5IN)
-      twistCloverGamma5Kernel<<<gridDim, tp.block, tp.shared_bytes, stream>>> 
-	((sFloat*)out->V(), (float*)out->Norm(), a, b, 
-	 (sFloat*)in->V(), (float*)in->Norm(), dslashParam);
+//      twistCloverGamma5Kernel<<<gridDim, tp.block, tp.shared_bytes, stream>>> 
+//	((sFloat*)out->V(), (float*)out->Norm(), a, b, 
+//	 (sFloat*)in->V(), (float*)in->Norm(), dslashParam);
     } else {
-      twistCloverGamma5Kernel<<<gridDim, tp.block, tp.shared_bytes, stream>>>
-	((sFloat*)out->V(), (float*)out->Norm(), a, b, c, 
-	 (sFloat*)in->V(), (float*)in->Norm(), dslashParam);
+  //    twistCloverGamma5Kernel<<<gridDim, tp.block, tp.shared_bytes, stream>>>
+//	((sFloat*)out->V(), (float*)out->Norm(), a, b, c, 
+//	 (sFloat*)in->V(), (float*)in->Norm(), dslashParam);
     }
 #endif
   }

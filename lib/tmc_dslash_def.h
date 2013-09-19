@@ -64,67 +64,67 @@
 //!
 
 #if (DD_PREC == 0)
-#define DD_PARAMCLOVER const double2 *clover, const float *null3, const double2 *cloverInv, const float *null4
-#if (defined DIRECT_ACCESS_CLOVER) || (defined FERMI_NO_DBLE_TEX)
-#define TMCLOVERTEX clover
-#define TM_INV_CLOVERTEX cloverInv
-#define READ_CLOVER READ_CLOVER_DOUBLE_STR
-#else
-#ifdef USE_TEXTURE_OBJECTS
-#define TMCLOVERTEX (param.cloverTex)
-#define TM_INVCLOVERTEX (param.cloverInvTex)
-#else
-#define TMCLOVERTEX cloverTexDouble
-#define TM_INV_CLOVERTEX cloverInvTexDouble
-#endif
-#define READ_CLOVER READ_CLOVER_DOUBLE_TEX
-#endif
-#define CLOVER_DOUBLE
+	#define DD_PARAMCLOVER const double2 *clover, const float *null2, const double2 *cloverInv, const float *null3
+	#if (defined DIRECT_ACCESS_CLOVER) || (defined FERMI_NO_DBLE_TEX)
+		#define TMCLOVERTEX clover
+		#define TM_INV_CLOVERTEX cloverInv
+		#define READ_CLOVER READ_CLOVER_DOUBLE_STR
+	#else
+		#ifdef USE_TEXTURE_OBJECTS
+			#define TMCLOVERTEX (param.cloverTex)
+			#define TM_INVCLOVERTEX (param.cloverInvTex)
+		#else
+			#define TMCLOVERTEX cloverTexDouble
+			#define TM_INV_CLOVERTEX cloverInvTexDouble
+		#endif
+		#define READ_CLOVER READ_CLOVER_DOUBLE_TEX
+	#endif
+	#define CLOVER_DOUBLE
 #elif (DD_PREC == 1)
-#define DD_PARAMCLOVER const float4 *clover,  const float *null3, const float4 *cloverInv,  const float *null4
-#ifdef DIRECT_ACCESS_CLOVER
-#define TMCLOVERTEX clover
-#define TM_INV_CLOVERTEX cloverInv
-#define READ_CLOVER READ_CLOVER_SINGLE
-#else
-#ifdef USE_TEXTURE_OBJECTS
-#define TMCLOVERTEX (param.cloverTex)
-#define TM_INV_CLOVERTEX (param.cloverInvTex)
-#else
-#define TMCLOVERTEX cloverTexSingle
-#define TM_INV_CLOVERTEX cloverInvTexSingle
-#endif
-#define READ_CLOVER READ_CLOVER_SINGLE_TEX
-#endif
+	#define DD_PARAMCLOVER const float4 *clover, const float *null2, const float4 *cloverInv,  const float *null3
+	#ifdef DIRECT_ACCESS_CLOVER
+		#define TMCLOVERTEX clover
+		#define TM_INV_CLOVERTEX cloverInv
+		#define READ_CLOVER READ_CLOVER_SINGLE
+	#else
+		#ifdef USE_TEXTURE_OBJECTS
+			#define TMCLOVERTEX (param.cloverTex)
+			#define TM_INV_CLOVERTEX (param.cloverInvTex)
+		#else
+			#define TMCLOVERTEX cloverTexSingle
+			#define TM_INV_CLOVERTEX cloverInvTexSingle
+		#endif
+		#define READ_CLOVER READ_CLOVER_SINGLE_TEX
+	#endif
 #else             // half-precision fields
-#define DD_PARAMCLOVER const short4 *clover,  const float *cNorm, const short4 *cloverInv,  const float *cNrm2
-#ifdef DIRECT_ACCESS_CLOVER
-#define CLOVERTEX clover
-#define READ_CLOVER READ_CLOVER_HALF
-#else
-#ifdef USE_TEXTURE_OBJECTS
-#define TMCLOVERTEX (param.cloverTex)
-#define TMCLOVERTEXNORM (param.cloverNormTex)
-#define TM_INV_CLOVERTEX (param.cloverInvTex)
-#define TM_INV_CLOVERTEXNORM (param.cloverInvNormTex)
-#else
-#define TMCLOVERTEX cloverTexHalf
-#define TMCLOVERTEXNORM cloverTexNorm
-#define TM_INV_CLOVERTEX cloverInvTexHalf
-#define TM_INV_CLOVERTEXNORM cloverInvTexNorm
-#endif
-#define READ_CLOVER READ_CLOVER_HALF_TEX
-#endif
+	#define DD_PARAMCLOVER const short4 *clover, const float *cNorm, const short4 *cloverInv, const float *cNrm2
+	#ifdef DIRECT_ACCESS_CLOVER
+		#define CLOVERTEX clover
+		#define READ_CLOVER READ_CLOVER_HALF
+	#else
+		#ifdef USE_TEXTURE_OBJECTS
+			#define TMCLOVERTEX (param.cloverTex)
+			#define TMCLOVERTEXNORM (param.cloverNormTex)
+			#define TM_INV_CLOVERTEX (param.cloverInvTex)
+			#define TM_INV_CLOVERTEXNORM (param.cloverInvNormTex)
+		#else
+			#define TMCLOVERTEX cloverTexHalf
+			#define TMCLOVERTEXNORM cloverTexNorm
+			#define TM_INV_CLOVERTEX cloverInvTexHalf
+			#define TM_INV_CLOVERTEXNORM cloverInvTexNorm
+		#endif
+		#define READ_CLOVER READ_CLOVER_HALF_TEX
+	#endif
 
 #endif		//End clover defs
 
 
 #if (DD_PREC == 0)
-#define DD_PARAM4 const double a, const double b, const double2 *x, const float *xNorm, const DslashParam param
+#define DD_PARAM4 const double mubar, const double2 *x, const float *xNorm, const DslashParam param
 #elif (DD_PREC == 1) 
-#define DD_PARAM4 const float a,  const float b,  const float4 *x,  const float *xNorm, const DslashParam param
+#define DD_PARAM4 const float  mubar, const float4 *x,  const float *xNorm, const DslashParam param
 #else
-#define DD_PARAM4 const float a,  const float b,  const short4 *x,  const float *xNorm, const DslashParam param
+#define DD_PARAM4 const float  mubar, const short4 *x,  const float *xNorm, const DslashParam param
 #endif
 
 #if (DD_RECON==0) // reconstruct from 8 reals
@@ -149,7 +149,7 @@
 #endif // DIRECT_ACCESS_LINK
 
 #else
-
+#define DD_PARAM2 const short4 *gauge0, const short4* gauge1
 #define RECONSTRUCT_GAUGE_MATRIX RECONSTRUCT_MATRIX_8_SINGLE
 #ifdef DIRECT_ACCESS_LINK
 #define READ_GAUGE_MATRIX READ_GAUGE_MATRIX_8_SHORT4

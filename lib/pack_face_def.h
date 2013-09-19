@@ -1174,7 +1174,7 @@ __global__ void packTwistedFaceWilsonKernel(Float a, Float b, PackParam<FloatN> 
 
 #endif // GPU_TWISTED_MASS_DIRAC
 
-
+/*
 #if defined(GPU_TWISTED_CLOVER_DIRAC)
 
 // double precision
@@ -1213,10 +1213,8 @@ __global__ void packTwistedFaceWilsonKernel(Float a, Float b, PackParam<FloatN> 
 #define CLOVER_DOUBLE
 
 template <int dim, int dagger, int face_num>
-static inline __device__ void packTwistedFaceWilsonCore(double2 *out, float *outNorm, const double2 *in, 
-						 const float *inNorm, double a, const double2 *cloverTerm, const int &idx, 
-						 const int &face_idx, const int &face_volume, 
-						 PackParam<double2> &param)
+static inline __device__ void packTwistedCloverFaceWilsonCore(double2 *out, float *outNorm, const double2 *in, const float *inNorm, double a,
+						 const double2 *cloverTerm, const int &idx, const int &face_idx, const int &face_volume, PackParam<double2> &param)
 {
 #if (__COMPUTE_CAPABILITY__ >= 130)
     if (dagger) {
@@ -1411,7 +1409,7 @@ __global__ void packTwistedCloverFaceWilsonKernel(Float a, const FloatN *cloverT
 }
 
 #endif	// GPU_TWISTED_CLOVER_DIRAC
-
+*/
 template <typename FloatN, typename Float>
 class PackFace : public Tunable {
 
@@ -1510,7 +1508,7 @@ class PackFace : public Tunable {
   
   virtual void apply(const cudaStream_t &stream) = 0;
   virtual void apply_twisted(Float a, Float b, const cudaStream_t &stream) = 0;//for twisted mass only
-  virtual void apply_twisted_clover(Float a, FloatN *cloverTerm, const cudaStream_t &stream) = 0;//for twisted mass only
+//  virtual void apply_twisted_clover(Float a, FloatN *cloverTerm, const cudaStream_t &stream) = 0;//for twisted mass only
 
   long long bytes() const { 
     size_t faceBytes = (inputPerSite() + outputPerSite())*this->threads()*sizeof(((FloatN*)0)->x);
@@ -1561,8 +1559,9 @@ class PackFaceWilson : public PackFace<FloatN, Float> {
     }
 #else
     errorQuda("Twisted face packing kernel is not built");
-
 #endif  
+  }
+/*
   void apply_twisted_clover(Float a, FloatN *cloverTerm, const cudaStream_t &stream) {
     TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
 
@@ -1577,8 +1576,7 @@ class PackFaceWilson : public PackFace<FloatN, Float> {
     errorQuda("Twisted clover face packing kernel is not built");
 #endif  
   }
-
-    
+  */  
   long long flops() const { return outputPerSite()*this->threads(); }
 };
   
@@ -1632,7 +1630,7 @@ void packTwistedFaceWilson(void *ghost_buf, cudaColorSpinorField &in, const int 
     break;
   }  
 }
-
+/*
 //!	FIXME: I'm sure this is wrong...
 void packTwistedCloverFaceWilson(void *ghost_buf, cudaColorSpinorField &in, const int dagger, 
 		    const int parity, const double a, cudaCloverField &cloverTerm, const cudaStream_t &stream) {
@@ -1658,7 +1656,7 @@ void packTwistedCloverFaceWilson(void *ghost_buf, cudaColorSpinorField &in, cons
     break;
   }  
 }
-
+*/
 #ifdef GPU_STAGGERED_DIRAC
 
 #ifdef USE_TEXTURE_OBJECTS

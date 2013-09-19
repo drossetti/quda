@@ -51,7 +51,7 @@
 \
 /* apply first chiral block*/\
 {\
-  READ_CLOVER(TMCLOVERTEX, 0)\
+/*  READ_CLOVER(TMCLOVERTEX, 0)*/\
   spinorFloat a00_re = 0; spinorFloat a00_im = 0;\
   spinorFloat a01_re = 0; spinorFloat a01_im = 0;\
   spinorFloat a02_re = 0; spinorFloat a02_im = 0;\
@@ -208,7 +208,7 @@
 }\
 \
 /* apply second chiral block*/\
-{\
+/*{\
   READ_CLOVER(TMCLOVERTEX, 1)\
   spinorFloat a20_re = 0; spinorFloat a20_im = 0;\
   spinorFloat a21_re = 0; spinorFloat a21_im = 0;\
@@ -356,7 +356,7 @@
   a32_im += c##32_32_re * reg##32_im;\
   \
   /*apply  i*(2*kappa*mu=mubar)*gamma5*/\
-  reg##20_re = a20_re - mubar* reg##20_re;  reg##20_im = a20_im + mubar* reg##20_re;\
+/*  reg##20_re = a20_re - mubar* reg##20_re;  reg##20_im = a20_im + mubar* reg##20_re;\
   reg##21_re = a21_re - mubar* reg##21_re;  reg##21_im = a21_im + mubar* reg##21_re;\
   reg##22_re = a22_re - mubar* reg##22_re;  reg##22_im = a22_im + mubar* reg##22_re;\
   reg##30_re = a30_re - mubar* reg##30_re;  reg##30_im = a30_im + mubar* reg##30_re;\
@@ -468,7 +468,7 @@
 }\
 \
 /* apply first chiral block*/\
-{\
+/*{\
   READ_CLOVER(TMCLOVERTEX, 0)\
   spinorFloat a00_re = 0; spinorFloat a00_im = 0;\
   spinorFloat a01_re = 0; spinorFloat a01_im = 0;\
@@ -616,7 +616,7 @@
   a12_im += c##12_12_re * reg##12_im;\
   \
   /*apply  i*(2*kappa*mu=mubar)*gamma5*/\
-  reg##00_re = a00_re + mubar* reg##00_re;  reg##00_im = a00_im - mubar* reg##00_re;\
+/*  reg##00_re = a00_re + mubar* reg##00_re;  reg##00_im = a00_im - mubar* reg##00_re;\
   reg##01_re = a01_re + mubar* reg##01_re;  reg##01_im = a01_im - mubar* reg##01_re;\
   reg##02_re = a02_re + mubar* reg##02_re;  reg##02_im = a02_im - mubar* reg##02_re;\
   reg##10_re = a10_re + mubar* reg##10_re;  reg##10_im = a10_im - mubar* reg##10_re;\
@@ -624,7 +624,7 @@
   reg##12_re = a12_re + mubar* reg##12_re;  reg##12_im = a12_im - mubar* reg##12_re;\
   \
   /*Apply inverse clover*/\
-  READ_CLOVER(TM_INV_CLOVERTEX, 0)\
+/*  READ_CLOVER(TM_INV_CLOVERTEX, 0)\
   a00_re = 0; a00_im = 0;\
   a01_re = 0; a01_im = 0;\
   a02_re = 0; a02_im = 0;\
@@ -771,7 +771,7 @@
   a12_im += cinv##12_12_re * reg##12_im;\
   \
   /*store  the result*/\
-  reg##00_re = a00_re;  reg##00_im = a00_im;\
+/*  reg##00_re = a00_re;  reg##00_im = a00_im;\
   reg##01_re = a01_re;  reg##01_im = a01_im;\
   reg##02_re = a02_re;  reg##02_im = a02_im;\
   reg##10_re = a10_re;  reg##10_im = a10_im;\
@@ -781,7 +781,7 @@
 }\
 \
 /* apply second chiral block*/\
-{\
+/*{\
   READ_CLOVER(TMCLOVERTEX, 1)\
   spinorFloat a20_re = 0; spinorFloat a20_im = 0;\
   spinorFloat a21_re = 0; spinorFloat a21_im = 0;\
@@ -929,7 +929,7 @@
   a32_im += c##32_32_re * reg##32_im;\
   \
   /*apply  i*(2*kappa*mu=mubar)*gamma5*/\
-  reg##20_re = a20_re - mubar* reg##20_re;  reg##20_im = a20_im + mubar* reg##20_re;\
+/*  reg##20_re = a20_re - mubar* reg##20_re;  reg##20_im = a20_im + mubar* reg##20_re;\
   reg##21_re = a21_re - mubar* reg##21_re;  reg##21_im = a21_im + mubar* reg##21_re;\
   reg##22_re = a22_re - mubar* reg##22_re;  reg##22_im = a22_im + mubar* reg##22_re;\
   reg##30_re = a30_re - mubar* reg##30_re;  reg##30_im = a30_im + mubar* reg##30_re;\
@@ -937,7 +937,7 @@
   reg##32_re = a32_re - mubar* reg##32_re;  reg##32_im = a32_im + mubar* reg##32_re;\
   \
   /*Apply inverse clover*/\
-  READ_CLOVER(TM_INV_CLOVERTEX, 1)\
+/*  READ_CLOVER(TM_INV_CLOVERTEX, 1)\
   a20_re = 0; a20_im = 0;\
   a21_re = 0; a21_im = 0;\
   a22_re = 0; a22_im = 0;\
@@ -1084,7 +1084,7 @@
   a32_im += cinv##32_32_re * reg##32_im;\
   \
   /*store  the result*/\
-  reg##20_re = a20_re;  reg##20_im = a20_im;\
+/*  reg##20_re = a20_re;  reg##20_im = a20_im;\
   reg##21_re = a21_re;  reg##21_im = a21_im;\
   reg##22_re = a22_re;  reg##22_im = a22_im;\
   reg##30_re = a30_re;  reg##30_im = a30_im;\
