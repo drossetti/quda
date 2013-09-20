@@ -331,6 +331,7 @@ void initQudaMemory()
 
   checkCudaError();
   createDslashEvents();
+  createStaggeredOprodEvents();  
 
   initBlas();
 
@@ -694,6 +695,8 @@ void endQuda(void)
     streams = NULL;
   }
   destroyDslashEvents();
+
+  destroyStaggeredOprodEvents();
 
   saveTuneCache(getVerbosity());
 
@@ -2252,11 +2255,11 @@ void computeStaggeredOprodQuda(void* oprod,
 
 
   // Operate on even-parity sites
-  computeStaggeredOprod(cudaOprod, cudaQuark.Even(), faceBuffer, 0, coeff, 1);
+  computeStaggeredOprod(cudaOprod, cudaQuark, faceBuffer, 0, coeff, displacement);
   checkCudaError();
 
   // Operate on odd-parity sites
-  computeStaggeredOprod(cudaOprod, cudaQuark.Odd(), faceBuffer, 1, coeff, 1);
+  computeStaggeredOprod(cudaOprod, cudaQuark, faceBuffer, 1, coeff, displacement);
   checkCudaError();
 
 
