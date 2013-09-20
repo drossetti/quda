@@ -628,6 +628,44 @@ if (kernel_type == INTERIOR_KERNEL) {
 #endif // MULTI_GPU
 
 
+
+// declare C## here and use ASSN below instead of READ
+#ifdef CLOVER_DOUBLE
+double2 C0;
+double2 C1;
+double2 C2;
+double2 C3;
+double2 C4;
+double2 C5;
+double2 C6;
+double2 C7;
+double2 C8;
+double2 C9;
+double2 C10;
+double2 C11;
+double2 C12;
+double2 C13;
+double2 C14;
+double2 C15;
+double2 C16;
+double2 C17;
+#else
+float4 C0;
+float4 C1;
+float4 C2;
+float4 C3;
+float4 C4;
+float4 C5;
+float4 C6;
+float4 C7;
+float4 C8;
+
+#if (DD_PREC==2)
+float K;
+#endif
+
+#endif
+
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1<X1m1)) ||
      (kernel_type == EXTERIOR_KERNEL_X && x1==X1m1) )
@@ -860,7 +898,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1>0)) ||
     // read spinor from device memory
     READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
 #ifdef CLOVER_TWIST_INV_DSLASH
-//    APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
+    APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
 #endif
     
     // project spinor into half spinors
@@ -1054,7 +1092,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2<X2m1)) ||
     // read spinor from device memory
     READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
 #ifdef CLOVER_TWIST_INV_DSLASH
-//    APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
+    APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
 #endif
     
     // project spinor into half spinors
@@ -1252,7 +1290,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2>0)) ||
     // read spinor from device memory
     READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
 #ifdef CLOVER_TWIST_INV_DSLASH
-//    APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
+    APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
 #endif
     
     // project spinor into half spinors
@@ -1446,7 +1484,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3<X3m1)) ||
     // read spinor from device memory
     READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
 #ifdef CLOVER_TWIST_INV_DSLASH
-//    APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
+    APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
 #endif
     
     // project spinor into half spinors
@@ -1644,7 +1682,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3>0)) ||
     // read spinor from device memory
     READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
 #ifdef CLOVER_TWIST_INV_DSLASH
-//    APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
+    APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
 #endif
     
     // project spinor into half spinors
@@ -1842,7 +1880,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4<X4m1)) ||
       READ_SPINOR_DOWN(SPINORTEX, sp_stride, sp_idx, sp_idx);
 #else
       READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
-//      APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
+      APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
 #endif
       
       // project spinor into half spinors
@@ -1927,7 +1965,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4<X4m1)) ||
       READ_SPINOR_DOWN(SPINORTEX, sp_stride, sp_idx, sp_idx);
 #else
       READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
-//      APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
+      APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
 #endif
       
       // project spinor into half spinors
@@ -2128,7 +2166,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4>0)) ||
       READ_SPINOR_UP(SPINORTEX, sp_stride, sp_idx, sp_idx);
 #else
       READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
-//      APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
+      APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
 #endif
       
       // project spinor into half spinors
@@ -2213,7 +2251,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4>0)) ||
       READ_SPINOR_UP(SPINORTEX, sp_stride, sp_idx, sp_idx);
 #else
       READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);
-//      APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
+      APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);
 #endif
       
       // project spinor into half spinors
@@ -2396,7 +2434,7 @@ if (!incomplete)
 #ifndef CLOVER_TWIST_XPAY
 #ifndef CLOVER_TWIST_INV_DSLASH
   //perform invert twist first:
-//  APPLY_CLOVER_TWIST_INV(c, cinv, mubar, o);
+  APPLY_CLOVER_TWIST_INV(c, cinv, mubar, o);
 #endif
   o00_re += acc00_re;
   o00_im += acc00_im;
@@ -2423,7 +2461,7 @@ if (!incomplete)
   o32_re += acc32_re;
   o32_im += acc32_im;
 #else
-//  APPLY_CLOVER_TWIST(c, mubar, acc);
+  APPLY_CLOVER_TWIST(c, mubar, acc);
   //warning! b is unrelated to the twisted mass parameter in this case!
   
   o00_re = b*o00_re+acc00_re;
@@ -2453,7 +2491,7 @@ if (!incomplete)
 #endif//CLOVER_TWIST_XPAY
 #else //no XPAY
 #ifndef CLOVER_TWIST_INV_DSLASH
- //    APPLY_CLOVER_TWIST_INV(c, cinv, mubar, o);
+     APPLY_CLOVER_TWIST_INV(c, cinv, mubar, o);
 #endif
 #endif
 }

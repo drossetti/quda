@@ -508,6 +508,46 @@ if (kernel_type == INTERIOR_KERNEL) {
         prolog_str+= "}\n"
         prolog_str+= "#endif // MULTI_GPU\n\n\n"
 
+        prolog_str += (
+"""
+// declare C## here and use ASSN below instead of READ
+#ifdef CLOVER_DOUBLE
+double2 C0;
+double2 C1;
+double2 C2;
+double2 C3;
+double2 C4;
+double2 C5;
+double2 C6;
+double2 C7;
+double2 C8;
+double2 C9;
+double2 C10;
+double2 C11;
+double2 C12;
+double2 C13;
+double2 C14;
+double2 C15;
+double2 C16;
+double2 C17;
+#else
+float4 C0;
+float4 C1;
+float4 C2;
+float4 C3;
+float4 C4;
+float4 C5;
+float4 C6;
+float4 C7;
+float4 C8;
+
+#if (DD_PREC==2)
+float K;
+#endif
+
+#endif
+
+""")
     return prolog_str
 # end def prolog
 

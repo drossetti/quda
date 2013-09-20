@@ -69,6 +69,7 @@
 		#define TMCLOVERTEX clover
 		#define TM_INV_CLOVERTEX cloverInv
 		#define READ_CLOVER READ_CLOVER_DOUBLE_STR
+		#define ASSN_CLOVER ASSN_CLOVER_DOUBLE_STR
 	#else
 		#ifdef USE_TEXTURE_OBJECTS
 			#define TMCLOVERTEX (param.cloverTex)
@@ -78,6 +79,7 @@
 			#define TM_INV_CLOVERTEX cloverInvTexDouble
 		#endif
 		#define READ_CLOVER READ_CLOVER_DOUBLE_TEX
+		#define ASSN_CLOVER ASSN_CLOVER_DOUBLE_TEX
 	#endif
 	#define CLOVER_DOUBLE
 #elif (DD_PREC == 1)
@@ -86,6 +88,7 @@
 		#define TMCLOVERTEX clover
 		#define TM_INV_CLOVERTEX cloverInv
 		#define READ_CLOVER READ_CLOVER_SINGLE
+		#define ASSN_CLOVER ASSN_CLOVER_SINGLE
 	#else
 		#ifdef USE_TEXTURE_OBJECTS
 			#define TMCLOVERTEX (param.cloverTex)
@@ -95,12 +98,14 @@
 			#define TM_INV_CLOVERTEX cloverInvTexSingle
 		#endif
 		#define READ_CLOVER READ_CLOVER_SINGLE_TEX
+		#define ASSN_CLOVER ASSN_CLOVER_SINGLE_TEX
 	#endif
 #else             // half-precision fields
 	#define DD_PARAMCLOVER const short4 *clover, const float *cNorm, const short4 *cloverInv, const float *cNrm2
 	#ifdef DIRECT_ACCESS_CLOVER
 		#define CLOVERTEX clover
 		#define READ_CLOVER READ_CLOVER_HALF
+		#define ASSN_CLOVER ASSN_CLOVER_HALF
 	#else
 		#ifdef USE_TEXTURE_OBJECTS
 			#define TMCLOVERTEX (param.cloverTex)
@@ -114,6 +119,7 @@
 			#define TM_INV_CLOVERTEXNORM cloverInvTexNorm
 		#endif
 		#define READ_CLOVER READ_CLOVER_HALF_TEX
+		#define ASSN_CLOVER ASSN_CLOVER_HALF_TEX
 	#endif
 
 #endif		//End clover defs
@@ -581,6 +587,7 @@ __global__ void	DD_FUNC(DD_NAME_F, DD_RECON_F, DD_DAG_F, DD_XPAY_F)
 #undef SPINOR_DOUBLE
 
 #undef READ_CLOVER
+#undef ASSN_CLOVER
 #undef TMCLOVERTEX
 #undef TM_INV_CLOVERTEX
 #undef CLOVER_DOUBLE

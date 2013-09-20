@@ -174,7 +174,7 @@ def from_chiral_basis(v_out,v_in,c): # note: factor of 1/2 is included in clover
 
 
 def clover_mult(v_out, v_in, chi):
-    str = "READ_CLOVER(TMCLOVERTEX, "+`chi`+")\\\n"
+    str = "ASSN_CLOVER(TMCLOVERTEX, "+`chi`+")\\\n"
 
     for s in range (0,2):
         for c in range (0,3):
@@ -207,7 +207,7 @@ def clover_mult(v_out, v_in, chi):
 # end def clover_mult
 
 def inv_clover_mult(v_out, v_in, chi):
-    str = "READ_CLOVER(TMCLOVERTEX, "+`chi`+")\\\n"
+    str = "ASSN_CLOVER(TMCLOVERTEX, "+`chi`+")\\\n"
 
     for s in range (0,2):
         for c in range (0,3):
@@ -236,7 +236,7 @@ def inv_clover_mult(v_out, v_in, chi):
             str += spinor(v_out,2*chi+s,c,1)+" = "+a_im(chi,s,c)+ mubar_gamma5_im +spinor(v_out,2*chi+s,c,0)+";\\\n"
     str += "\\\n"
     str += "/*Apply inverse clover*/\\\n"
-    str += "READ_CLOVER(TM_INV_CLOVERTEX, "+`chi`+")\\\n"
+    str += "ASSN_CLOVER(TM_INV_CLOVERTEX, "+`chi`+")\\\n"
 
     for s in range (0,2):
         for c in range (0,3):
@@ -305,7 +305,7 @@ def apply_inv_clover(v_out,v_in):
 
 
 def generate_tmclover_file():
-    filename = 'dslash_core/tmc_core.h'
+    filename = '../dslash_core/tmc_core.h'
     print sys.argv[0] + ": generating " + filename;
     f = open(filename, 'w')
     f.write(make_title("CLOVER_TWIST(c, a, reg)") + apply_clover('reg', 'reg'))

@@ -790,6 +790,8 @@ get_dslash_type(char* s)
     ret = QUDA_CLOVER_WILSON_DSLASH;
   }else if (strcmp(s, "twisted_mass") == 0){
     ret = QUDA_TWISTED_MASS_DSLASH;
+  }else if (strcmp(s, "twisted_clover") == 0){
+    ret = QUDA_TWISTED_CLOVER_DSLASH;
   }else if (strcmp(s, "asqtad") == 0){
     ret =  QUDA_ASQTAD_DSLASH;
   }else if (strcmp(s, "domain_wall") == 0){
@@ -816,6 +818,9 @@ get_dslash_type_str(QudaDslashType type)
     break;
   case QUDA_TWISTED_MASS_DSLASH:
     ret= "twisted_mass";
+    break;
+  case QUDA_TWISTED_CLOVER_DSLASH:
+    ret= "twisted_clover";
     break;
   case QUDA_ASQTAD_DSLASH:
     ret = "asqtad";

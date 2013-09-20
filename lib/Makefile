@@ -11,9 +11,10 @@ QUDA_OBJS = timer.o malloc.o solver.o inv_bicgstab_quda.o		\
 	cuda_gauge_field.o copy_gauge.o extract_gauge_ghost.o		\
 	max_gauge.o gauge_update_quda.o dirac_clover.o			\
 	dirac_wilson.o dirac_staggered.o dirac_domain_wall.o		\
-	dirac_twisted_mass.o tune.o fat_force_quda.o llfat_quda_itf.o	\
-	clover_quda.o dslash_quda.o blas_quda.o copy_quda.o		\
-	reduce_quda.o face_buffer.o face_gauge.o comm_common.o		\
+	dirac_twisted_mass.o dirac_twisted_clover.cpp tune.o 		\
+	fat_force_quda.o llfat_quda_itf.o clover_quda.o dslash_quda.o	\
+	blas_quda.o copy_quda.o	reduce_quda.o face_buffer.o		\
+	face_gauge.o comm_common.o					\
 	${COMM_OBJS} ${NUMA_AFFINITY_OBJS}
 
 # header files, found in include/

@@ -169,7 +169,7 @@ void init(int argc, char **argv) {
 
   inv_param.dslash_type = dslash_type;
 
-  if (dslash_type == QUDA_CLOVER_WILSON_DSLASH) {
+  if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
     inv_param.clover_cpu_prec = cpu_prec;
     inv_param.clover_cuda_prec = cuda_prec;
     inv_param.clover_cuda_prec_sloppy = inv_param.clover_cuda_prec;
@@ -194,7 +194,7 @@ void init(int argc, char **argv) {
   
   csParam.nColor = 3;
   csParam.nSpin = 4;
-  if (dslash_type == QUDA_TWISTED_MASS_DSLASH) {
+  if ((dslash_type == QUDA_TWISTED_MASS_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
     csParam.twistFlavor = inv_param.twist_flavor;
   }
   csParam.nDim = 4;
@@ -244,7 +244,7 @@ void init(int argc, char **argv) {
 
   spinor->Source(QUDA_RANDOM_SOURCE);
 
-  if (dslash_type == QUDA_CLOVER_WILSON_DSLASH) {
+  if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
     double norm = 0.0; // clover components are random numbers in the range (-norm, norm)
     double diag = 1.0; // constant added to the diagonal
 
@@ -332,7 +332,7 @@ void end() {
   delete spinorTmp;
 
   for (int dir = 0; dir < 4; dir++) free(hostGauge[dir]);
-  if (dslash_type == QUDA_CLOVER_WILSON_DSLASH) {
+  if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_CLOVER_WILSON_DSLASH)) {
     if (hostClover != hostCloverInv && hostClover) free(hostClover);
     free(hostCloverInv);
   }
