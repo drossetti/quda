@@ -397,7 +397,8 @@ namespace quda {
               printfQuda("tp.block.x = %d, %d, %d\n", tp.block.x, tp.block.y, tp.block.z);
               printfQuda("arg.length = %d\n", arg.length);
               printfQuda("bulk stride = %d\n", arg.inA.Stride());
-              arg.inB.setStride(3*arg.X[0]*arg.X[1]*arg.X[2]/2);
+              const unsigned int volume = arg.X[0]*arg.X[1]*arg.X[2]*arg.X[3];
+              arg.inB.setStride(3*volume/(2*arg.X[arg.dir]));
               printfQuda("ghost stride = %d\n", arg.inB.Stride());
               exteriorOprodKernel<<<tp.grid,tp.block,tp.shared_bytes>>>(arg);
               arg.inB.setStride(arg.inA.Stride());
