@@ -129,7 +129,7 @@ namespace quda {
 
           case 2:
             x[1] = cb_idx/Xh[0] % X[1];
-            x[3] = cb_idx/(Xh[0]*X[2]) % X[3];
+            x[3] = cb_idx/(Xh[0]*X[1]) % X[3];
             x[2] = cb_idx/(Xh[0]*X[1]*X[3]);
             x[2] += (X[2] - displacement);
             x[0] = 2*(cb_idx % Xh[0]) + ((x[1]+x[2]+x[3]+parity)&1);
@@ -471,6 +471,7 @@ namespace quda {
       // source, dir(+/-1), parity, dagger, stream_ptr
       if(pack){
         faceBuffer.pack(src, -1, 1-parity, 0, streams); // packing is all done in streams[Nstream-1]
+        //faceBuffer.pack(src, 1-parity, 0, streams); // packing is all done in streams[Nstream-1]
         cudaEventRecord(packEnd, streams[Nstream-1]);
       }
 
