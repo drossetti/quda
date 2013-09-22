@@ -2193,13 +2193,16 @@ void computeStaggeredOprodQuda(void* oprod,
   
   profileStaggeredOprod.Start(QUDA_PROFILE_INIT);
   GaugeFieldParam oParam(0, *param);
-    
+   
+  oParam.nDim = 4;
+  oParam.nFace = 0; 
   // create the host outer-product field
   oParam.pad = 0;
   oParam.create = QUDA_REFERENCE_FIELD_CREATE;
   oParam.link_type = QUDA_GENERAL_LINKS;
   oParam.reconstruct = QUDA_RECONSTRUCT_NO;
   oParam.gauge = oprod;
+  oParam.order = QUDA_QDP_GAUGE_ORDER;
   cpuGaugeField cpuOprod(oParam);
 
   // create the device outer-product field
@@ -2207,7 +2210,6 @@ void computeStaggeredOprodQuda(void* oprod,
   oParam.order = QUDA_FLOAT2_GAUGE_ORDER;
   cudaGaugeField cudaOprod(oParam);
    
-
   // create the host quark field
   ColorSpinorParam qParam;
   qParam.nColor = 3;
@@ -2247,29 +2249,30 @@ void computeStaggeredOprodQuda(void* oprod,
 
   profileStaggeredOprod.Stop(QUDA_PROFILE_H2D);
 
-
   const int Ls = 1;
   const int Ninternal = 6;
 
-  FaceBuffer faceBuffer(cudaOprod.X(), 4, Ninternal, 3, cudaOprod.Precision(), Ls);
-
+  FaceBuffer faceBuffer1(cudaOprod.X(), 4, Ninternal, 3, cudaOprod.Precision(), Ls);
+  FaceBuffer faceBuffer2(cudaOprod.X(), 4, Ninternal, 3, cudaOprod.Precision(), Ls);
 
   // Operate on even-parity sites
-  computeStaggeredOprod(cudaOprod, cudaQuark, faceBuffer, 0, coeff, displacement);
+  computeStaggeredOprod(cudaOprod, cudaQuark, faceBuffer1, 0, coeff, displacement);
   checkCudaError();
 
   // Operate on odd-parity sites
-  computeStaggeredOprod(cudaOprod, cudaQuark, faceBuffer, 1, coeff, displacement);
+  computeStaggeredOprod(cudaOprod, cudaQuark, faceBuffer2, 1, coeff, displacement);
   checkCudaError();
-
 
   // copy the outer product field back to the host
   profileStaggeredOprod.Start(QUDA_PROFILE_D2H);
   cpuQuark = cudaQuark; // Copy the quark field back to the host - for testing purposes only
+
   cudaOprod.saveCPUField(cpuOprod,QUDA_CPU_FIELD_LOCATION);
   profileStaggeredOprod.Stop(QUDA_PROFILE_D2H); 
 
+
   profileStaggeredOprod.Stop(QUDA_PROFILE_TOTAL);
+
   return;
 }
 
