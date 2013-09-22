@@ -390,7 +390,7 @@ namespace quda {
             TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
             if(arg.kernelType == OPROD_INTERIOR_KERNEL){
               printfQuda("Calling interiorOprodKernel\n");
-              interiorOprodKernel<<<tp.grid,tp.block,tp.shared_bytes>>>(arg);
+              interiorOprodKernel<<<tp.grid,tp.block,tp.shared_bytes, stream>>>(arg);
             }else if(arg.kernelType == OPROD_EXTERIOR_KERNEL){
               printfQuda("Calling exteriorOprodKernel\n");
               printfQuda("tp.grid = %d, %d, %d\n", tp.grid.x, tp.grid.y, tp.grid.z);
@@ -400,7 +400,7 @@ namespace quda {
               const unsigned int volume = arg.X[0]*arg.X[1]*arg.X[2]*arg.X[3];
               arg.inB.setStride(3*volume/(2*arg.X[arg.dir]));
               printfQuda("ghost stride = %d\n", arg.inB.Stride());
-              exteriorOprodKernel<<<tp.grid,tp.block,tp.shared_bytes>>>(arg);
+              exteriorOprodKernel<<<tp.grid,tp.block,tp.shared_bytes, stream>>>(arg);
               arg.inB.setStride(arg.inA.Stride());
             }else{
               errorQuda("Kernel type not supported\n");
@@ -573,12 +573,19 @@ namespace quda {
               arg.dir = i;
               arg.length = displacement*faceVolumeCB[i];
               arg.ghostOffset = ghostOffset[i];
+/*
               oprod.set(arg,QUDA_CUDA_FIELD_LOCATION);
-
-
               // apply kernel in border region
               oprod.apply(streams[Nstream-1]);
-
+*/
+              dim3 blockDim(128, 1, 1);
+              const int gridSize = (arg.length + (blockDim.x-1))/blockDim.x;
+              dim3 gridDim(gridSize, 1, 1);               
+              const unsigned int volume = arg.X[0]*arg.X[1]*arg.X[2]*arg.X[3];
+              arg.inB.setStride(3*volume/(2*arg.X[arg.dir]));
+              exteriorOprodKernel<<<gridDim, blockDim, 0, streams[Nstream-1]>>>(arg);              
+              arg.inB.setStride(arg.inA.Stride());
+          
               oprodCompleted[i] = 1;
             }
 
