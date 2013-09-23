@@ -79,6 +79,7 @@ namespace quda {
       typename RealTypeId<Complex>::Type coeff;
       Input inA;
       Input inB;
+      Output in;
       Output out;
       int rank;
 
@@ -93,7 +94,7 @@ namespace quda {
           Input& inA,
           Input& inB,
           Output& out) : length(length), parity(parity), ghostOffset(ghostOffset), 
-      displacement(displacement), kernelType(kernelType), coeff(coeff), inA(inA), inB(inB), out(out) 
+      displacement(displacement), kernelType(kernelType), coeff(coeff), inA(inA), inB(inB), in(out), out(out) 
       {
         for(int i=0; i<4; ++i) this->X[i] = X[i];
         for(int i=0; i<4; ++i) this->partitioned[i] = commDimPartitioned(i) ? true : false;
@@ -246,6 +247,7 @@ namespace quda {
       Complex x[3];
       Complex y[3];
       Matrix<Complex,3> result;
+      Matrix<Complex,3> inmatrix; // input
 
 
       while(idx<arg.length){
@@ -253,9 +255,6 @@ namespace quda {
         for(int dir=0; dir<4; ++dir){
           int shift[4] = {0,0,0,0};
           shift[dir] = arg.displacement;
-          if(idx == 0 && arg.rank == 0){
-            printf("arg.displacement = %d\n", arg.displacement);
-          }
           const int nbr_idx = neighborIndex(idx, shift, arg.partitioned, arg.parity, arg.X);
           if(nbr_idx>=0){
             arg.inB.load(y, nbr_idx);
@@ -263,20 +262,9 @@ namespace quda {
               arg.inA.load(x, idx);
               a_loaded=true;
             }
-            if(dir == 3 && idx == 224 && arg.rank == 0){
-              printf("x = %lf %lf, %lf %lf, %lf, %lf\n", x[0].x, x[0].y, x[1].x, x[1].y, x[2].x, x[2].y);
-              printf("y = %lf %lf, %lf %lf, %lf, %lf\n", y[0].x, y[0].y, y[1].x, y[1].y, y[2].x, y[2].y);
-              __syncthreads();
-              printf("\n");
-            }
             outerProd(y,x,&result);
-            result = result*arg.coeff;
-            if(dir==3 && idx == 224 && arg.rank == 0){
-              printLink(result);
-              printf("\n");
-              __syncthreads();
-            }
-            //    arg.out.load(reinterpret_cast<real*>(result.data), idx, dir, arg.parity);
+            arg.in.load(reinterpret_cast<real*>(inmatrix.data), idx, dir, arg.parity); 
+            result = inmatrix + result*arg.coeff;
             arg.out.save(reinterpret_cast<real*>(result.data), idx, dir, arg.parity); 
           } // nbr_idx >= 0
         } // dir
@@ -299,55 +287,28 @@ namespace quda {
       Complex a[3];
       Complex b[3];
       Matrix<Complex,3> result;
+      Matrix<Complex,3> inmatrix; // input
       typedef typename RealTypeId<Complex>::Type real;
 
       unsigned int x[4];
 
 
-      if(cb_idx == 0 && arg.rank == 0){
-        printf("arg.length = %d\n", arg.length);
-      }
-
       while(cb_idx<arg.length){
         coordsFromIndex<1>(x, cb_idx, arg.X, arg.dir, arg.displacement, arg.parity); 
-        // determines coords from idx such that ghost-zone accesses are coalesced
-        // Note, in general, loads from the bulk and stores are not guaranteed to be coalesced.
-        // However, I don't believe this is a problem in practice if we don't partition the X direction.
         const unsigned int bulk_cb_idx = ((((x[3]*arg.X[2] + x[2])*arg.X[1] + x[1])*arg.X[0] + x[0]) >> 1);
 
-        if(arg.rank == 0){
-          printf("cb_idx : %d, bulk_cb_idx : %d, x : (%d, %d, %d, %d)\n", cb_idx, bulk_cb_idx, x[0], x[1], x[2], x[3]);
-        }
+        arg.in.load(reinterpret_cast<real*>(inmatrix.data), bulk_cb_idx, arg.dir, arg.parity); 
 
         arg.inA.load(a, bulk_cb_idx);
 
         const unsigned int ghost_idx = arg.ghostOffset + ghostIndexFromCoords<3,3>(x, arg.X, arg.dir, arg.displacement);
         arg.inB.load(b, ghost_idx);
 
-        if(cb_idx == 0 && arg.rank == 0 && arg.parity == 0){
-          arg.out.load(reinterpret_cast<real*>(result.data), bulk_cb_idx, arg.dir, arg.parity); 
-                  
-          printf("Original matrix:\n");
-          printLink(result);
-          printf("\n");
-        }
-
-
         outerProd(b,a,&result);
-        result = result*arg.coeff; // multiply the result by coeff
+        result = inmatrix + result*arg.coeff; 
+   //     result = result*arg.coeff; 
 
-        if(cb_idx == 0 && arg.rank == 0 && arg.parity == 0){
-          printf("a = %lf %lf, %lf %lf, %lf, %lf\n", a[0].x, a[0].y, a[1].x, a[1].y, a[2].x, a[2].y);
-          printf("b = %lf %lf, %lf %lf, %lf, %lf\n", b[0].x, b[0].y, b[1].x, b[1].y, b[2].x, b[2].y);
-          printf("ghostOffset = %d\n", arg.ghostOffset);
-          printf("ghostIndex = %d\n", ghost_idx);
-          printf("result = \n");
-          printLink(result);
-          printf("\n");
-        }
- //       if(cb_idx == 0 && arg.parity == 0){
-          arg.out.save(reinterpret_cast<real*>(result.data), bulk_cb_idx, arg.dir, arg.parity); 
- //       }
+        arg.out.save(reinterpret_cast<real*>(result.data), bulk_cb_idx, arg.dir, arg.parity); 
 
         cb_idx += gridSize;
       }
@@ -387,10 +348,16 @@ namespace quda {
 
         void apply(const cudaStream_t &stream){
           if(location == QUDA_CUDA_FIELD_LOCATION){
-            TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
+          // Disable tuning for the time being
+              TuneParam tp;
+           // TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
             if(arg.kernelType == OPROD_INTERIOR_KERNEL){
               printfQuda("Calling interiorOprodKernel\n");
-              interiorOprodKernel<<<tp.grid,tp.block,tp.shared_bytes, stream>>>(arg);
+              //interiorOprodKernel<<<tp.grid,tp.block,tp.shared_bytes, stream>>>(arg);
+              dim3 blockDim(128, 1, 1);
+              const int gridSize = (arg.length + (blockDim.x-1))/blockDim.x;
+              dim3 gridDim(gridSize, 1, 1);               
+              interiorOprodKernel<<<gridDim,blockDim,0, stream>>>(arg);
             }else if(arg.kernelType == OPROD_EXTERIOR_KERNEL){
               printfQuda("Calling exteriorOprodKernel\n");
               printfQuda("tp.grid = %d, %d, %d\n", tp.grid.x, tp.grid.y, tp.grid.z);

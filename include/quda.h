@@ -497,7 +497,9 @@ extern "C" {
    * @param coeff The coefficient multiplying the fermion fields in the outer product
    * @param param The parameters of the outer-product field.
    */
-  void computeStaggeredOprodQuda(void* oprod, void* quark, int displacement, double coeff, QudaGaugeParam* param);
+ // void computeStaggeredOprodQuda(void* oprod, void* quark, int displacement, double coeff, QudaGaugeParam* param);
+
+  void computeStaggeredOprodQuda(void** oprod, void** quark, int num, double** coeff, QudaGaugeParam* param);
 
 
 

@@ -170,9 +170,10 @@ extern "C" {
 
   void qudaComputeOprod(int precision,
                         int displacement,
-                        double coeff,
-                        void* quark_field,
-                        void* oprod);
+                        int num,
+                        double* coeff,
+                        void** quark_field,
+                        void** oprod);
 
 
   void qudaUpdateU(int precision, 

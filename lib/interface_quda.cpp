@@ -2179,11 +2179,13 @@ computeGaugeForceQuda(void* mom, void* sitelink,  int*** input_path_buf, int* pa
 
 #endif
 
+void computeStaggeredOprodQuda(void** oprod, void** quark, int num, double** coeff, QudaGaugeParam* param);
 
-void computeStaggeredOprodQuda(void* oprod,   
-                               void* fermion,
-                               int displacement,
-                               double coeff,
+
+void computeStaggeredOprodQuda(void** oprod,   
+                               void** fermion,
+                               int num,
+                               double** coeff,
                                QudaGaugeParam* param)
 {
   using namespace quda;
@@ -2201,7 +2203,7 @@ void computeStaggeredOprodQuda(void* oprod,
   oParam.create = QUDA_REFERENCE_FIELD_CREATE;
   oParam.link_type = QUDA_GENERAL_LINKS;
   oParam.reconstruct = QUDA_RECONSTRUCT_NO;
-  oParam.gauge = oprod;
+  oParam.gauge = *oprod;
   oParam.order = QUDA_QDP_GAUGE_ORDER;
   cpuGaugeField cpuOprod(oParam);
 
@@ -2221,7 +2223,7 @@ void computeStaggeredOprodQuda(void* oprod,
   qParam.nDim = 4;
   qParam.precision = oParam.precision;
   qParam.pad = 0;
-  qParam.v = fermion;
+  qParam.v = *fermion;
  
   for(int dir=0; dir<4; ++dir) qParam.x[dir] = oParam.x[dir];
 
@@ -2255,12 +2257,15 @@ void computeStaggeredOprodQuda(void* oprod,
   FaceBuffer faceBuffer1(cudaOprod.X(), 4, Ninternal, 3, cudaOprod.Precision(), Ls);
   FaceBuffer faceBuffer2(cudaOprod.X(), 4, Ninternal, 3, cudaOprod.Precision(), Ls);
 
+
+  int displacement = num;
+
   // Operate on even-parity sites
-  computeStaggeredOprod(cudaOprod, cudaQuark, faceBuffer1, 0, coeff, displacement);
+  computeStaggeredOprod(cudaOprod, cudaQuark, faceBuffer1, 0, **coeff, displacement);
   checkCudaError();
 
   // Operate on odd-parity sites
-  computeStaggeredOprod(cudaOprod, cudaQuark, faceBuffer2, 1, coeff, displacement);
+  computeStaggeredOprod(cudaOprod, cudaQuark, faceBuffer2, 1, **coeff, displacement);
   checkCudaError();
 
   // copy the outer product field back to the host
