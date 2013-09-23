@@ -2203,14 +2203,18 @@ void computeStaggeredOprodQuda(void** oprod,
   oParam.create = QUDA_REFERENCE_FIELD_CREATE;
   oParam.link_type = QUDA_GENERAL_LINKS;
   oParam.reconstruct = QUDA_RECONSTRUCT_NO;
-  oParam.gauge = *oprod;
   oParam.order = QUDA_QDP_GAUGE_ORDER;
-  cpuGaugeField cpuOprod(oParam);
+  oParam.gauge = oprod[0];
+  cpuGaugeField cpuOprod0(oParam);
+
+  oParam.gauge = oprod[1];
+  cpuGaugeField cpuOprod1(oParam);
 
   // create the device outer-product field
   oParam.create = QUDA_ZERO_FIELD_CREATE;
   oParam.order = QUDA_FLOAT2_GAUGE_ORDER;
-  cudaGaugeField cudaOprod(oParam);
+  cudaGaugeField cudaOprod0(oParam);
+  cudaGaugeField cudaOprod1(oParam);
    
   // create the host quark field
   ColorSpinorParam qParam;
@@ -2247,32 +2251,34 @@ void computeStaggeredOprodQuda(void** oprod,
   // I can simply compute the result on the device, copy back to host,
   // and append on the host. Nevertheless, this checks that the code is copying over 
   // in the right format
-  cudaOprod.loadCPUField(cpuOprod,QUDA_CPU_FIELD_LOCATION);
+  cudaOprod0.loadCPUField(cpuOprod0,QUDA_CPU_FIELD_LOCATION);
+  cudaOprod1.loadCPUField(cpuOprod1,QUDA_CPU_FIELD_LOCATION);
 
   profileStaggeredOprod.Stop(QUDA_PROFILE_H2D);
 
   const int Ls = 1;
   const int Ninternal = 6;
 
-  FaceBuffer faceBuffer1(cudaOprod.X(), 4, Ninternal, 3, cudaOprod.Precision(), Ls);
-  FaceBuffer faceBuffer2(cudaOprod.X(), 4, Ninternal, 3, cudaOprod.Precision(), Ls);
+  FaceBuffer faceBuffer1(cudaOprod0.X(), 4, Ninternal, 3, cudaOprod0.Precision(), Ls);
+  FaceBuffer faceBuffer2(cudaOprod0.X(), 4, Ninternal, 3, cudaOprod0.Precision(), Ls);
 
 
   int displacement = num;
 
+
   // Operate on even-parity sites
-  computeStaggeredOprod(cudaOprod, cudaQuark, faceBuffer1, 0, **coeff, displacement);
+  //computeStaggeredOprod(cudaOprod0, cudaQuark, faceBuffer1, 0, **coeff, displacement);
   checkCudaError();
 
   // Operate on odd-parity sites
-  computeStaggeredOprod(cudaOprod, cudaQuark, faceBuffer2, 1, **coeff, displacement);
+  //computeStaggeredOprod(cudaOprod0, cudaQuark, faceBuffer2, 1, **coeff, displacement);
   checkCudaError();
 
   // copy the outer product field back to the host
   profileStaggeredOprod.Start(QUDA_PROFILE_D2H);
   cpuQuark = cudaQuark; // Copy the quark field back to the host - for testing purposes only
 
-  cudaOprod.saveCPUField(cpuOprod,QUDA_CPU_FIELD_LOCATION);
+  cudaOprod0.saveCPUField(cpuOprod0,QUDA_CPU_FIELD_LOCATION);
   profileStaggeredOprod.Stop(QUDA_PROFILE_D2H); 
 
 

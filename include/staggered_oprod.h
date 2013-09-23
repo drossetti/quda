@@ -13,6 +13,10 @@ namespace quda {
   void computeStaggeredOprod(cudaGaugeField& out, cudaColorSpinorField& in,
                               FaceBuffer& facebuffer, const unsigned int parity, const double coeff, const unsigned int displacement);
 
+
+  void computeStaggeredOprod(cudaGaugeField& outA, cudaGaugeField& outB, cudaColorSpinorField& in, 
+                             FaceBuffer& faceBuffer, const unsigned int parity, const double coeff[2]);
+
 } // namespace quda
   
 

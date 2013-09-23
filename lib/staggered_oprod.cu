@@ -76,11 +76,11 @@ namespace quda {
       unsigned int displacement;
       KernelType kernelType;
       bool partitioned[4];
-      typename RealTypeId<Complex>::Type coeff;
       Input inA;
       Input inB;
-      Output in;
-      Output out;
+      Output outA;
+      Output outB;
+      typename RealTypeId<Complex>::Type coeff[2];
       int rank;
 
       StaggeredOprodArg(const unsigned int length,
@@ -90,12 +90,15 @@ namespace quda {
           const unsigned int ghostOffset,
           const unsigned int displacement,   
           const KernelType& kernelType, 
-          const double coeff,
+          const double coeff[2],
           Input& inA,
           Input& inB,
-          Output& out) : length(length), parity(parity), ghostOffset(ghostOffset), 
-      displacement(displacement), kernelType(kernelType), coeff(coeff), inA(inA), inB(inB), in(out), out(out) 
+          Output& outA,
+          Output& outB) : length(length), parity(parity), ghostOffset(ghostOffset), 
+      displacement(displacement), kernelType(kernelType), inA(inA), inB(inB), outA(outA), outB(outB) 
       {
+        this->coeff[0] = coeff[0];
+        this->coeff[1] = coeff[1];
         for(int i=0; i<4; ++i) this->X[i] = X[i];
         for(int i=0; i<4; ++i) this->partitioned[i] = commDimPartitioned(i) ? true : false;
       }
@@ -246,27 +249,34 @@ namespace quda {
       typedef typename RealTypeId<Complex>::Type real;
       Complex x[3];
       Complex y[3];
+      Complex z[3];
       Matrix<Complex,3> result;
-      Matrix<Complex,3> inmatrix; // input
+      Matrix<Complex,3> tempA, tempB; // input
 
 
       while(idx<arg.length){
-        bool a_loaded = false;
+        arg.inA.load(x, idx);
         for(int dir=0; dir<4; ++dir){
           int shift[4] = {0,0,0,0};
-          shift[dir] = arg.displacement;
-          const int nbr_idx = neighborIndex(idx, shift, arg.partitioned, arg.parity, arg.X);
-          if(nbr_idx>=0){
-            arg.inB.load(y, nbr_idx);
-            if(!a_loaded){ 
-              arg.inA.load(x, idx);
-              a_loaded=true;
-            }
+          shift[dir] = 1;
+          const int first_nbr_idx = neighborIndex(idx, shift, arg.partitioned, arg.parity, arg.X);
+          if(first_nbr_idx >= 0){
+            arg.inB.load(y, first_nbr_idx);
             outerProd(y,x,&result);
-            arg.in.load(reinterpret_cast<real*>(inmatrix.data), idx, dir, arg.parity); 
-            result = inmatrix + result*arg.coeff;
-            arg.out.save(reinterpret_cast<real*>(result.data), idx, dir, arg.parity); 
-          } // nbr_idx >= 0
+            arg.outA.load(reinterpret_cast<real*>(tempA.data), idx, dir, arg.parity); 
+            result = tempA + result*arg.coeff[0];
+            arg.outA.load(reinterpret_cast<real*>(result.data), idx, dir, arg.parity); 
+
+            shift[dir] = 3;
+            const int third_nbr_idx = neighborIndex(idx, shift, arg.partitioned, arg.parity, arg.X);
+            if(third_nbr_idx >= 0){
+              arg.inB.load(z, third_nbr_idx);
+              outerProd(z, x, &result);
+              arg.outB.load(reinterpret_cast<real*>(tempB.data), idx, dir, arg.parity); 
+              result = tempB + result*arg.coeff[1];
+              arg.outB.save(reinterpret_cast<real*>(result.data), idx, dir, arg.parity); 
+            }
+          }
         } // dir
         idx += gridSize;
       }
@@ -290,25 +300,24 @@ namespace quda {
       Matrix<Complex,3> inmatrix; // input
       typedef typename RealTypeId<Complex>::Type real;
 
+
+      Output& out = (arg.displacement == 1) ? arg.outA : arg.outB;
+      real coeff = (arg.displacement == 1) ? arg.coeff[0] : arg.coeff[1];
+
       unsigned int x[4];
-
-
       while(cb_idx<arg.length){
         coordsFromIndex<1>(x, cb_idx, arg.X, arg.dir, arg.displacement, arg.parity); 
         const unsigned int bulk_cb_idx = ((((x[3]*arg.X[2] + x[2])*arg.X[1] + x[1])*arg.X[0] + x[0]) >> 1);
 
-        arg.in.load(reinterpret_cast<real*>(inmatrix.data), bulk_cb_idx, arg.dir, arg.parity); 
-
+        out.load(reinterpret_cast<real*>(inmatrix.data), bulk_cb_idx, arg.dir, arg.parity); 
         arg.inA.load(a, bulk_cb_idx);
 
         const unsigned int ghost_idx = arg.ghostOffset + ghostIndexFromCoords<3,3>(x, arg.X, arg.dir, arg.displacement);
         arg.inB.load(b, ghost_idx);
 
         outerProd(b,a,&result);
-        result = inmatrix + result*arg.coeff; 
-   //     result = result*arg.coeff; 
-
-        arg.out.save(reinterpret_cast<real*>(result.data), bulk_cb_idx, arg.dir, arg.parity); 
+        result = inmatrix + result*coeff; 
+        out.save(reinterpret_cast<real*>(result.data), bulk_cb_idx, arg.dir, arg.parity); 
 
         cb_idx += gridSize;
       }
@@ -327,7 +336,7 @@ namespace quda {
         unsigned int sharedBytesPerThread() const { return 0; }
         unsigned int sharedBytesPerBlock(const TuneParam &) const { return 0; }
 
-        unsigned int minThreads() const { return arg.out.volumeCB; }
+        unsigned int minThreads() const { return arg.outA.volumeCB; }
         bool tunedGridDim() const { return false; }
 
       public:
@@ -348,25 +357,18 @@ namespace quda {
 
         void apply(const cudaStream_t &stream){
           if(location == QUDA_CUDA_FIELD_LOCATION){
-          // Disable tuning for the time being
-              TuneParam tp;
-           // TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
+            // Disable tuning for the time being
+            TuneParam tp;
+            // TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
             if(arg.kernelType == OPROD_INTERIOR_KERNEL){
-              printfQuda("Calling interiorOprodKernel\n");
               //interiorOprodKernel<<<tp.grid,tp.block,tp.shared_bytes, stream>>>(arg);
               dim3 blockDim(128, 1, 1);
               const int gridSize = (arg.length + (blockDim.x-1))/blockDim.x;
               dim3 gridDim(gridSize, 1, 1);               
               interiorOprodKernel<<<gridDim,blockDim,0, stream>>>(arg);
             }else if(arg.kernelType == OPROD_EXTERIOR_KERNEL){
-              printfQuda("Calling exteriorOprodKernel\n");
-              printfQuda("tp.grid = %d, %d, %d\n", tp.grid.x, tp.grid.y, tp.grid.z);
-              printfQuda("tp.block.x = %d, %d, %d\n", tp.block.x, tp.block.y, tp.block.z);
-              printfQuda("arg.length = %d\n", arg.length);
-              printfQuda("bulk stride = %d\n", arg.inA.Stride());
               const unsigned int volume = arg.X[0]*arg.X[1]*arg.X[2]*arg.X[3];
               arg.inB.setStride(3*volume/(2*arg.X[arg.dir]));
-              printfQuda("ghost stride = %d\n", arg.inB.Stride());
               exteriorOprodKernel<<<tp.grid,tp.block,tp.shared_bytes, stream>>>(arg);
               arg.inB.setStride(arg.inA.Stride());
             }else{
@@ -402,13 +404,10 @@ namespace quda {
     }; // StaggeredOprodField
 
   template<typename Complex, typename Output, typename Input>
-    void computeStaggeredOprodCuda(Output out, Input& inA, Input& inB, cudaColorSpinorField& src, FaceBuffer& faceBuffer,  const unsigned int parity, const int faceVolumeCB[4], const unsigned int ghostOffset[4], const double coeff, const unsigned int displacement)
+    void computeStaggeredOprodCuda(Output outA, Output outB, Input& inA, Input& inB, cudaColorSpinorField& src, 
+        FaceBuffer& faceBuffer,  const unsigned int parity, const int faceVolumeCB[4], 
+        const unsigned int ghostOffset[4], const double coeff[2])
     {
-      assert(displacement == 1 || displacement == 3);
-
-      checkCudaError();
-
-      printfQuda("Nstream = %d\n", Nstream);
 
       cudaEventRecord(oprodStart, streams[Nstream-1]);
 
@@ -416,15 +415,14 @@ namespace quda {
 
       const unsigned int dim[4] = {src.X(0)*2, src.X(1), src.X(2), src.X(3)};
       // Create the arguments for the interior kernel 
-      StaggeredOprodArg<Complex,Output,Input> arg(out.volumeCB, dim, parity, 0, 0, displacement, OPROD_INTERIOR_KERNEL, coeff, inA, inB, out);
+      StaggeredOprodArg<Complex,Output,Input> arg(outA.volumeCB, dim, parity, 0, 0, 1, OPROD_INTERIOR_KERNEL, coeff, inA, inB, outA, outB);
+
 
       arg.rank = comm_rank();
       checkCudaError();
       StaggeredOprodField<Complex,Output,Input> oprod(arg, QUDA_CUDA_FIELD_LOCATION);
 
       checkCudaError();
-
-      printfQuda("Interior length = %d\n", arg.length);
 
 #ifdef MULTI_GPU
       bool pack=false;
@@ -490,19 +488,11 @@ namespace quda {
         }
       } // set previous directions
 
-      printfQuda("commDimTotal : %d\n", commDimTotal);
 
-      int count = 0;
       if(commDimTotal){
         arg.kernelType = OPROD_EXTERIOR_KERNEL;
         unsigned int completeSum=0;
         while(completeSum < commDimTotal){
-
-          if(count > 10000){ 
-            break;
-            //  errorQuda("Communication does not appear to be working\n");
-          }
-          count++;
 
           for(int i=3; i>=0; i--){
             if(!commDimPartitioned(i)) continue;
@@ -513,7 +503,6 @@ namespace quda {
               cudaError_t event_test = cudaEventQuery(gatherEnd[i]);
 
               if(event_test == cudaSuccess){
-                printf("event_test == cudaSuccess on rank %d\n",comm_rank());
                 gatherCompleted[i] = 1;
                 completeSum++;
                 faceBuffer.commsStart(2*i);
@@ -524,7 +513,6 @@ namespace quda {
             if(!commsCompleted[i] && commsCompleted[previousDir[i]] && gatherCompleted[i]){
               int comms_test = faceBuffer.commsQuery(2*i);
               if(comms_test){
-                printf("comms_test == success on rank %d\n",comm_rank());
                 commsCompleted[i] = 1;
                 completeSum++;
                 faceBuffer.scatter(src, false, 2*i);
@@ -536,23 +524,30 @@ namespace quda {
               cudaEventRecord(scatterEnd[i], streams[2*i]);
               cudaStreamWaitEvent(streams[Nstream-1], scatterEnd[i],0);
 
-              // set arguments for the exterior kernel
               arg.dir = i;
-              arg.length = displacement*faceVolumeCB[i];
               arg.ghostOffset = ghostOffset[i];
-/*
-              oprod.set(arg,QUDA_CUDA_FIELD_LOCATION);
-              // apply kernel in border region
-              oprod.apply(streams[Nstream-1]);
-*/
-              dim3 blockDim(128, 1, 1);
-              const int gridSize = (arg.length + (blockDim.x-1))/blockDim.x;
-              dim3 gridDim(gridSize, 1, 1);               
               const unsigned int volume = arg.X[0]*arg.X[1]*arg.X[2]*arg.X[3];
               arg.inB.setStride(3*volume/(2*arg.X[arg.dir]));
-              exteriorOprodKernel<<<gridDim, blockDim, 0, streams[Nstream-1]>>>(arg);              
+              // First, do the one hop term
+              {
+                arg.length = faceVolumeCB[i];
+                arg.displacement = 1;
+                dim3 blockDim(128, 1, 1);
+                const int gridSize = (arg.length + (blockDim.x-1))/blockDim.x;
+                dim3 gridDim(gridSize, 1, 1);               
+                exteriorOprodKernel<<<gridDim, blockDim, 0, streams[Nstream-1]>>>(arg);              
+              }
+              // Now do the 3 hop term - Try putting this in a separate stream
+              { 
+                arg.displacement = 3;                      
+                arg.length = arg.displacement*faceVolumeCB[i];
+                dim3 blockDim(128, 1, 1);
+                const int gridSize = (arg.length + (blockDim.x-1))/blockDim.x;
+                dim3 gridDim(gridSize, 1, 1);               
+                exteriorOprodKernel<<<gridDim, blockDim, 0, streams[Nstream-1]>>>(arg);              
+              } 
               arg.inB.setStride(arg.inA.Stride());
-          
+
               oprodCompleted[i] = 1;
             }
 
@@ -565,24 +560,16 @@ namespace quda {
 
   // At the moment, I pass an instance of FaceBuffer in. 
   // Soon, faceBuffer will be subsumed in cudaColorSpinorField.
-
-  void computeStaggeredOprod(cudaGaugeField& out, cudaColorSpinorField& in,  
+  void computeStaggeredOprod(cudaGaugeField& outA, cudaGaugeField& outB, cudaColorSpinorField& in,  
       FaceBuffer& faceBuffer,
-      const unsigned int parity, const double coeff, const unsigned int displacement)
+      const unsigned int parity, const double coeff[2])
   {
 
-    printfQuda("in.Bytes() = %d\n", in.Bytes());
-    printfQuda("in.Stride() = %d\n", in.Stride());
-    printfQuda("in.Pad() = %d\n", in.Pad());
-    printfQuda("in.Volume() = %d\n", in.Volume());
-    printfQuda("in.Length() = %d\n", in.Length());
+    if(outA.Order() != QUDA_FLOAT2_GAUGE_ORDER)
+      errorQuda("Unsupported output ordering: %d\n", outA.Order());    
 
-
-
-    printfQuda("Ammended\n");
-
-    if(out.Order() != QUDA_FLOAT2_GAUGE_ORDER)
-      errorQuda("Unsupported output ordering: %d\n", out.Order());    
+    if(outB.Order() != QUDA_FLOAT2_GAUGE_ORDER)
+      errorQuda("Unsupported output ordering: %d\n", outB.Order());    
 
     unsigned int ghostOffset[4] = {0,0,0,0};
 #ifdef MULTI_GPU
@@ -593,7 +580,7 @@ namespace quda {
 #endif
     checkCudaError();
 
-    if(in.Precision() != out.Precision()) errorQuda("Mixed precision not supported: %d %d\n", in.Precision(), out.Precision());
+    if(in.Precision() != outA.Precision()) errorQuda("Mixed precision not supported: %d %d\n", in.Precision(), outA.Precision());
     checkCudaError();
 
     cudaColorSpinorField& inA = (parity&1) ? in.Odd() : in.Even();
@@ -601,43 +588,23 @@ namespace quda {
 
     if(in.Precision() == QUDA_DOUBLE_PRECISION){
 
-      if(!parity){
-        double temp;
-        char* d_temp = (char*)in.V() + in.Bytes()/2;
-        cudaMemcpy(&temp, d_temp, sizeof(double), cudaMemcpyDeviceToHost);
-        printfQuda("Element: %lf\n", temp);
-      }
-
-      printfQuda("inB.Bytes() = %d\n", inB.Bytes());
-      printfQuda("inB.Stride() = %d\n", inB.Stride());
-      printfQuda("inB.Length() = %d\n", inB.Length());
-
       Spinor<double2, double2, double2, 3, 0, 0> spinorA(inA);
       Spinor<double2, double2, double2, 3, 0, 0> spinorB(inB);
       checkCudaError();
-      computeStaggeredOprodCuda<double2>(FloatNOrder<double, 18, 2, 18>(out), spinorA, spinorB, inB, faceBuffer, parity, inB.GhostFace(), ghostOffset, coeff, displacement);
+      computeStaggeredOprodCuda<double2>(FloatNOrder<double, 18, 2, 18>(outA), FloatNOrder<double, 18, 2, 18>(outB), 
+          spinorA, spinorB, inB, faceBuffer, parity, inB.GhostFace(), ghostOffset, coeff);
       checkCudaError();
     }else if(in.Precision() == QUDA_SINGLE_PRECISION){
-
-      if(!parity){
-        float temp;
-        char* d_temp = (char*)in.V() + in.Bytes()/2;
-
-        cudaMemcpy(&temp, d_temp, sizeof(float), cudaMemcpyDeviceToHost);
-        printfQuda("Element: %lf\n", temp);
-      }
 
       Spinor<float2, float2, float2, 3, 0, 0> spinorA(inA);
       Spinor<float2, float2, float2, 3, 0, 0> spinorB(inB);
       checkCudaError();
-      computeStaggeredOprodCuda<float2>(FloatNOrder<float, 18, 2, 18>(out), spinorA, spinorB, inB, faceBuffer, parity, inB.GhostFace(), ghostOffset, coeff, displacement);
+      computeStaggeredOprodCuda<float2>(FloatNOrder<float, 18, 2, 18>(outA), FloatNOrder<float, 18, 2, 18>(outB), 
+          spinorA, spinorB, inB, faceBuffer, parity, inB.GhostFace(), ghostOffset, coeff);
       checkCudaError();
     }else{
       errorQuda("Unsupported precision: %d\n", in.Precision());
     }
-    comm_barrier();
-    printf("Call to computeStaggeredOprod on rank %d complete\n", comm_rank());
-    comm_barrier();
     return;
   } // computeStaggeredOprod
 
