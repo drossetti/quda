@@ -13,9 +13,6 @@ namespace quda {
 #include <texture.h>
   }
 
-
-#include <oprod_pack.h>
-
   static bool kernelPackT = false;
 
   template<int N>
@@ -81,7 +78,6 @@ namespace quda {
       Output outA;
       Output outB;
       typename RealTypeId<Complex>::Type coeff[2];
-      int rank;
 
       StaggeredOprodArg(const unsigned int length,
           const unsigned int X[4],
@@ -103,6 +99,70 @@ namespace quda {
         for(int i=0; i<4; ++i) this->partitioned[i] = commDimPartitioned(i) ? true : false;
       }
     };
+
+  enum IndexType {
+    EVEN_X = 0,
+    EVEN_Y = 1,
+    EVEN_Z = 2,
+    EVEN_T = 3
+  };
+
+  template <IndexType idxType>
+    static __device__ __forceinline__ void coordsFromIndex(int& idx, int c[4],  
+        const unsigned int cb_idx, const unsigned int parity, const unsigned int X[4])
+    {
+      const unsigned int &LX = X[0];
+      const unsigned int &LY = X[1];
+      const unsigned int &LZ = X[2];
+      const unsigned int XYZ = X[2]*X[1]*X[0];
+      const unsigned int XY = X[1]*X[0];
+
+      idx = 2*cb_idx;
+
+      int x, y, z, t;
+
+      if (idxType == EVEN_X /*!(LX & 1)*/) { // X even
+        //   t = idx / XYZ;
+        //   z = (idx / XY) % Z;
+        //   y = (idx / X) % Y;
+        //   idx += (parity + t + z + y) & 1;
+        //   x = idx % X;
+        // equivalent to the above, but with fewer divisions/mods:
+        int aux1 = idx / LX;
+        x = idx - aux1 * LX;
+        int aux2 = aux1 / LY;
+        y = aux1 - aux2 * LY;
+        t = aux2 / LZ;
+        z = aux2 - t * LZ;
+        aux1 = (parity + t + z + y) & 1;
+        x += aux1;
+        idx += aux1;
+      } else if (idxType == EVEN_Y /*!(LY & 1)*/) { // Y even
+        t = idx / XYZ;
+        z = (idx / XY) % LZ;
+        idx += (parity + t + z) & 1;
+        y = (idx / LX) % LY;
+        x = idx % LX;
+      } else if (idxType == EVEN_Z /*!(LZ & 1)*/) { // Z even
+        t = idx / XYZ;
+        idx += (parity + t) & 1;
+        z = (idx / XY) % LZ;
+        y = (idx / LX) % LY;
+        x = idx % LX;
+      } else {
+        idx += parity;
+        t = idx / XYZ;
+        z = (idx / XY) % LZ;
+        y = (idx / LX) % LY;
+        x = idx % LX;
+      }
+
+      c[0] = x;
+      c[1] = y;
+      c[2] = z;
+      c[3] = t;
+    }
+
 
 
 
@@ -291,9 +351,6 @@ namespace quda {
       unsigned int cb_idx = blockIdx.x*blockDim.x + threadIdx.x;
       const unsigned int gridSize = gridDim.x*blockDim.x;
 
-      int shift[4] = {0,0,0,0};
-      shift[arg.dir] = arg.displacement;
-
       Complex a[3];
       Complex b[3];
       Matrix<Complex,3> result;
@@ -411,18 +468,13 @@ namespace quda {
 
       cudaEventRecord(oprodStart, streams[Nstream-1]);
 
-      checkCudaError();
 
       const unsigned int dim[4] = {src.X(0)*2, src.X(1), src.X(2), src.X(3)};
       // Create the arguments for the interior kernel 
       StaggeredOprodArg<Complex,Output,Input> arg(outA.volumeCB, dim, parity, 0, 0, 1, OPROD_INTERIOR_KERNEL, coeff, inA, inB, outA, outB);
 
 
-      arg.rank = comm_rank();
-      checkCudaError();
       StaggeredOprodField<Complex,Output,Input> oprod(arg, QUDA_CUDA_FIELD_LOCATION);
-
-      checkCudaError();
 
 #ifdef MULTI_GPU
       bool pack=false;
@@ -453,8 +505,7 @@ namespace quda {
         } // comDim(i)
       } // i=3,..,0
 #endif
-      // Should probably be able to reset the arguments
-      oprod.apply(streams[Nstream-1]); // Need to change this so that there's a way to distinguish between interior and exterior kernels
+      oprod.apply(streams[Nstream-1]); 
 
 #ifdef MULTI_GPU
       // compute gather completed 
@@ -576,10 +627,8 @@ namespace quda {
       ghostOffset[dir] = Npad*(in.GhostOffset(dir) + in.Stride()); 
     }
 #endif
-    checkCudaError();
 
     if(in.Precision() != outA.Precision()) errorQuda("Mixed precision not supported: %d %d\n", in.Precision(), outA.Precision());
-    checkCudaError();
 
     cudaColorSpinorField& inA = (parity&1) ? in.Odd() : in.Even();
     cudaColorSpinorField& inB = (parity&1) ? in.Even() : in.Odd();
@@ -588,18 +637,14 @@ namespace quda {
 
       Spinor<double2, double2, double2, 3, 0, 0> spinorA(inA);
       Spinor<double2, double2, double2, 3, 0, 0> spinorB(inB);
-      checkCudaError();
       computeStaggeredOprodCuda<double2>(FloatNOrder<double, 18, 2, 18>(outA), FloatNOrder<double, 18, 2, 18>(outB), 
           spinorA, spinorB, inB, faceBuffer, parity, inB.GhostFace(), ghostOffset, coeff);
-      checkCudaError();
     }else if(in.Precision() == QUDA_SINGLE_PRECISION){
 
       Spinor<float2, float2, float2, 3, 0, 0> spinorA(inA);
       Spinor<float2, float2, float2, 3, 0, 0> spinorB(inB);
-      checkCudaError();
       computeStaggeredOprodCuda<float2>(FloatNOrder<float, 18, 2, 18>(outA), FloatNOrder<float, 18, 2, 18>(outB), 
           spinorA, spinorB, inB, faceBuffer, parity, inB.GhostFace(), ghostOffset, coeff);
-      checkCudaError();
     }else{
       errorQuda("Unsupported precision: %d\n", in.Precision());
     }

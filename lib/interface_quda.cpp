@@ -2224,6 +2224,7 @@ void computeStaggeredOprodQuda(void** oprod,
   profileStaggeredOprod.Stop(QUDA_PROFILE_H2D);
 
 
+  profileStaggeredOprod.Start(QUDA_PROFILE_INIT);
   ColorSpinorParam qParam;
   qParam.nColor = 3;
   qParam.nSpin = 1;
@@ -2248,23 +2249,27 @@ void computeStaggeredOprodQuda(void** oprod,
   const int Ninternal = 6;
   FaceBuffer faceBuffer1(cudaOprod0.X(), 4, Ninternal, 3, cudaOprod0.Precision(), Ls);
   FaceBuffer faceBuffer2(cudaOprod0.X(), 4, Ninternal, 3, cudaOprod0.Precision(), Ls);
+  profileStaggeredOprod.Stop(QUDA_PROFILE_INIT);
 
   // loop over different quark fields
   for(int i=0; i<num_terms; ++i){
+
+    profileStaggeredOprod.Start(QUDA_PROFILE_INIT);
     qParam.v = fermion[i];
     cpuColorSpinorField cpuQuark(qParam); // create host quark field
+    profileStaggeredOprod.Stop(QUDA_PROFILE_INIT);
 
     profileStaggeredOprod.Start(QUDA_PROFILE_H2D);
     cudaQuark = cpuQuark;
     profileStaggeredOprod.Stop(QUDA_PROFILE_H2D);
 
+    profileStaggeredOprod.Start(QUDA_PROFILE_COMPUTE);
     // Operate on even-parity sites
     computeStaggeredOprod(cudaOprod0, cudaOprod1, cudaQuark, faceBuffer1, 0, coeff[i]);
-    checkCudaError();
 
     // Operate on odd-parity sites
     computeStaggeredOprod(cudaOprod0, cudaOprod1, cudaQuark, faceBuffer2, 1, coeff[i]);
-    checkCudaError();
+    profileStaggeredOprod.Stop(QUDA_PROFILE_COMPUTE);
   }
 
 
@@ -2277,6 +2282,7 @@ void computeStaggeredOprodQuda(void** oprod,
 
   profileStaggeredOprod.Stop(QUDA_PROFILE_TOTAL);
 
+  checkCudaError();
   return;
 }
 
