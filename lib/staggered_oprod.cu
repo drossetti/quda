@@ -265,7 +265,7 @@ namespace quda {
             outerProd(y,x,&result);
             arg.outA.load(reinterpret_cast<real*>(tempA.data), idx, dir, arg.parity); 
             result = tempA + result*arg.coeff[0];
-            arg.outA.load(reinterpret_cast<real*>(result.data), idx, dir, arg.parity); 
+            arg.outA.save(reinterpret_cast<real*>(result.data), idx, dir, arg.parity); 
 
             shift[dir] = 3;
             const int third_nbr_idx = neighborIndex(idx, shift, arg.partitioned, arg.parity, arg.X);
@@ -496,8 +496,6 @@ namespace quda {
 
           for(int i=3; i>=0; i--){
             if(!commDimPartitioned(i)) continue;
-
-
 
             if(!gatherCompleted[i] && gatherCompleted[previousDir[i]]){
               cudaError_t event_test = cudaEventQuery(gatherEnd[i]);
