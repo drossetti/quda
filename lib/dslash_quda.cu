@@ -1009,7 +1009,7 @@ namespace quda {
   private:
     const gFloat *gauge0, *gauge1;
     const QudaReconstructType reconstruct;
-    const QudaTwistDslashType dslashType;
+    const QudaTwistCloverDslashType dslashType;
     const int dagger;
     double a, b, c, d;
     const cFloat *clover;
@@ -1037,7 +1037,7 @@ namespace quda {
     TwistedCloverDslashCuda(cudaColorSpinorField *out, const gFloat *gauge0, const gFloat *gauge1, 
 		      const QudaReconstructType reconstruct, const cFloat *clover, const float *cNorm,
 		      const cFloat *cloverInv, const float *cNrm2, const cudaColorSpinorField *in,
-		      const cudaColorSpinorField *x, const QudaTwistDslashType dslashType, const double kappa,
+		      const cudaColorSpinorField *x, const QudaTwistCloverDslashType dslashType, const double kappa,
 		      const double mu, const double epsilon, const double k, const int dagger)
       : SharedDslashCuda(out, in, x),gauge0(gauge0), gauge1(gauge1), clover(clover),
 	cNorm(cNorm), cloverInv(cloverInv), cNrm2(cNrm2),
@@ -1822,7 +1822,7 @@ namespace quda {
 
   void twistedCloverDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, const FullClover clover, const FullClover cloverInv,
 			     const cudaColorSpinorField *in, const int parity, const int dagger, 
-			     const cudaColorSpinorField *x, const QudaTwistDslashType type, const double &kappa, const double &mu, 
+			     const cudaColorSpinorField *x, const QudaTwistCloverDslashType type, const double &kappa, const double &mu, 
 			     const double &epsilon, const double &k,  const int *commOverride,
 			     TimeProfile &profile)
   {
@@ -1873,11 +1873,11 @@ namespace quda {
       errorQuda("Double precision not supported on this GPU");
 #endif
     } else if (in->Precision() == QUDA_SINGLE_PRECISION) {
-      dslash = new TwistedDslashCuda<float4,float4>(out, (float4*)gauge0,(float4*)gauge1, gauge.Reconstruct(), (float4*)cloverP, (float*)cloverNormP,
+      dslash = new TwistedCloverDslashCuda<float4,float4>(out, (float4*)gauge0,(float4*)gauge1, gauge.Reconstruct(), (float4*)cloverP, (float*)cloverNormP,
 						   (float4*)cloverInvP, (float*)cloverInvNormP, in, x, type, kappa, mu, epsilon, k, dagger);
 
     } else if (in->Precision() == QUDA_HALF_PRECISION) {
-      dslash = new TwistedDslashCuda<short4,short4>(out, (short4*)gauge0,(short4*)gauge1, gauge.Reconstruct(), (short4*)cloverP, (float*)cloverNormP,
+      dslash = new TwistedCloverDslashCuda<short4,short4>(out, (short4*)gauge0,(short4*)gauge1, gauge.Reconstruct(), (short4*)cloverP, (float*)cloverNormP,
 						   (short4*)cloverP, (float*)cloverNormP, in, x, type, kappa, mu, epsilon, k, dagger);
     }
 

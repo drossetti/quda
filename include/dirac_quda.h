@@ -380,7 +380,7 @@ namespace quda {
     virtual ~DiracTwistedCloverPC();
     DiracTwistedCloverPC& operator=(const DiracTwistedCloverPC &dirac);
 
-    void TwistCloverInv(cudaColorSpinorField &out, const cudaColorSpinorField &in, const QudaParity parity) const;
+    void TwistCloverInv(cudaColorSpinorField &out, const cudaColorSpinorField &in) const;
 
     virtual void Dslash(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
       const QudaParity parity) const;

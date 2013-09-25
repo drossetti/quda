@@ -156,6 +156,14 @@ namespace quda {
     } else if (param.type == QUDA_ASQTADPC_DIRAC) {
       if (getVerbosity() >= QUDA_VERBOSE) printfQuda("Creating a DiracStaggeredPC operator\n");
       return new DiracStaggeredPC(param);    
+    } else if (param.type == QUDA_TWISTED_CLOVER_DIRAC) {
+      if (getVerbosity() >= QUDA_VERBOSE) printfQuda("Creating a DiracTwistedClover operator (%d flavor(s))\n", param.Ls);
+        if (param.Ls == 1) return new DiracTwistedClover(param, 4);
+        else return new DiracTwistedClover(param, 5);
+      } else if (param.type == QUDA_TWISTED_CLOVERPC_DIRAC) {
+        if (getVerbosity() >= QUDA_VERBOSE) printfQuda("Creating a DiracTwistedCloverPC operator (%d flavor(s))\n", param.Ls);
+        if (param.Ls == 1) return new DiracTwistedCloverPC(param, 4);
+        else return new DiracTwistedCloverPC(param, 5);
     } else if (param.type == QUDA_TWISTED_MASS_DIRAC) {
       if (getVerbosity() >= QUDA_VERBOSE) printfQuda("Creating a DiracTwistedMass operator (%d flavor(s))\n", param.Ls);
         if (param.Ls == 1) return new DiracTwistedMass(param, 4);

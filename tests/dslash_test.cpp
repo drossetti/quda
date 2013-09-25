@@ -103,11 +103,11 @@ void init(int argc, char **argv) {
 
   inv_param.kappa = 0.1;
 
-  if (dslash_type == QUDA_TWISTED_MASS_DSLASH) {
+  if (dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
     inv_param.mu = 0.01;
     inv_param.epsilon = 0.01; 
-//!    inv_param.twist_flavor = QUDA_TWIST_MINUS;
-    inv_param.twist_flavor = QUDA_TWIST_NONDEG_DOUBLET;
+    inv_param.twist_flavor = QUDA_TWIST_MINUS;
+//!    inv_param.twist_flavor = QUDA_TWIST_NONDEG_DOUBLET;
   } else if (dslash_type == QUDA_DOMAIN_WALL_DSLASH) {
     inv_param.mass = 0.01;
     inv_param.m5 = -1.5;
@@ -205,7 +205,7 @@ void init(int argc, char **argv) {
   }
 
 //ndeg_tm    
-  if (dslash_type == QUDA_TWISTED_MASS_DSLASH) {
+  if (dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
     csParam.twistFlavor = inv_param.twist_flavor;
     csParam.nDim = (inv_param.twist_flavor == QUDA_TWIST_PLUS || inv_param.twist_flavor == QUDA_TWIST_MINUS) ? 4 : 5;
     csParam.x[4] = Ls;    
@@ -261,7 +261,7 @@ void init(int argc, char **argv) {
   printfQuda("Sending gauge field to GPU\n");
   loadGaugeQuda(hostGauge, &gauge_param);
 
-  if (dslash_type == QUDA_CLOVER_WILSON_DSLASH) {
+  if (dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
     printfQuda("Sending clover field to GPU\n");
     loadCloverQuda(hostClover, hostCloverInv, &inv_param);
     //clover = cudaCloverPrecise;
@@ -332,7 +332,7 @@ void end() {
   delete spinorTmp;
 
   for (int dir = 0; dir < 4; dir++) free(hostGauge[dir]);
-  if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_CLOVER_WILSON_DSLASH)) {
+  if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
     if (hostClover != hostCloverInv && hostClover) free(hostClover);
     free(hostCloverInv);
   }
@@ -343,12 +343,15 @@ void end() {
 // execute kernel
 double dslashCUDA(int niter) {
 
+	printfQuda("Prolog\n");
   cudaEvent_t start, end;
   cudaEventCreate(&start);
   cudaEventCreate(&end);
   cudaEventRecord(start, 0);
 
+	printfQuda("Apply\n");
   for (int i = 0; i < niter; i++) {
+	printfQuda("Test type %d\n", test_type);
     switch (test_type) {
     case 0:
       if (transfer) {
@@ -360,8 +363,10 @@ double dslashCUDA(int niter) {
     case 1:
     case 2:
       if (transfer) {
+	printfQuda("Feo\n");
 	MatQuda(spinorOut->V(), spinor->V(), &inv_param);
       } else {
+	printfQuda("SuperFeo\n");
 	dirac->M(*cudaSpinorOut, *cudaSpinor);
       }
       break;
@@ -426,7 +431,7 @@ void dslashRef() {
       printfQuda("Test type not defined\n");
       exit(-1);
     }
-  } else if (dslash_type == QUDA_TWISTED_MASS_DSLASH) {
+  } else if ((dslash_type == QUDA_TWISTED_MASS_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
     switch (test_type) {
     case 0:
       if(inv_param.twist_flavor == QUDA_TWIST_PLUS || inv_param.twist_flavor == QUDA_TWIST_MINUS)
@@ -582,7 +587,7 @@ int main(int argc, char **argv)
   printfQuda("Gauge mem: %.3f GiB\n", gauge_param.gaugeGiB);
   
   int attempts = 1;
-  dslashRef();
+//  dslashRef();
   for (int i=0; i<attempts; i++) {
 
     if (tune) { // warm-up run
@@ -591,7 +596,9 @@ int main(int argc, char **argv)
       dslashCUDA(1);
     }
     printfQuda("Executing %d kernel loops...\n", niter);
+    printfQuda("Transfer is %d\n", transfer);
     if (!transfer) dirac->Flops();
+    printfQuda("Flops were successful!\n");
     double secs = dslashCUDA(niter);
     printfQuda("done.\n\n");
 
