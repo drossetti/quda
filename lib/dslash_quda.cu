@@ -2294,6 +2294,7 @@ namespace quda {
 
   void apply(const cudaStream_t &stream) 
   {
+//A.S.: should this be GPU_TWISTED_CLOVER_DIRAC instead?
 #if (defined GPU_TWISTED_MASS_DIRAC) || (defined GPU_NDEG_TWISTED_MASS_DIRAC)
     TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
     dim3 gridDim( (dslashParam.threads+tp.block.x-1) / tp.block.x, 1, 1);
