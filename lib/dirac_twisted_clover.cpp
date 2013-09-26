@@ -49,7 +49,7 @@ namespace quda {
 		}
 	}
 
-	void DiracClover::checkParitySpinor(const cudaColorSpinorField &out, const cudaColorSpinorField &in) const
+	void DiracTwistedClover::checkParitySpinor(const cudaColorSpinorField &out, const cudaColorSpinorField &in) const
 	{
 		Dirac::checkParitySpinor(out, in);
 

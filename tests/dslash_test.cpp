@@ -176,7 +176,8 @@ void init(int argc, char **argv) {
     inv_param.clover_order = QUDA_PACKED_CLOVER_ORDER;
     //if (test_type > 0) {
       hostClover = malloc(V*cloverSiteSize*inv_param.clover_cpu_prec);
-      hostCloverInv = hostClover; // fake it
+      hostCloverInv = malloc(V*cloverSiteSize*inv_param.clover_cpu_prec);
+//      hostCloverInv = hostClover; // fake it
       /*} else {
       hostClover = NULL;
       hostCloverInv = malloc(V*cloverSiteSize*inv_param.clover_cpu_prec);
@@ -248,10 +249,15 @@ void init(int argc, char **argv) {
     double norm = 0.0; // clover components are random numbers in the range (-norm, norm)
     double diag = 1.0; // constant added to the diagonal
 
-    if (test_type == 2 || test_type == 4) {
-      construct_clover_field(hostClover, norm, diag, inv_param.clover_cpu_prec);
-    } else {
-      construct_clover_field(hostCloverInv, norm, diag, inv_param.clover_cpu_prec);
+    if (dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
+        construct_clover_field(hostClover, norm, diag, inv_param.clover_cpu_prec);
+        construct_clover_field(hostCloverInv, norm, diag, inv_param.clover_cpu_prec);
+     } else {
+      if (test_type == 2 || test_type == 4) {
+        construct_clover_field(hostClover, norm, diag, inv_param.clover_cpu_prec);
+      } else {
+        construct_clover_field(hostCloverInv, norm, diag, inv_param.clover_cpu_prec);
+      }
     }
   }
   printfQuda("done.\n"); fflush(stdout);
