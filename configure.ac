@@ -118,6 +118,12 @@ AC_ARG_ENABLE(ndeg-twisted-mass-dirac,
   [ build_ndeg_twm_dirac="no" ]
 )
 
+AC_ARG_ENABLE(twisted-clover-dirac,
+  AC_HELP_STRING([--enable-twisted-clover-dirac], [ Build twisted clover Dirac operator (default: enabled)]),
+  [ build_tmc_dirac=${enableval} ], 
+  [ build_tmc_dirac="no" ]
+)
+
 AC_ARG_ENABLE(staggered-fatlink,
   AC_HELP_STRING([--enable-staggered-fatlink], [ Build asqtad link-fattening routines (default: disabled)]),
   [ build_staggered_fatlink=${enableval} ], 
@@ -385,6 +391,15 @@ yes|no);;
   ;;
 esac
 
+dnl Build Twisted Clover Dirac
+case ${build_tmc_dirac} in
+yes|no);;
+*) 
+  AC_MSG_ERROR([ invalid value for --enable-twisted-clover-dirac ])
+  ;;
+esac
+
+
 dnl Build Staggered fatlink
 case ${build_staggered_fatlink} in
 yes|no);;
@@ -559,6 +574,9 @@ AC_SUBST( BUILD_TWISTED_MASS_DIRAC, [${build_twm_dirac}])
 
 AC_MSG_NOTICE([Setting BUILD_NDEG_TWISTED_MASS_DIRAC = ${build_ndeg_twm_dirac} ])
 AC_SUBST( BUILD_NDEG_TWISTED_MASS_DIRAC, [${build_ndeg_twm_dirac}])
+
+AC_MSG_NOTICE([Setting BUILD_TWISTED_CLOVER_DIRAC = ${build_tmc_dirac} ])
+AC_SUBST( BUILD_TWISTED_CLOVER_DIRAC, [${build_tmc_dirac}])
 
 AC_MSG_NOTICE([Setting BUILD_FATLINK = ${build_staggered_fatlink} ] )
 AC_SUBST( BUILD_FATLINK, [${build_staggered_fatlink}])

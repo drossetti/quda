@@ -1163,14 +1163,14 @@ def generate_dslash_kernels(arch):
     dslash = True
     twist = True
     dagger = False
-    filename = '../dslash_core/tmc_dslash_' + name + '_core.h'
+    filename = 'dslash_core/tmc_dslash_' + name + '_core.h'
     print sys.argv[0] + ": generating " + filename;
     f = open(filename, 'w')
     f.write(generate_dslash())
     f.close()
 
     dagger = True
-    filename = '../dslash_core/tmc_dslash_dagger_' + name + '_core.h'
+    filename = 'dslash_core/tmc_dslash_dagger_' + name + '_core.h'
     print sys.argv[0] + ": generating " + filename + "\n";
     f = open(filename, 'w')
     f.write(generate_dslash())
@@ -1205,13 +1205,13 @@ twist = False
 dagger = False
 pack = True
 print sys.argv[0] + ": generating wilson_pack_clover_twisted_face_core.h";
-f = open('../dslash_core/wilson_pack_clover_twisted_face_core.h', 'w')
+f = open('dslash_core/wilson_pack_clover_twisted_face_core.h', 'w')
 f.write(generate_pack())
 f.close()
 
 dagger = True
 print sys.argv[0] + ": generating wilson_pack_clover_twisted_face_dagger_core.h";
-f = open('../dslash_core/wilson_pack_clover_twisted_face_dagger_core.h', 'w')
+f = open('dslash_core/wilson_pack_clover_twisted_face_dagger_core.h', 'w')
 f.write(generate_pack())
 f.close()
 dslash = False

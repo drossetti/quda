@@ -73,7 +73,7 @@
 	#else
 		#ifdef USE_TEXTURE_OBJECTS
 			#define TMCLOVERTEX (param.cloverTex)
-			#define TM_INVCLOVERTEX (param.cloverInvTex)
+			#define TM_INV_CLOVERTEX (param.cloverInvTex)
 		#else
 			#define TMCLOVERTEX cloverTexDouble
 			#define TM_INV_CLOVERTEX cloverInvTexDouble
@@ -449,14 +449,14 @@ template <KernelType kernel_type>
 __global__ void	DD_FUNC(DD_NAME_F, DD_RECON_F, DD_DAG_F, DD_XPAY_F)
      (DD_PARAM1, DD_PARAM2, DD_PARAMCLOVER, DD_PARAM3, DD_PARAM4) {
 
-#ifdef GPU_TWISTED_MASS_DIRAC
+#ifdef GPU_TWISTED_CLOVER_DIRAC
 
 #if (__COMPUTE_CAPABILITY__ >= 200 && defined(SHARED_WILSON_DSLASH)) // Fermi optimal code
 
 #if DD_DAG
-#include "tmc_dslash_dagger_gt200_core.h"
+#include "tmc_dslash_dagger_fermi_core.h"
 #else
-#include "tmc_dslash_gt200_core.h"
+#include "tmc_dslash_fermi_core.h"
 #endif
 
 #elif (__COMPUTE_CAPABILITY__ >= 120) // GT200 optimal code
@@ -493,14 +493,14 @@ template <KernelType kernel_type>
 __global__ void	DD_FUNC(DD_NAME_F, DD_RECON_F, DD_DAG_F, DD_XPAY_F)
      (DD_PARAM1, DD_PARAM2, DD_PARAMCLOVER, DD_PARAM3, DD_PARAM4) {
 
-#ifdef GPU_TWISTED_MASS_DIRAC
+#ifdef GPU_TWISTED_CLOVER_DIRAC
 
 #if (__COMPUTE_CAPABILITY__ >= 200 && defined(SHARED_WILSON_DSLASH)) // Fermi optimal code
 
 #if DD_DAG
-#include "tmc_dslash_dagger_gt200_core.h"
+#include "tmc_dslash_dagger_fermi_core.h"
 #else
-#include "tmc_dslash_gt200_core.h"
+#include "tmc_dslash_fermi_core.h"
 #endif
 
 #elif (__COMPUTE_CAPABILITY__ >= 120) // GT200 optimal code
@@ -540,7 +540,7 @@ template <KernelType kernel_type>
 __global__ void	DD_FUNC(DD_NAME_F, DD_RECON_F, DD_DAG_F, DD_XPAY_F)
      (DD_PARAM1, DD_PARAM2, DD_PARAMCLOVER, DD_PARAM3, DD_PARAM4) {
 
-#ifdef GPU_TWISTED_MASS_DIRAC
+#ifdef GPU_TWISTED_CLOVER_DIRAC
 
 #endif
 
