@@ -126,11 +126,11 @@
 
 
 #if (DD_PREC == 0)
-#define DD_PARAM4 const double mubar, const double2 *x, const float *xNorm, const DslashParam param
+#define DD_PARAM4 const double kappa, const double mubar, const double2 *x, const float *xNorm, const DslashParam param
 #elif (DD_PREC == 1) 
-#define DD_PARAM4 const float  mubar, const float4 *x,  const float *xNorm, const DslashParam param
+#define DD_PARAM4 const float kappa,  const float  mubar, const float4 *x,  const float *xNorm, const DslashParam param
 #else
-#define DD_PARAM4 const float  mubar, const short4 *x,  const float *xNorm, const DslashParam param
+#define DD_PARAM4 const float kappa,  const float  mubar, const short4 *x,  const float *xNorm, const DslashParam param
 #endif
 
 #if (DD_RECON==0) // reconstruct from 8 reals

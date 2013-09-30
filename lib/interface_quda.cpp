@@ -504,7 +504,6 @@ void saveGaugeQuda(void *h_gauge, QudaGaugeParam *param)
 
 void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
 {
-  printfQuda ("Caca!!! 0\n");
   profileClover.Start(QUDA_PROFILE_TOTAL);
 
   pushVerbosity(inv_param->verbosity);
@@ -573,7 +572,6 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
   cpuParam.create = QUDA_REFERENCE_FIELD_CREATE;
 
   if (cpuParam.direct && cpuParam.inverse) {
-    printfQuda ("Caca!!!\n");
     twistedClover = true;
     cpuParam.inverse = false;
     cpuParam.cloverInv = NULL;
@@ -725,8 +723,17 @@ void freeCloverQuda(void)
   cloverPrecondition = NULL;
   cloverSloppy = NULL;
   cloverPrecise = NULL;
-}
 
+  if (cloverInvPrecise != NULL) {
+     if (cloverInvPrecondition != cloverInvSloppy && cloverPrecondition) delete cloverInvPrecondition;
+     if (cloverInvSloppy != cloverInvPrecise && cloverSloppy) delete cloverInvSloppy;
+     if (cloverInvPrecise) delete cloverInvPrecise;
+
+     cloverInvPrecondition = NULL;
+     cloverInvSloppy = NULL;
+     cloverInvPrecise = NULL;
+  }
+}
 
 void endQuda(void)
 {

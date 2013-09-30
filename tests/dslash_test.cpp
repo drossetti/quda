@@ -355,9 +355,7 @@ double dslashCUDA(int niter) {
   cudaEventCreate(&end);
   cudaEventRecord(start, 0);
 
-	printfQuda("Apply\n");
   for (int i = 0; i < niter; i++) {
-	printfQuda("Test type %d\n", test_type);
     switch (test_type) {
     case 0:
       if (transfer) {
@@ -369,10 +367,8 @@ double dslashCUDA(int niter) {
     case 1:
     case 2:
       if (transfer) {
-	printfQuda("Feo\n");
 	MatQuda(spinorOut->V(), spinor->V(), &inv_param);
       } else {
-	printfQuda("SuperFeo\n");
 	dirac->M(*cudaSpinorOut, *cudaSpinor);
       }
       break;
@@ -593,7 +589,7 @@ int main(int argc, char **argv)
   printfQuda("Gauge mem: %.3f GiB\n", gauge_param.gaugeGiB);
   
   int attempts = 1;
-//  dslashRef();
+  dslashRef();
   for (int i=0; i<attempts; i++) {
 
     if (tune) { // warm-up run
@@ -602,9 +598,7 @@ int main(int argc, char **argv)
       dslashCUDA(1);
     }
     printfQuda("Executing %d kernel loops...\n", niter);
-    printfQuda("Transfer is %d\n", transfer);
     if (!transfer) dirac->Flops();
-    printfQuda("Flops were successful!\n");
     double secs = dslashCUDA(niter);
     printfQuda("done.\n\n");
 
