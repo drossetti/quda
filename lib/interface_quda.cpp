@@ -2214,6 +2214,7 @@ void computeStaggeredOprodQuda(void** oprod,
   oParam.order = QUDA_FLOAT2_GAUGE_ORDER;
   cudaGaugeField cudaOprod0(oParam);
   cudaGaugeField cudaOprod1(oParam);
+  initLatticeConstants(cudaOprod0, profileStaggeredOprod);
 
   profileStaggeredOprod.Stop(QUDA_PROFILE_INIT); 
 
@@ -2225,6 +2226,9 @@ void computeStaggeredOprodQuda(void** oprod,
 
 
   profileStaggeredOprod.Start(QUDA_PROFILE_INIT);
+
+
+
   ColorSpinorParam qParam;
   qParam.nColor = 3;
   qParam.nSpin = 1;

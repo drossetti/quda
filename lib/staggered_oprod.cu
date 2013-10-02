@@ -497,6 +497,7 @@ namespace quda {
 
           cudaEvent_t &event = (i!=3 || getKernelPackT()) ? packEnd : oprodStart;
           cudaStreamWaitEvent(streams[2*i], event, 0); // wait in stream 2*i for event to complete
+      
 
           // Initialize the host transfer from the source spinor
           faceBuffer.gather(src, false, 2*i); 
