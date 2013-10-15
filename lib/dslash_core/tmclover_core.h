@@ -1202,6 +1202,6 @@ __global__ void twistCloverGamma5Kernel(short4* spinor, float *spinorNorm, float
 #undef tmp3_re
 #undef tmp3_im
 
-#endif //_TM_CUDA_H
+#endif //_TMCLOVER_CORE_H
 
 

@@ -361,7 +361,7 @@ def prolog():
 
     if dslash:
         prolog_str= ("// *** CUDA DSLASH ***\n\n" if not dagger else "// *** CUDA DSLASH DAGGER ***\n\n")
-        prolog_str+= "#define CLOVER_SHARED_FLOATS_PER_THREAD "+str(sharedFloats)+"\n\n"
+        prolog_str+= "#define DSLASH_SHARED_FLOATS_PER_THREAD "+str(sharedFloats)+"\n\n"
     else:
         print "Undefined prolog"
         exit
@@ -413,7 +413,7 @@ extern __shared__ char s_data[];
         if dslash:
             prolog_str += (
 """
-VOLATILE spinorFloat *s = (spinorFloat*)s_data + CLOVER_SHARED_FLOATS_PER_THREAD*SHARED_STRIDE*(threadIdx.x/SHARED_STRIDE)
+VOLATILE spinorFloat *s = (spinorFloat*)s_data + DSLASH_SHARED_FLOATS_PER_THREAD*SHARED_STRIDE*(threadIdx.x/SHARED_STRIDE)
                                   + (threadIdx.x % SHARED_STRIDE);
 """)
 
@@ -937,8 +937,8 @@ def twisted_xpay():
     for s in range(0,4):
         for c in range(0,3):
             i = 3*s+c
-            str += out_re(s,c) +" = b*"+out_re(s,c)+"+"+acc_re(s,c)+";\n"
-            str += out_im(s,c) +" = b*"+out_im(s,c)+"+"+acc_im(s,c)+";\n"
+            str += out_re(s,c) +" = mubar*"+out_re(s,c)+"+"+acc_re(s,c)+";\n"
+            str += out_im(s,c) +" = mubar*"+out_im(s,c)+"+"+acc_im(s,c)+";\n"
     str += "#endif//CLOVER_TWIST_XPAY\n"
     str += "#else //no XPAY\n"
     str += "#ifndef CLOVER_TWIST_INV_DSLASH\n"

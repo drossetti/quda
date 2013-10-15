@@ -26,6 +26,7 @@ namespace quda {
 		{
 			DiracWilson::operator=(dirac);
 			clover = dirac.clover;
+			cloverInv = dirac.cloverInv;
 		}
 
 		return *this;
@@ -104,11 +105,14 @@ namespace quda {
 
     setFace(face); // FIXME: temporary hack maintain C linkage for dslashCuda      
     initConstants(in);
+
+    FullClover cs(clover);
+    FullClover cI(cloverInv);
   
     if(in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS){
       double a = 2.0 * kappa * in.TwistFlavor() * mu;//for direct twist (must be daggered separately)  
-      twistedCloverDslashCuda(&out.Odd(), gauge, clover, cloverInv, &in.Even(), QUDA_ODD_PARITY, dagger, &in.Odd(), QUDA_DEG_DSLASH_TWIST_CLOVER_XPAY, a, -kappa, 0.0, 0.0, commDim, profile);
-      twistedCloverDslashCuda(&out.Even(), gauge, clover, cloverInv, &in.Odd(), QUDA_EVEN_PARITY, dagger, &in.Even(), QUDA_DEG_DSLASH_TWIST_CLOVER_XPAY, a, -kappa, 0.0, 0.0, commDim, profile);
+      twistedCloverDslashCuda(&out.Odd(), gauge, cs, cI, &in.Even(), QUDA_ODD_PARITY, dagger, &in.Odd(), QUDA_DEG_DSLASH_TWIST_CLOVER_XPAY, a, -kappa, 0.0, 0.0, commDim, profile);
+      twistedCloverDslashCuda(&out.Even(), gauge, cs, cI, &in.Odd(), QUDA_EVEN_PARITY, dagger, &in.Even(), QUDA_DEG_DSLASH_TWIST_CLOVER_XPAY, a, -kappa, 0.0, 0.0, commDim, profile);
       flops += (1320ll+72ll)*in.Volume();
     } else {
       errorQuda("Non-deg twisted clover not implemented yet");

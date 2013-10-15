@@ -57,7 +57,7 @@
 
 #if (DD_TWIST==0) // twisted input 
 #define DD_NAME_F twistedCloverInvDslash
-#define TWIST_INV_DSLASH
+#define CLOVER_TWIST_INV_DSLASH
 #else
 #define DD_NAME_F twistedCloverDslash
 #endif
@@ -483,7 +483,7 @@ __global__ void	DD_FUNC(DD_NAME_F, DD_RECON_F, DD_DAG_F, DD_XPAY_F)
 
 //NEW
 #if (DD_XPAY==1) && (DD_TWIST==1)
-#define TWIST_XPAY
+#define CLOVER_TWIST_XPAY
 
 //redefine kernel name:
 #undef DD_NAME_F 
@@ -524,13 +524,13 @@ __global__ void	DD_FUNC(DD_NAME_F, DD_RECON_F, DD_DAG_F, DD_XPAY_F)
 #endif
 
 }
-#undef TWIST_XPAY
+#undef CLOVER_TWIST_XPAY
 #endif //(DD_XPAY==0) && (DD_TWIST==1)
 
 
 //BEGIN DUMMY KERNEL (remove it later)
 #if (DD_XPAY==0) && (DD_TWIST==1)
-#define TWIST_XPAY
+#define CLOVER_TWIST_XPAY
 
 //redefine kernel name:
 #undef DD_NAME_F 
@@ -545,7 +545,7 @@ __global__ void	DD_FUNC(DD_NAME_F, DD_RECON_F, DD_DAG_F, DD_XPAY_F)
 #endif
 
 }
-#undef TWIST_XPAY
+#undef CLOVER_TWIST_XPAY
 #endif //(DD_XPAY==0) && (DD_TWIST==1)
 //END DUMMY KERNEL
 
@@ -568,7 +568,7 @@ __global__ void	DD_FUNC(DD_NAME_F, DD_RECON_F, DD_DAG_F, DD_XPAY_F)
 #undef DSLASH_XPAY
 
 //!
-#undef TWIST_INV_DSLASH
+#undef CLOVER_TWIST_INV_DSLASH
 //!
 #undef READ_GAUGE_MATRIX
 #undef RECONSTRUCT_GAUGE_MATRIX

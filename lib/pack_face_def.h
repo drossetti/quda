@@ -1203,7 +1203,7 @@ __global__ void packTwistedFaceWilsonKernel(Float a, Float b, PackParam<FloatN> 
 #else
 #ifdef USE_TEXTURE_OBJECTS
 #define TMCLOVERTEX (param.cloverTex)
-#define TM_INVCLOVERTEX (param.cloverInvTex)
+#define TM_INV_CLOVERTEX (param.cloverInvTex)
 #else
 #define TMCLOVERTEX cloverTexDouble
 #define TM_INV_CLOVERTEX cloverInvTexDouble

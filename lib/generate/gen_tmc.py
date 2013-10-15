@@ -308,8 +308,8 @@ def generate_tmclover_file():
     filename = 'dslash_core/tmc_core.h'
     print sys.argv[0] + ": generating " + filename;
     f = open(filename, 'w')
-    f.write(make_title("CLOVER_TWIST(c, a, reg)") + apply_clover('reg', 'reg'))
-    f.write(make_title("CLOVER_TWIST_INV(c, cinv, a, reg)") + apply_inv_clover('reg', 'reg'))
+    f.write(make_title("CLOVER_TWIST(c, mubar, reg)") + apply_clover('reg', 'reg'))
+    f.write(make_title("CLOVER_TWIST_INV(c, cinv, mubar, reg)") + apply_inv_clover('reg', 'reg'))
     f.close()
 
 generate_tmclover_file()
