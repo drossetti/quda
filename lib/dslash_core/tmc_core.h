@@ -1,4 +1,4 @@
-#define APPLY_CLOVER_TWIST(c, mubar, reg)\
+#define APPLY_CLOVER_TWIST(c, a, reg)\
 \
 /* change to chiral basis*/\
 {\
@@ -197,13 +197,13 @@
   a12_re += c##12_12_re * reg##12_re;\
   a12_im += c##12_12_re * reg##12_im;\
   \
-  /*apply  i*(2*kappa*mu=mubar)*gamma5*/\
-  reg##00_re = a00_re + mubar* reg##00_re;  reg##00_im = a00_im - mubar* reg##00_re;\
-  reg##01_re = a01_re + mubar* reg##01_re;  reg##01_im = a01_im - mubar* reg##01_re;\
-  reg##02_re = a02_re + mubar* reg##02_re;  reg##02_im = a02_im - mubar* reg##02_re;\
-  reg##10_re = a10_re + mubar* reg##10_re;  reg##10_im = a10_im - mubar* reg##10_re;\
-  reg##11_re = a11_re + mubar* reg##11_re;  reg##11_im = a11_im - mubar* reg##11_re;\
-  reg##12_re = a12_re + mubar* reg##12_re;  reg##12_im = a12_im - mubar* reg##12_re;\
+  /*apply  i*(2*kappa*mu=a)*gamma5*/\
+  reg##00_re = a00_re + a* reg##00_im;  reg##00_im = a00_im - a* reg##00_re;\
+  reg##01_re = a01_re + a* reg##01_im;  reg##01_im = a01_im - a* reg##01_re;\
+  reg##02_re = a02_re + a* reg##02_im;  reg##02_im = a02_im - a* reg##02_re;\
+  reg##10_re = a10_re + a* reg##10_im;  reg##10_im = a10_im - a* reg##10_re;\
+  reg##11_re = a11_re + a* reg##11_im;  reg##11_im = a11_im - a* reg##11_re;\
+  reg##12_re = a12_re + a* reg##12_im;  reg##12_im = a12_im - a* reg##12_re;\
   \
 }\
 \
@@ -355,13 +355,13 @@
   a32_re += c##32_32_re * reg##32_re;\
   a32_im += c##32_32_re * reg##32_im;\
   \
-  /*apply  i*(2*kappa*mu=mubar)*gamma5*/\
-  reg##20_re = a20_re - mubar* reg##20_re;  reg##20_im = a20_im + mubar* reg##20_re;\
-  reg##21_re = a21_re - mubar* reg##21_re;  reg##21_im = a21_im + mubar* reg##21_re;\
-  reg##22_re = a22_re - mubar* reg##22_re;  reg##22_im = a22_im + mubar* reg##22_re;\
-  reg##30_re = a30_re - mubar* reg##30_re;  reg##30_im = a30_im + mubar* reg##30_re;\
-  reg##31_re = a31_re - mubar* reg##31_re;  reg##31_im = a31_im + mubar* reg##31_re;\
-  reg##32_re = a32_re - mubar* reg##32_re;  reg##32_im = a32_im + mubar* reg##32_re;\
+  /*apply  i*(2*kappa*mu=a)*gamma5*/\
+  reg##20_re = a20_re - a* reg##20_im;  reg##20_im = a20_im + a* reg##20_re;\
+  reg##21_re = a21_re - a* reg##21_im;  reg##21_im = a21_im + a* reg##21_re;\
+  reg##22_re = a22_re - a* reg##22_im;  reg##22_im = a22_im + a* reg##22_re;\
+  reg##30_re = a30_re - a* reg##30_im;  reg##30_im = a30_im + a* reg##30_re;\
+  reg##31_re = a31_re - a* reg##31_im;  reg##31_im = a31_im + a* reg##31_re;\
+  reg##32_re = a32_re - a* reg##32_im;  reg##32_im = a32_im + a* reg##32_re;\
   \
 }\
 \
@@ -416,7 +416,7 @@
 }\
 \
 
-#define APPLY_CLOVER_TWIST_INV(c, cinv, mubar, reg)\
+#define APPLY_CLOVER_TWIST_INV(c, cinv, a, reg)\
 \
 /* change to chiral basis*/\
 {\
@@ -615,13 +615,13 @@
   a12_re += c##12_12_re * reg##12_re;\
   a12_im += c##12_12_re * reg##12_im;\
   \
-  /*apply  i*(2*kappa*mu=mubar)*gamma5*/\
-  reg##00_re = a00_re + mubar* reg##00_re;  reg##00_im = a00_im - mubar* reg##00_re;\
-  reg##01_re = a01_re + mubar* reg##01_re;  reg##01_im = a01_im - mubar* reg##01_re;\
-  reg##02_re = a02_re + mubar* reg##02_re;  reg##02_im = a02_im - mubar* reg##02_re;\
-  reg##10_re = a10_re + mubar* reg##10_re;  reg##10_im = a10_im - mubar* reg##10_re;\
-  reg##11_re = a11_re + mubar* reg##11_re;  reg##11_im = a11_im - mubar* reg##11_re;\
-  reg##12_re = a12_re + mubar* reg##12_re;  reg##12_im = a12_im - mubar* reg##12_re;\
+  /*apply  i*(2*kappa*mu=a)*gamma5*/\
+  reg##00_re = a00_re + a* reg##00_im;  reg##00_im = a00_im - a* reg##00_re;\
+  reg##01_re = a01_re + a* reg##01_im;  reg##01_im = a01_im - a* reg##01_re;\
+  reg##02_re = a02_re + a* reg##02_im;  reg##02_im = a02_im - a* reg##02_re;\
+  reg##10_re = a10_re + a* reg##10_im;  reg##10_im = a10_im - a* reg##10_re;\
+  reg##11_re = a11_re + a* reg##11_im;  reg##11_im = a11_im - a* reg##11_re;\
+  reg##12_re = a12_re + a* reg##12_im;  reg##12_im = a12_im - a* reg##12_re;\
   \
   /*Apply inverse clover*/\
   ASSN_CLOVER(TM_INV_CLOVERTEX, 0)\
@@ -928,13 +928,13 @@
   a32_re += c##32_32_re * reg##32_re;\
   a32_im += c##32_32_re * reg##32_im;\
   \
-  /*apply  i*(2*kappa*mu=mubar)*gamma5*/\
-  reg##20_re = a20_re - mubar* reg##20_re;  reg##20_im = a20_im + mubar* reg##20_re;\
-  reg##21_re = a21_re - mubar* reg##21_re;  reg##21_im = a21_im + mubar* reg##21_re;\
-  reg##22_re = a22_re - mubar* reg##22_re;  reg##22_im = a22_im + mubar* reg##22_re;\
-  reg##30_re = a30_re - mubar* reg##30_re;  reg##30_im = a30_im + mubar* reg##30_re;\
-  reg##31_re = a31_re - mubar* reg##31_re;  reg##31_im = a31_im + mubar* reg##31_re;\
-  reg##32_re = a32_re - mubar* reg##32_re;  reg##32_im = a32_im + mubar* reg##32_re;\
+  /*apply  i*(2*kappa*mu=a)*gamma5*/\
+  reg##20_re = a20_re - a* reg##20_im;  reg##20_im = a20_im + a* reg##20_re;\
+  reg##21_re = a21_re - a* reg##21_im;  reg##21_im = a21_im + a* reg##21_re;\
+  reg##22_re = a22_re - a* reg##22_im;  reg##22_im = a22_im + a* reg##22_re;\
+  reg##30_re = a30_re - a* reg##30_im;  reg##30_im = a30_im + a* reg##30_re;\
+  reg##31_re = a31_re - a* reg##31_im;  reg##31_im = a31_im + a* reg##31_re;\
+  reg##32_re = a32_re - a* reg##32_im;  reg##32_im = a32_im + a* reg##32_re;\
   \
   /*Apply inverse clover*/\
   ASSN_CLOVER(TM_INV_CLOVERTEX, 1)\

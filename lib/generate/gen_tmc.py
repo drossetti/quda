@@ -194,12 +194,12 @@ def clover_mult(v_out, v_in, chi):
                         str += a_im(chi,sm,cm)+" += "+c_im(chi,sm,cm,sn,cn)+" * "+spinor(v_in,2*chi+sn,cn,0)+";\\\n"
                     #else: str += ";\n"
             str += "\\\n"
-    str += "/*apply  i*(2*kappa*mu=mubar)*gamma5*/\\\n"
-    mubar_gamma5_re = (" + mubar* " if not chi else " - mubar* ")
-    mubar_gamma5_im = (" - mubar* " if not chi else " + mubar* ")
+    str += "/*apply  i*(2*kappa*mu=a)*gamma5*/\\\n"
+    mubar_gamma5_re = (" + a* " if not chi else " - a* ")
+    mubar_gamma5_im = (" - a* " if not chi else " + a* ")
     for s in range (0,2):
         for c in range (0,3):
-            str += spinor(v_out,2*chi+s,c,0)+" = "+a_re(chi,s,c)+ mubar_gamma5_re +spinor(v_out,2*chi+s,c,0)+";  "
+            str += spinor(v_out,2*chi+s,c,0)+" = "+a_re(chi,s,c)+ mubar_gamma5_re +spinor(v_out,2*chi+s,c,1)+";  "
             str += spinor(v_out,2*chi+s,c,1)+" = "+a_im(chi,s,c)+ mubar_gamma5_im +spinor(v_out,2*chi+s,c,0)+";\\\n"
     str += "\\\n"
 
@@ -227,12 +227,12 @@ def inv_clover_mult(v_out, v_in, chi):
                         str += a_im(chi,sm,cm)+" += "+c_im(chi,sm,cm,sn,cn)+" * "+spinor(v_in,2*chi+sn,cn,0)+";\\\n"
                     #else: str += ";\n"
             str += "\\\n"
-    str += "/*apply  i*(2*kappa*mu=mubar)*gamma5*/\\\n"
-    mubar_gamma5_re = (" + mubar* " if not chi else " - mubar* ")
-    mubar_gamma5_im = (" - mubar* " if not chi else " + mubar* ")
+    str += "/*apply  i*(2*kappa*mu=a)*gamma5*/\\\n"
+    mubar_gamma5_re = (" + a* " if not chi else " - a* ")
+    mubar_gamma5_im = (" - a* " if not chi else " + a* ")
     for s in range (0,2):
         for c in range (0,3):
-            str += spinor(v_out,2*chi+s,c,0)+" = "+a_re(chi,s,c)+ mubar_gamma5_re +spinor(v_out,2*chi+s,c,0)+";  "
+            str += spinor(v_out,2*chi+s,c,0)+" = "+a_re(chi,s,c)+ mubar_gamma5_re +spinor(v_out,2*chi+s,c,1)+";  "
             str += spinor(v_out,2*chi+s,c,1)+" = "+a_im(chi,s,c)+ mubar_gamma5_im +spinor(v_out,2*chi+s,c,0)+";\\\n"
     str += "\\\n"
     str += "/*Apply inverse clover*/\\\n"
@@ -308,8 +308,8 @@ def generate_tmclover_file():
     filename = 'dslash_core/tmc_core.h'
     print sys.argv[0] + ": generating " + filename;
     f = open(filename, 'w')
-    f.write(make_title("CLOVER_TWIST(c, mubar, reg)") + apply_clover('reg', 'reg'))
-    f.write(make_title("CLOVER_TWIST_INV(c, cinv, mubar, reg)") + apply_inv_clover('reg', 'reg'))
+    f.write(make_title("CLOVER_TWIST(c, a, reg)") + apply_clover('reg', 'reg'))
+    f.write(make_title("CLOVER_TWIST_INV(c, cinv, a, reg)") + apply_inv_clover('reg', 'reg'))
     f.close()
 
 generate_tmclover_file()
