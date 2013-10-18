@@ -635,9 +635,9 @@ def gen(dir, pack_only=False):
             load_spinor += "#else\n"
         load_spinor += "READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);\n"
         if not dagger:
-            load_spinor += "APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);\n"
+            load_spinor += "APPLY_CLOVER_TWIST_INV(c, cinv, a, i);\n"
         else:
-            load_spinor += "APPLY_CLOVER_TWIST_INV(c, cinv, -mubar, i);\n"
+            load_spinor += "APPLY_CLOVER_TWIST_INV(c, cinv, -a, i);\n"
         if not pack_only:
             load_spinor += "#endif\n"
     elif row_cnt[2] == 0:
@@ -647,9 +647,9 @@ def gen(dir, pack_only=False):
             load_spinor += "#else\n"
         load_spinor += "READ_SPINOR(SPINORTEX, sp_stride, sp_idx, sp_idx);\n"
         if not dagger:
-           load_spinor += "APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);\n"
+           load_spinor += "APPLY_CLOVER_TWIST_INV(c, cinv, a, i);\n"
         else:
-           load_spinor += "APPLY_CLOVER_TWIST_INV(c, cinv, -mubar, i);\n"
+           load_spinor += "APPLY_CLOVER_TWIST_INV(c, cinv, -a, i);\n"
         if not pack_only:
            load_spinor += "#endif\n"
     else:
@@ -657,9 +657,9 @@ def gen(dir, pack_only=False):
         if not pack_only:
            load_spinor += "#ifdef CLOVER_TWIST_INV_DSLASH\n"
         if not dagger:
-           load_spinor += "APPLY_CLOVER_TWIST_INV(c, cinv, mubar, i);\n"
+           load_spinor += "APPLY_CLOVER_TWIST_INV(c, cinv, a, i);\n"
         else:
-           load_spinor += "APPLY_CLOVER_TWIST_INV(c, cinv, -mubar, i);\n"
+           load_spinor += "APPLY_CLOVER_TWIST_INV(c, cinv, -a, i);\n"
         if not pack_only:
            load_spinor += "#endif\n"
     load_spinor += "\n"
@@ -919,9 +919,9 @@ def twisted_xpay():
     str += "#ifndef CLOVER_TWIST_INV_DSLASH\n"
     str += "//perform invert twist first:\n"
     if not dagger:
-        str += "APPLY_CLOVER_TWIST_INV(c, cinv, mubar, o);\n"
+        str += "APPLY_CLOVER_TWIST_INV(c, cinv, a, o);\n"
     else:
-        str += "APPLY_CLOVER_TWIST_INV(c, cinv, -mubar, o);\n"
+        str += "APPLY_CLOVER_TWIST_INV(c, cinv, -a, o);\n"
     str += "#endif\n"
     for s in range(0,4):
         for c in range(0,3):
@@ -930,22 +930,22 @@ def twisted_xpay():
             str += out_im(s,c) +" += "+acc_im(s,c)+";\n"
     str += "#else\n"
     if not dagger:
-           str += "APPLY_CLOVER_TWIST(c, mubar, acc);\n"
+           str += "APPLY_CLOVER_TWIST(c, a, acc);\n"
     else:
-           str += "APPLY_CLOVER_TWIST(c, -mubar, acc);\n"
+           str += "APPLY_CLOVER_TWIST(c, -a, acc);\n"
     str += "//warning! b is unrelated to the twisted mass parameter in this case!\n\n"
     for s in range(0,4):
         for c in range(0,3):
             i = 3*s+c
-            str += out_re(s,c) +" = mubar*"+out_re(s,c)+"+"+acc_re(s,c)+";\n"
-            str += out_im(s,c) +" = mubar*"+out_im(s,c)+"+"+acc_im(s,c)+";\n"
+            str += out_re(s,c) +" = b*"+out_re(s,c)+"+"+acc_re(s,c)+";\n"
+            str += out_im(s,c) +" = b*"+out_im(s,c)+"+"+acc_im(s,c)+";\n"
     str += "#endif//CLOVER_TWIST_XPAY\n"
     str += "#else //no XPAY\n"
     str += "#ifndef CLOVER_TWIST_INV_DSLASH\n"
     if not dagger:
-        str += "   APPLY_CLOVER_TWIST_INV(c, cinv, mubar, o);\n"
+        str += "   APPLY_CLOVER_TWIST_INV(c, cinv, a, o);\n"
     else:
-        str += "   APPLY_CLOVER_TWIST_INV(c, cinv, -mubar, o);\n"
+        str += "   APPLY_CLOVER_TWIST_INV(c, cinv, -a, o);\n"
     str += "#endif\n"
     str += "#endif\n"
     return str
