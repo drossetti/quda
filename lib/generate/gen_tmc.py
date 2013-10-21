@@ -195,12 +195,14 @@ def clover_mult(v_out, v_in, chi):
                     #else: str += ";\n"
             str += "\\\n"
     str += "/*apply  i*(2*kappa*mu=a)*gamma5*/\\\n"
-    mubar_gamma5_re = (" + a* " if not chi else " - a* ")
-    mubar_gamma5_im = (" - a* " if not chi else " + a* ")
+    mubar_gamma5_re = (" - a* " if not chi else " + a* ")
+    mubar_gamma5_im = (" + a* " if not chi else " - a* ")
     for s in range (0,2):
         for c in range (0,3):
-            str += spinor(v_out,2*chi+s,c,0)+" = "+a_re(chi,s,c)+ mubar_gamma5_re +spinor(v_out,2*chi+s,c,1)+";  "
-            str += spinor(v_out,2*chi+s,c,1)+" = "+a_im(chi,s,c)+ mubar_gamma5_im +spinor(v_out,2*chi+s,c,0)+";\\\n"
+#            str += spinor(v_out,2*chi+s,c,0)+" = "+a_re(chi,s,c)+ mubar_gamma5_re +spinor(v_out,2*chi+s,c,1)+";  "
+#            str += spinor(v_out,2*chi+s,c,1)+" = "+a_im(chi,s,c)+ mubar_gamma5_im +spinor(v_out,2*chi+s,c,0)+";\\\n"
+            str += spinor(v_out,2*chi+s,c,0)+" = "+a_re(chi,s,c)+ mubar_gamma5_re +a_im(chi,s,c)+";  "
+            str += spinor(v_out,2*chi+s,c,1)+" = "+a_im(chi,s,c)+ mubar_gamma5_im +a_re(chi,s,c)+";\\\n"
     str += "\\\n"
 
     return block(str)+"\\\n"
@@ -232,8 +234,10 @@ def inv_clover_mult(v_out, v_in, chi):
     mubar_gamma5_im = (" - a* " if not chi else " + a* ")
     for s in range (0,2):
         for c in range (0,3):
-            str += spinor(v_out,2*chi+s,c,0)+" = "+a_re(chi,s,c)+ mubar_gamma5_re +spinor(v_out,2*chi+s,c,1)+";  "
-            str += spinor(v_out,2*chi+s,c,1)+" = "+a_im(chi,s,c)+ mubar_gamma5_im +spinor(v_out,2*chi+s,c,0)+";\\\n"
+#            str += spinor(v_out,2*chi+s,c,0)+" = "+a_re(chi,s,c)+ mubar_gamma5_re +spinor(v_out,2*chi+s,c,1)+";  "
+#            str += spinor(v_out,2*chi+s,c,1)+" = "+a_im(chi,s,c)+ mubar_gamma5_im +spinor(v_out,2*chi+s,c,0)+";\\\n"
+            str += spinor(v_out,2*chi+s,c,0)+" = "+a_re(chi,s,c)+ mubar_gamma5_re +a_im(chi,s,c)+";  "
+            str += spinor(v_out,2*chi+s,c,1)+" = "+a_im(chi,s,c)+ mubar_gamma5_im +a_re(chi,s,c)+";\\\n"
     str += "\\\n"
     str += "/*Apply inverse clover*/\\\n"
     str += "ASSN_CLOVER(TM_INV_CLOVERTEX, "+`chi`+")\\\n"

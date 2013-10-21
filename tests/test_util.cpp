@@ -826,9 +826,11 @@ static void constructUnitGaugeField(Float **res, QudaGaugeParam *param) {
     for (int i = 0; i < Vh; i++) {
       for (int m = 0; m < 3; m++) {
 	for (int n = 0; n < 3; n++) {
-	  resEven[dir][i*(3*3*2) + m*(3*2) + n*(2) + 0] = 0.0;//(m==n) ? 1 : 0;
+//	  resEven[dir][i*(3*3*2) + m*(3*2) + n*(2) + 0] = 0.0;//(m==n) ? 1 : 0;
+	  resEven[dir][i*(3*3*2) + m*(3*2) + n*(2) + 0] = (m==n) ? 1 : 0;
 	  resEven[dir][i*(3*3*2) + m*(3*2) + n*(2) + 1] = 0.0;
-	  resOdd[dir][i*(3*3*2) + m*(3*2) + n*(2) + 0] = 0.0;//(m==n) ? 1 : 0;
+//	  resOdd[dir][i*(3*3*2) + m*(3*2) + n*(2) + 0] = 0.0;//(m==n) ? 1 : 0;
+	  resOdd[dir][i*(3*3*2) + m*(3*2) + n*(2) + 0] = (m==n) ? 1 : 0;
 	  resOdd[dir][i*(3*3*2) + m*(3*2) + n*(2) + 1] = 0.0;
 	}
       }

@@ -101,11 +101,11 @@ void init(int argc, char **argv) {
   gauge_param.cuda_prec_sloppy = cuda_prec;
   gauge_param.gauge_fix = QUDA_GAUGE_FIXED_NO;
 
-  inv_param.kappa = 0.1;
+  inv_param.kappa = 1.;
 
   if (dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
-    inv_param.mu = 0.01;
-    inv_param.epsilon = 0.01; 
+    inv_param.mu = 1.;//1000000.0;
+    inv_param.epsilon = 0.0; 
     inv_param.twist_flavor = QUDA_TWIST_MINUS;
 //!    inv_param.twist_flavor = QUDA_TWIST_NONDEG_DOUBLET;
   } else if (dslash_type == QUDA_DOMAIN_WALL_DSLASH) {
