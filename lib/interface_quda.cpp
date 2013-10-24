@@ -601,7 +601,7 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
   clover_param.direct = h_clover ? true : false;
   clover_param.inverse = h_clovinv ? true : false;
   clover_param.create = QUDA_NULL_FIELD_CREATE;
-  if (clover_param.direct && clover_param.inverse) {
+  if (twistedClover) {
     clover_param.inverse = false;
     cloverPrecise = new cudaCloverField(clover_param);
     clover_param.direct = false;
@@ -629,7 +629,7 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     if (twistedClover) {
       clover_param.inverse = true;
       cloverInvSloppy = new cudaCloverField(clover_param); 
-      cloverSloppy->copy(*cloverInvPrecise);
+      cloverInvSloppy->copy(*cloverInvPrecise);
       clover_param.direct = true;
       clover_param.inverse = false;
       cloverSloppy = new cudaCloverField(clover_param); 
@@ -655,13 +655,12 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     profileClover.Start(QUDA_PROFILE_INIT);
     clover_param.setPrecision(inv_param->clover_cuda_prec_precondition);
     if (twistedClover) {
+      cloverPrecondition = new cudaCloverField(clover_param); 
+      cloverPrecondition->copy(*cloverSloppy);
+      clover_param.direct = false;
       clover_param.inverse = true;
       cloverInvPrecondition = new cudaCloverField(clover_param); 
       cloverInvPrecondition->copy(*cloverInvSloppy);
-      clover_param.direct = true;
-      clover_param.inverse = false;
-      cloverPrecondition = new cudaCloverField(clover_param); 
-      cloverPrecondition->copy(*cloverSloppy);
     } else {
       cloverPrecondition = new cudaCloverField(clover_param);
       cloverPrecondition->copy(*cloverSloppy);

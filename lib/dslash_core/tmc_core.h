@@ -198,12 +198,18 @@
   a12_im += c##12_12_re * reg##12_im;\
   \
   /*apply  i*(2*kappa*mu=a)*gamma5*/\
-  reg##00_re = a00_re - a* a00_im;  reg##00_im = a00_im + a* a00_re;\
-  reg##01_re = a01_re - a* a01_im;  reg##01_im = a01_im + a* a01_re;\
-  reg##02_re = a02_re - a* a02_im;  reg##02_im = a02_im + a* a02_re;\
-  reg##10_re = a10_re - a* a10_im;  reg##10_im = a10_im + a* a10_re;\
-  reg##11_re = a11_re - a* a11_im;  reg##11_im = a11_im + a* a11_re;\
-  reg##12_re = a12_re - a* a12_im;  reg##12_im = a12_im + a* a12_re;\
+  a00_re = a00_re - .5*a* reg##00_im;  a00_im = a00_im + .5*a* reg##00_re;\
+  a01_re = a01_re - .5*a* reg##01_im;  a01_im = a01_im + .5*a* reg##01_re;\
+  a02_re = a02_re - .5*a* reg##02_im;  a02_im = a02_im + .5*a* reg##02_re;\
+  a10_re = a10_re - .5*a* reg##10_im;  a10_im = a10_im + .5*a* reg##10_re;\
+  a11_re = a11_re - .5*a* reg##11_im;  a11_im = a11_im + .5*a* reg##11_re;\
+  a12_re = a12_re - .5*a* reg##12_im;  a12_im = a12_im + .5*a* reg##12_re;\
+  reg##00_re = a00_re;  reg##00_im = a00_im;\
+  reg##01_re = a01_re;  reg##01_im = a01_im;\
+  reg##02_re = a02_re;  reg##02_im = a02_im;\
+  reg##10_re = a10_re;  reg##10_im = a10_im;\
+  reg##11_re = a11_re;  reg##11_im = a11_im;\
+  reg##12_re = a12_re;  reg##12_im = a12_im;\
   \
 }\
 \
@@ -356,12 +362,18 @@
   a32_im += c##32_32_re * reg##32_im;\
   \
   /*apply  i*(2*kappa*mu=a)*gamma5*/\
-  reg##20_re = a20_re + a* a20_im;  reg##20_im = a20_im - a* a20_re;\
-  reg##21_re = a21_re + a* a21_im;  reg##21_im = a21_im - a* a21_re;\
-  reg##22_re = a22_re + a* a22_im;  reg##22_im = a22_im - a* a22_re;\
-  reg##30_re = a30_re + a* a30_im;  reg##30_im = a30_im - a* a30_re;\
-  reg##31_re = a31_re + a* a31_im;  reg##31_im = a31_im - a* a31_re;\
-  reg##32_re = a32_re + a* a32_im;  reg##32_im = a32_im - a* a32_re;\
+  a20_re = a20_re + .5*a* reg##20_im;  a20_im = a20_im - .5*a* reg##20_re;\
+  a21_re = a21_re + .5*a* reg##21_im;  a21_im = a21_im - .5*a* reg##21_re;\
+  a22_re = a22_re + .5*a* reg##22_im;  a22_im = a22_im - .5*a* reg##22_re;\
+  a30_re = a30_re + .5*a* reg##30_im;  a30_im = a30_im - .5*a* reg##30_re;\
+  a31_re = a31_re + .5*a* reg##31_im;  a31_im = a31_im - .5*a* reg##31_re;\
+  a32_re = a32_re + .5*a* reg##32_im;  a32_im = a32_im - .5*a* reg##32_re;\
+  reg##20_re = a20_re;  reg##20_im = a20_im;\
+  reg##21_re = a21_re;  reg##21_im = a21_im;\
+  reg##22_re = a22_re;  reg##22_im = a22_im;\
+  reg##30_re = a30_re;  reg##30_im = a30_im;\
+  reg##31_re = a31_re;  reg##31_im = a31_im;\
+  reg##32_re = a32_re;  reg##32_im = a32_im;\
   \
 }\
 \
@@ -616,12 +628,18 @@
   a12_im += c##12_12_re * reg##12_im;\
   \
   /*apply  i*(2*kappa*mu=a)*gamma5*/\
-  reg##00_re = a00_re + a* a00_im;  reg##00_im = a00_im - a* a00_re;\
-  reg##01_re = a01_re + a* a01_im;  reg##01_im = a01_im - a* a01_re;\
-  reg##02_re = a02_re + a* a02_im;  reg##02_im = a02_im - a* a02_re;\
-  reg##10_re = a10_re + a* a10_im;  reg##10_im = a10_im - a* a10_re;\
-  reg##11_re = a11_re + a* a11_im;  reg##11_im = a11_im - a* a11_re;\
-  reg##12_re = a12_re + a* a12_im;  reg##12_im = a12_im - a* a12_re;\
+  a00_re = a00_re + .5*a* reg##00_im;  a00_im = a00_im - .5*a* reg##00_re;\
+  a01_re = a01_re + .5*a* reg##01_im;  a01_im = a01_im - .5*a* reg##01_re;\
+  a02_re = a02_re + .5*a* reg##02_im;  a02_im = a02_im - .5*a* reg##02_re;\
+  a10_re = a10_re + .5*a* reg##10_im;  a10_im = a10_im - .5*a* reg##10_re;\
+  a11_re = a11_re + .5*a* reg##11_im;  a11_im = a11_im - .5*a* reg##11_re;\
+  a12_re = a12_re + .5*a* reg##12_im;  a12_im = a12_im - .5*a* reg##12_re;\
+  reg##00_re = a00_re;  reg##00_im = a00_im;\
+  reg##01_re = a01_re;  reg##01_im = a01_im;\
+  reg##02_re = a02_re;  reg##02_im = a02_im;\
+  reg##10_re = a10_re;  reg##10_im = a10_im;\
+  reg##11_re = a11_re;  reg##11_im = a11_im;\
+  reg##12_re = a12_re;  reg##12_im = a12_im;\
   \
   /*Apply inverse clover*/\
   ASSN_CLOVER(TM_INV_CLOVERTEX, 0)\
@@ -929,12 +947,18 @@
   a32_im += c##32_32_re * reg##32_im;\
   \
   /*apply  i*(2*kappa*mu=a)*gamma5*/\
-  reg##20_re = a20_re - a* a20_im;  reg##20_im = a20_im + a* a20_re;\
-  reg##21_re = a21_re - a* a21_im;  reg##21_im = a21_im + a* a21_re;\
-  reg##22_re = a22_re - a* a22_im;  reg##22_im = a22_im + a* a22_re;\
-  reg##30_re = a30_re - a* a30_im;  reg##30_im = a30_im + a* a30_re;\
-  reg##31_re = a31_re - a* a31_im;  reg##31_im = a31_im + a* a31_re;\
-  reg##32_re = a32_re - a* a32_im;  reg##32_im = a32_im + a* a32_re;\
+  a20_re = a20_re - .5*a* reg##20_im;  a20_im = a20_im + .5*a* reg##20_re;\
+  a21_re = a21_re - .5*a* reg##21_im;  a21_im = a21_im + .5*a* reg##21_re;\
+  a22_re = a22_re - .5*a* reg##22_im;  a22_im = a22_im + .5*a* reg##22_re;\
+  a30_re = a30_re - .5*a* reg##30_im;  a30_im = a30_im + .5*a* reg##30_re;\
+  a31_re = a31_re - .5*a* reg##31_im;  a31_im = a31_im + .5*a* reg##31_re;\
+  a32_re = a32_re - .5*a* reg##32_im;  a32_im = a32_im + .5*a* reg##32_re;\
+  reg##20_re = a20_re;  reg##20_im = a20_im;\
+  reg##21_re = a21_re;  reg##21_im = a21_im;\
+  reg##22_re = a22_re;  reg##22_im = a22_im;\
+  reg##30_re = a30_re;  reg##30_im = a30_im;\
+  reg##31_re = a31_re;  reg##31_im = a31_im;\
+  reg##32_re = a32_re;  reg##32_im = a32_im;\
   \
   /*Apply inverse clover*/\
   ASSN_CLOVER(TM_INV_CLOVERTEX, 1)\
