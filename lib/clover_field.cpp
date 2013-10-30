@@ -15,7 +15,6 @@ namespace quda {
     clover(0), norm(0), cloverInv(0), invNorm(0), order(param.order), create(param.create)
   {
     if (nDim != 4) errorQuda("Number of dimensions must be 4, not %d", nDim);
-
     if (order == QUDA_QDPJIT_CLOVER_ORDER && create != QUDA_REFERENCE_FIELD_CREATE)
       errorQuda("QDPJIT ordered clover fields only supported for reference fields");
 
@@ -28,6 +27,9 @@ namespace quda {
       norm_bytes = sizeof(float)*2*stride*2; // 2 chirality
       norm_bytes = ALIGNMENT_ADJUST(norm_bytes);
     }
+//for twisted mass only:
+    twisted = false;//param.twisted;
+    mu2 = 0.0; //param.mu2;
   }
 
   CloverField::~CloverField() {
@@ -188,7 +190,7 @@ namespace quda {
     checkCudaError();
   }
 
-  void cudaCloverField::copy(const CloverField &src) {
+  void cudaCloverField::copy(const CloverField &src, bool inverse) {
 
     checkField(src);
     
@@ -207,7 +209,7 @@ namespace quda {
 	  cudaMemcpy(norm, packCloverNorm, norm_bytes, cudaMemcpyHostToDevice);
       }
       
-      if (src.V(true)) {
+      if (src.V(true) && inverse) {
 	copyGenericClover(*this, src, true, QUDA_CPU_FIELD_LOCATION, packClover, 0, packCloverNorm, 0);
 	cudaMemcpy(cloverInv, packClover, bytes, cudaMemcpyHostToDevice);
 	if (precision == QUDA_HALF_PRECISION) 
