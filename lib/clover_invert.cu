@@ -56,63 +56,51 @@ namespace quda {
 //Compute (T^2 + mu2) first, then invert (not optimized!):
       if(arg.twist)
       {
-         complex<Float> aux[15];//hmmm, better to reuse A-regs...
+         //complex<Float> aux[15];//hmmm, better to reuse A-regs...
+         //another solution just to define (but compiler may not be happy with this, swapping everything in
+         //the global buffer):
+         complex<Float>* aux = (complex<Float>*)A[ch*36];
          //compute off-diagonal terms:
 //
-         aux[ 0] = tri[0]*complex<Float>(diag[0], 0.0)+complex<Float>(diag[1], 0.0)*tri[0] 
-                   +conj(tri[2])*tri[1]+conj(tri[4])*tri[3]+conj(tri[7])*tri[6]+conj(tri[11])*tri[10];
+         aux[ 0] = tri[0]*diag[0]+diag[1]*tri[0]+conj(tri[2])*tri[1]+conj(tri[4])*tri[3]+conj(tri[7])*tri[6]+conj(tri[11])*tri[10];
 //
-         aux[ 1] = tri[1]*complex<Float>(diag[0], 0.0)+complex<Float>(diag[2], 0.0)*tri[1] 
-                   +tri[2]*tri[0]+conj(tri[5])*tri[3]+conj(tri[8])*tri[6]+conj(tri[12])*tri[10];
+         aux[ 1] = tri[1]*diag[0]+diag[2]*tri[1]+tri[2]*tri[0]+conj(tri[5])*tri[3]+conj(tri[8])*tri[6]+conj(tri[12])*tri[10];
 
-         aux[ 2] = tri[2]*complex<Float>(diag[1], 0.0)+complex<Float>(diag[2], 0.0)*tri[2] 
-                   +tri[1]*conj(tri[0])+conj(tri[5])*tri[4]+conj(tri[8])*tri[7]+conj(tri[12])*tri[11];
+         aux[ 2] = tri[2]*diag[1]+diag[2]*tri[2]+tri[1]*conj(tri[0])+conj(tri[5])*tri[4]+conj(tri[8])*tri[7]+conj(tri[12])*tri[11];
 //
-         aux[ 3] = tri[3]*complex<Float>(diag[0], 0.0)+complex<Float>(diag[3], 0.0)*tri[3] 
-                   +tri[4]*tri[0]+tri[5]*tri[1]+conj(tri[9])*tri[6]+conj(tri[13])*tri[10];
+         aux[ 3] = tri[3]*diag[0]+diag[3]*tri[3]+tri[4]*tri[0]+tri[5]*tri[1]+conj(tri[9])*tri[6]+conj(tri[13])*tri[10];
 
-         aux[ 4] = tri[4]*complex<Float>(diag[1], 0.0)+complex<Float>(diag[3], 0.0)*tri[4] 
-                   +tri[3]*conj(tri[0])+tri[5]*tri[2]+conj(tri[9])*tri[7]+conj(tri[13])*tri[11];
+         aux[ 4] = tri[4]*diag[1]+diag[3]*tri[4]+tri[3]*conj(tri[0])+tri[5]*tri[2]+conj(tri[9])*tri[7]+conj(tri[13])*tri[11];
 
-         aux[ 5] = tri[5]*complex<Float>(diag[2], 0.0)+complex<Float>(diag[3], 0.0)*tri[5] 
-                   +tri[3]*conj(tri[1])+tri[4]*tri[2]+conj(tri[9])*tri[8]+conj(tri[13])*tri[12];
+         aux[ 5] = tri[5]*diag[2]+diag[3]*tri[5]+tri[3]*conj(tri[1])+tri[4]*conj(tri[2])+conj(tri[9])*tri[8]+conj(tri[13])*tri[12];
 //
-         aux[ 6] = tri[6]*complex<Float>(diag[0], 0.0)+complex<Float>(diag[4], 0.0)*tri[6] 
-                   +tri[7]*tri[0]+tri[8]*tri[1]+tri[9]*tri[3]+conj(tri[14])*tri[10];
+         aux[ 6] = tri[6]*diag[0]+diag[4]*tri[6]+tri[7]*tri[0]+tri[8]*tri[1]+tri[9]*tri[3]+conj(tri[14])*tri[10];
 
-         aux[ 7] = tri[7]*complex<Float>(diag[1], 0.0)+complex<Float>(diag[4], 0.0)*tri[7] 
-                   +tri[6]*conj(tri[0])+tri[8]*tri[2]+tri[9]*tri[4]+conj(tri[14])*tri[11];
+         aux[ 7] = tri[7]*diag[1]+diag[4]*tri[7]+tri[6]*conj(tri[0])+tri[8]*tri[2]+tri[9]*tri[4]+conj(tri[14])*tri[11];
 
-         aux[ 8] = tri[8]*complex<Float>(diag[2], 0.0)+complex<Float>(diag[4], 0.0)*tri[8] 
-                   +tri[6]*conj(tri[1])+tri[7]*conj(tri[2])+tri[9]*tri[5]+conj(tri[14])*tri[12];
+         aux[ 8] = tri[8]*diag[2]+diag[4]*tri[8]+tri[6]*conj(tri[1])+tri[7]*conj(tri[2])+tri[9]*tri[5]+conj(tri[14])*tri[12];
 
-         aux[ 9] = tri[9]*complex<Float>(diag[3], 0.0)+complex<Float>(diag[4], 0.0)*tri[9] 
-                   +tri[6]*conj(tri[3])+tri[7]*conj(tri[4])+tri[8]*conj(tri[5])+conj(tri[14])*tri[13];
+         aux[ 9] = tri[9]*diag[3]+diag[4]*tri[9]+tri[6]*conj(tri[3])+tri[7]*conj(tri[4])+tri[8]*conj(tri[5])+conj(tri[14])*tri[13];
 //
-         aux[10] = tri[10]*complex<Float>(diag[0], 0.0)+complex<Float>(diag[5], 0.0)*tri[10] 
-                   +tri[11]*tri[0]+tri[12]*tri[1]+tri[13]*tri[3]+tri[14]*tri[6];
+         aux[10] = tri[10]*diag[0]+diag[5]*tri[10]+tri[11]*tri[0]+tri[12]*tri[1]+tri[13]*tri[3]+tri[14]*tri[6];
 
-         aux[11] = tri[11]*complex<Float>(diag[1], 0.0)+complex<Float>(diag[5], 0.0)*tri[11] 
-                   +tri[10]*conj(tri[0])+tri[12]*tri[2]+tri[13]*tri[4]+tri[14]*tri[7];
+         aux[11] = tri[11]*diag[1]+diag[5]*tri[11]+tri[10]*conj(tri[0])+tri[12]*tri[2]+tri[13]*tri[4]+tri[14]*tri[7];
 
-         aux[12] = tri[12]*complex<Float>(diag[2], 0.0)+complex<Float>(diag[5], 0.0)*tri[12] 
-                   +tri[10]*conj(tri[1])+tri[11]*conj(tri[2])+tri[13]*tri[5]+tri[14]*tri[8];
+         aux[12] = tri[12]*diag[2]+diag[5]*tri[12]+tri[10]*conj(tri[1])+tri[11]*conj(tri[2])+tri[13]*tri[5]+tri[14]*tri[8];
 
-         aux[13] = tri[13]*complex<Float>(diag[3], 0.0)+complex<Float>(diag[5], 0.0)*tri[13] 
-                   +tri[10]*conj(tri[3])+tri[11]*conj(tri[4])+tri[12]*conj(tri[5])+tri[14]*tri[9];
+         aux[13] = tri[13]*diag[3]+diag[5]*tri[13]+tri[10]*conj(tri[3])+tri[11]*conj(tri[4])+tri[12]*conj(tri[5])+tri[14]*tri[9];
 
-         aux[14] = tri[14]*complex<Float>(diag[4], 0.0)+complex<Float>(diag[5], 0.0)*tri[14] 
-                   +tri[10]*conj(tri[6])+tri[11]*conj(tri[7])+tri[12]*conj(tri[8])+tri[13]*conj(tri[9]);
+         aux[14] = tri[14]*diag[4]+diag[5]*tri[14]+tri[10]*conj(tri[6])+tri[11]*conj(tri[7])+tri[12]*conj(tri[8])+tri[13]*conj(tri[9]);
 
 
          //update diagonal elements:
-         diag[0] = (diag[0]*diag[0]+tri[0]*conj(tri[0])+tri[1]*conj(tri[1])+tri[3]*conj(tri[3])+tri[6]*conj(tri[6])+tri[10]*conj(tri[10])).real(); 
-         diag[1] = (diag[1]*diag[1]+tri[0]*conj(tri[0])+tri[2]*conj(tri[2])+tri[4]*conj(tri[4])+tri[7]*conj(tri[7])+tri[11]*conj(tri[11])).real();
-         diag[2] = (diag[2]*diag[2]+tri[1]*conj(tri[1])+tri[2]*conj(tri[2])+tri[5]*conj(tri[5])+tri[8]*conj(tri[8])+tri[12]*conj(tri[12])).real();
-         diag[3] = (diag[3]*diag[3]+tri[3]*conj(tri[3])+tri[4]*conj(tri[4])+tri[5]*conj(tri[5])+tri[9]*conj(tri[9])+tri[13]*conj(tri[13])).real();
-         diag[4] = (diag[4]*diag[4]+tri[6]*conj(tri[6])+tri[7]*conj(tri[7])+tri[8]*conj(tri[8])+tri[9]*conj(tri[9])+tri[14]*conj(tri[14])).real();
-         diag[5] = (diag[5]*diag[5]+tri[10]*conj(tri[10])+tri[11]*conj(tri[11])+tri[12]*conj(tri[12])+tri[13]*conj(tri[13])+tri[14]*conj(tri[14])).real();
-         for(int i = 0; i < 6; i++) diag[i] += (Float)arg.mu2;
+         diag[0] = (Float)arg.mu2+diag[0]*diag[0]+norm(tri[ 0])+norm(tri[ 1])+norm(tri[ 3])+norm(tri[ 6])+norm(tri[10]);
+         diag[1] = (Float)arg.mu2+diag[1]*diag[1]+norm(tri[ 0])+norm(tri[ 2])+norm(tri[ 4])+norm(tri[ 7])+norm(tri[11]); 
+         diag[2] = (Float)arg.mu2+diag[2]*diag[2]+norm(tri[ 1])+norm(tri[ 2])+norm(tri[ 5])+norm(tri[ 8])+norm(tri[12]); 
+         diag[3] = (Float)arg.mu2+diag[3]*diag[3]+norm(tri[ 3])+norm(tri[ 4])+norm(tri[ 5])+norm(tri[ 9])+norm(tri[13]); 
+         diag[4] = (Float)arg.mu2+diag[4]*diag[4]+norm(tri[ 6])+norm(tri[ 7])+norm(tri[ 8])+norm(tri[ 9])+norm(tri[14]);
+         diag[5] = (Float)arg.mu2+diag[5]*diag[5]+norm(tri[10])+norm(tri[11])+norm(tri[12])+norm(tri[13])+norm(tri[14]);
+
         //update off-diagonal elements:
          for(int i = 0; i < 15; i++) tri[i] = aux[i];
       }
