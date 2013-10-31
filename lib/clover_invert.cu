@@ -13,7 +13,7 @@ namespace quda {
     bool twist;
     double mu2;
     CloverInvertArg(Clover &inverse, const Clover &clover) :
-      inverse(inverse), clover(clover), twist(clover.Twisted), mu2(clover.Mu2()){ }
+      inverse(inverse), clover(clover), twist(clover.Twisted()), mu2(clover.Mu2()){ }
   };
 
   /**
@@ -54,7 +54,7 @@ namespace quda {
       tri[12] = complex<Float>(2.0*A[ch*36+6+2*11], 2.0*A[ch*36+6+2*11+1]);
       for (int i=13; i<15; i++) tri[i] = complex<Float>(2.0*A[ch*36+6+2*i], 2.0*A[ch*36+6+2*i+1]);
 //Compute (T^2 + mu2) first, then invert (not optimized!):
-      if(arg,twist)
+      if(arg.twist)
       {
          complex<Float> aux[15];//hmmm, better to reuse A-regs...
          //compute off-diagonal terms:
@@ -106,13 +106,13 @@ namespace quda {
 
 
          //update diagonal elements:
-         diag[0] = diag[0]*diag[0]+tri[0]*conj(tri[0])+tri[1]*conj(tri[1])+tri[3]*conj(tri[3])+tri[6]*conj(tri[6])+tri[10]*conj(tri[10]; 
-         diag[1] = diag[1]*diag[1]+tri[0]*conj(tri[0])+tri[2]*conj(tri[2])+tri[4]*conj(tri[4])+tri[7]*conj(tri[7])+tri[11]*conj(tri[11];
-         diag[2] = diag[2]*diag[2]+tri[1]*conj(tri[1])+tri[2]*conj(tri[2])+tri[5]*conj(tri[5])+tri[8]*conj(tri[8])+tri[12]*conj(tri[12];
-         diag[3] = diag[3]*diag[3]+tri[3]*conj(tri[3])+tri[4]*conj(tri[4])+tri[5]*conj(tri[5])+tri[9]*conj(tri[9])+tri[13]*conj(tri[13];
-         diag[4] = diag[4]*diag[4]+tri[6]*conj(tri[6])+tri[7]*conj(tri[7])+tri[8]*conj(tri[8])+tri[9]*conj(tri[9])+tri[14]*conj(tri[14];
-         diag[5] = diag[5]*diag[5]+tri[10]*conj(tri[10])+tri[11]*conj(tri[11])+tri[12]*conj(tri[12])+tri[13]*conj(tri[13])+tri[14]*conj(tri[14];
-         for(int i = 0; i < 6; i++) diag[i] += (Float)mu2;
+         diag[0] = (diag[0]*diag[0]+tri[0]*conj(tri[0])+tri[1]*conj(tri[1])+tri[3]*conj(tri[3])+tri[6]*conj(tri[6])+tri[10]*conj(tri[10])).real(); 
+         diag[1] = (diag[1]*diag[1]+tri[0]*conj(tri[0])+tri[2]*conj(tri[2])+tri[4]*conj(tri[4])+tri[7]*conj(tri[7])+tri[11]*conj(tri[11])).real();
+         diag[2] = (diag[2]*diag[2]+tri[1]*conj(tri[1])+tri[2]*conj(tri[2])+tri[5]*conj(tri[5])+tri[8]*conj(tri[8])+tri[12]*conj(tri[12])).real();
+         diag[3] = (diag[3]*diag[3]+tri[3]*conj(tri[3])+tri[4]*conj(tri[4])+tri[5]*conj(tri[5])+tri[9]*conj(tri[9])+tri[13]*conj(tri[13])).real();
+         diag[4] = (diag[4]*diag[4]+tri[6]*conj(tri[6])+tri[7]*conj(tri[7])+tri[8]*conj(tri[8])+tri[9]*conj(tri[9])+tri[14]*conj(tri[14])).real();
+         diag[5] = (diag[5]*diag[5]+tri[10]*conj(tri[10])+tri[11]*conj(tri[11])+tri[12]*conj(tri[12])+tri[13]*conj(tri[13])+tri[14]*conj(tri[14])).real();
+         for(int i = 0; i < 6; i++) diag[i] += (Float)arg.mu2;
         //update off-diagonal elements:
          for(int i = 0; i < 15; i++) tri[i] = aux[i];
       }

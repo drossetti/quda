@@ -63,7 +63,7 @@ namespace quda {
     size_t NormBytes() const { return norm_bytes; }
 //new!
     bool Twisted() const {return twisted; }
-    double Mu2() {return mu2; }
+    double Mu2() const {return mu2; }
   };
 
   class cudaCloverField : public CloverField {
