@@ -210,9 +210,10 @@ namespace quda {
      This function compute the Cholesky decomposition of each clover
      matrix and stores the clover inverse field.
      @param clover The clover field (contains both the field itself and its inverse)
+     @param computeTraceLog Whether to compute the trace logarithm of the clover term
      @param location The location of the field
   */
-  void cloverInvert(CloverField &clover, QudaFieldLocation location);
+  void cloverInvert(CloverField &clover, bool computeTraceLog, QudaFieldLocation location);
 
 } // namespace quda
 
