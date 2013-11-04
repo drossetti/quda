@@ -49,6 +49,8 @@ namespace quda {
     CloverFieldOrder order;
     QudaFieldCreate create;
 
+    double *trlog;
+
   public:
     CloverField(const CloverFieldParam &param);
     virtual ~CloverField();
@@ -57,6 +59,8 @@ namespace quda {
     void* Norm(bool inverse=false) { return inverse ? invNorm : norm; }
     const void* V(bool inverse=false) const { return inverse ? cloverInv : clover; }
     const void* Norm(bool inverse=false) const { return inverse ? invNorm : norm; }
+
+    double* TrLog() const {return trlog;}
     
     CloverFieldOrder Order() const { return order; }
     size_t Bytes() const { return bytes; }

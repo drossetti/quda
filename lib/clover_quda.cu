@@ -247,7 +247,7 @@ namespace quda {
 
   void computeCloverCuda(cudaCloverField &clover, const cudaGaugeField &gauge) {
 
-#ifdef GPU_CLOVER_DIRAC
+#if defined(GPU_CLOVER_DIRAC) || defined(GPU_TWISTED_CLOVER_DIRAC)
     using namespace quda;
 
     // first create the field-strength tensor
