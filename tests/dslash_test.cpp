@@ -21,7 +21,11 @@
 
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
+
 using namespace quda;
+
+template <typename Float>
+ColorSpinorFieldOrder<Float>* createOrder(const cpuColorSpinorField &a);
 
 const QudaParity parity = QUDA_EVEN_PARITY; // even or odd?
 const int transfer = 0; // include transfer time in the benchmark?
@@ -63,6 +67,55 @@ extern QudaDagType dagger;
 extern int niter;
 extern char latfile[];
 
+/*	EMPIEZAN MIERDAS DE ALEX	*/
+
+void	reOrder	(double *array1, double *array2, const int arrayOffset)
+{
+	if	(array1 != array2)
+	{
+		for	(int i = 0; i<V*arrayOffset; i++)
+			array2[i]	= 0.;
+	}
+
+	for	(int i = 0; i<V*arrayOffset; i++)
+	{
+		int	pointT		=	i/arrayOffset;
+		int	offset		=	i%arrayOffset;
+		int	oddBit		=	0;
+
+		if	(pointT >= V/2)
+		{
+			pointT	-= V/2;
+			oddBit	 = 1;
+		}
+
+		int za		 = pointT/(xdim/2);
+		int x1h		 = pointT - za*(xdim/2);
+		int zb		 = za/ydim;
+		int x2		 = za - zb*ydim;
+		int x4		 = zb/zdim;
+		int x3		 = zb - x4*zdim;
+		int x1odd	 = (x2 + x3 + x4 + oddBit) & 1;
+		int x1		 = 2*x1h + x1odd;
+		int X		 = x1 + xdim*(x2 + ydim*(x3 + zdim*x4));
+		X		*= arrayOffset;
+		X		+= offset;
+
+		if	(array1 != array2)
+			array2[X]	= array1[i];
+		else
+		{
+			double	temp	 = array2[X];
+			array2[X]	 = array1[i];
+			array1[i]	 = temp;
+		}
+	}
+
+	return;
+}
+
+/*	FIN MIERDAS DE ALEX	*/
+
 void init(int argc, char **argv) {
 
   cuda_prec = prec;
@@ -101,10 +154,10 @@ void init(int argc, char **argv) {
   gauge_param.cuda_prec_sloppy = cuda_prec;
   gauge_param.gauge_fix = QUDA_GAUGE_FIXED_NO;
 
-  inv_param.kappa = 1.;
-
+  inv_param.kappa = 1.0;
   if (dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
-    inv_param.mu = 1.;//1000000.0;
+    inv_param.clover_coeff = 0.001;
+    inv_param.mu = 0.5;
     inv_param.epsilon = 0.0; 
     inv_param.twist_flavor = QUDA_TWIST_MINUS;
 //!    inv_param.twist_flavor = QUDA_TWIST_NONDEG_DOUBLET;
@@ -116,7 +169,8 @@ void init(int argc, char **argv) {
 
   inv_param.Ls = (inv_param.twist_flavor != QUDA_TWIST_NONDEG_DOUBLET) ? Ls : 1;
   
-  inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC;
+//  inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC;
+  inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN;
   inv_param.dagger = dagger;
 
   inv_param.cpu_prec = cpu_prec;
@@ -147,6 +201,7 @@ void init(int argc, char **argv) {
   //inv_param.cl_pad = 24*24*24;
 
   inv_param.gamma_basis = QUDA_DEGRAND_ROSSI_GAMMA_BASIS; // test code only supports DeGrand-Rossi Basis
+//  inv_param.gamma_basis = QUDA_UKQCD_GAMMA_BASIS; // test code only supports DeGrand-Rossi Basis
   inv_param.dirac_order = QUDA_DIRAC_ORDER;
 
   switch(test_type) {
@@ -170,13 +225,14 @@ void init(int argc, char **argv) {
   inv_param.dslash_type = dslash_type;
 
   if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
+    inv_param.clover_coeff = 0.001;
     inv_param.clover_cpu_prec = cpu_prec;
     inv_param.clover_cuda_prec = cuda_prec;
     inv_param.clover_cuda_prec_sloppy = inv_param.clover_cuda_prec;
-    inv_param.clover_order = QUDA_PACKED_CLOVER_ORDER;
+    inv_param.clover_order = QUDA_FLOAT2_CLOVER_ORDER;
     //if (test_type > 0) {
-      hostClover = malloc(V*cloverSiteSize*inv_param.clover_cpu_prec);
-      hostCloverInv = malloc(V*cloverSiteSize*inv_param.clover_cpu_prec);
+//      hostClover = malloc(V*cloverSiteSize*inv_param.clover_cpu_prec);
+//      hostCloverInv = malloc(V*cloverSiteSize*inv_param.clover_cpu_prec);
 //      hostCloverInv = hostClover; // fake it
       /*} else {
       hostClover = NULL;
@@ -226,7 +282,7 @@ void init(int argc, char **argv) {
   csParam.gammaBasis = inv_param.gamma_basis;
   csParam.create = QUDA_ZERO_FIELD_CREATE;
 
-  spinor = new cpuColorSpinorField(csParam);
+  spinor = new cpuColorSpinorField(csParam);		/*		QUITAR PARA MIERDAS DE ALEX		*/
   spinorOut = new cpuColorSpinorField(csParam);
   spinorRef = new cpuColorSpinorField(csParam);
   spinorTmp = new cpuColorSpinorField(csParam);
@@ -237,20 +293,73 @@ void init(int argc, char **argv) {
   printfQuda("Randomizing fields... ");
 
   if (strcmp(latfile,"")) {  // load in the command line supplied gauge field
-    read_gauge_field(latfile, hostGauge, gauge_param.cpu_prec, gauge_param.X, argc, argv);
-    construct_gauge_field(hostGauge, 2, gauge_param.cpu_prec, &gauge_param);
-  } else { // else generate a random SU(3) field
-    construct_gauge_field(hostGauge, 1, gauge_param.cpu_prec, &gauge_param);
-  }
+//    read_gauge_field(latfile, hostGauge, gauge_param.cpu_prec, gauge_param.X, argc, argv);
+//    construct_gauge_field(hostGauge, 2, gauge_param.cpu_prec, &gauge_param);
+	if	(read_custom_binary_gauge_field((double**)hostGauge, latfile, &gauge_param, &inv_param, gridsize_from_cmdline))
+	{
+		printf	("Fatal Error; Couldn't read gauge conf %s\n", latfile);
+		exit	(1);
+	}
+  } else { // else generate a random SU(3) field*/
+    construct_gauge_field(hostGauge, 0, gauge_param.cpu_prec, &gauge_param);
+}
 
-  spinor->Source(QUDA_RANDOM_SOURCE);
+  inv_param.kappa = 1.0;
 
+//  spinor->Source(QUDA_RANDOM_SOURCE);
+
+//  FILE *Caca = fopen("/home/avaquero/src/tmLQCD-master/SpinorTm.In", "r+");
+  FILE *Caca = fopen("SpinorTm.In", "r+");
+
+  int		Cx,Cy,Cz,Ct,Cidx,colIdx,diracIdx;
+  double	reP, imP;
+
+  int	myRank;
+  myRank	= comm_rank();
+
+  do
+  {
+	fscanf(Caca, "%d %d %d %d %d %d %le %le\n", &Cx, &Cy, &Cz, &Ct, &colIdx, &diracIdx, &reP, &imP);
+
+	if ((Ct >= tdim*(myRank+1)) || (Ct < tdim*myRank))
+		continue;
+
+	Ct -= tdim*myRank;
+
+	int	oddbit = (Cx+Cy+Cz+Ct)&1;
+
+	Cidx	= (Cx + Cy*xdim + Cz*xdim*ydim + Ct*xdim*ydim*zdim)/2;
+
+	if	(oddbit)
+		Cidx += V/2;
+//		continue;
+
+	unsigned long indexRe = ((Cidx*spinor->Nspin()+diracIdx)*spinor->Ncolor()+colIdx)*2;
+	unsigned long indexIm = ((Cidx*spinor->Nspin()+diracIdx)*spinor->Ncolor()+colIdx)*2 + 1;
+	double *inputRe = ((double*)(spinor->V()) + indexRe);
+	double *inputIm = ((double*)(spinor->V()) + indexIm);
+
+	double	phase	= (((double) (Ct+myRank*tdim))/(tdim*comm_dim(3)))*M_PI;
+
+	*inputRe = cos(phase)*reP - sin(phase)*imP;
+	*inputIm = cos(phase)*imP + sin(phase)*reP;
+  }	while(!feof(Caca));
+
+  fclose(Caca);
+
+//  spinor->Source(QUDA_POINT_SOURCE);
+//  spinor->Source(QUDA_RANDOM_SOURCE);
+
+/*	FIN MIERDAS DE ALEX	*/
+/*
   if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
     double norm = 0.0; // clover components are random numbers in the range (-norm, norm)
     double diag = 1.0; // constant added to the diagonal
 
     if (dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
+	diag = 1.0; // constant added to the diagonal
         construct_clover_field(hostClover, norm, diag, inv_param.clover_cpu_prec);
+	diag = 1.0; // constant added to the diagonal
         construct_clover_field(hostCloverInv, norm, diag, inv_param.clover_cpu_prec);
      } else {
       if (test_type == 2 || test_type == 4) {
@@ -261,19 +370,18 @@ void init(int argc, char **argv) {
     }
   }
   printfQuda("done.\n"); fflush(stdout);
-  
+  */
   initQuda(device);
 
   printfQuda("Sending gauge field to GPU\n");
   loadGaugeQuda(hostGauge, &gauge_param);
 
   if (dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
-    printfQuda("Sending clover field to GPU\n");
-    loadCloverQuda(hostClover, hostCloverInv, &inv_param);
-    //clover = cudaCloverPrecise;
+    createCloverQuda(&inv_param);
   }
 
   if (!transfer) {
+//    csParam.gammaBasis = QUDA_DEGRAND_ROSSI_GAMMA_BASIS;
     csParam.gammaBasis = QUDA_UKQCD_GAMMA_BASIS;
     csParam.pad = inv_param.sp_pad;
     csParam.precision = inv_param.cuda_prec;
@@ -301,7 +409,7 @@ void init(int argc, char **argv) {
     csParam.siteSubset = QUDA_PARITY_SITE_SUBSET;
     tmp2 = new cudaColorSpinorField(csParam);
 
-    printfQuda("Sending spinor field to GPU\n");
+    printfQuda("Sending spinor field to GPU %p %p\n", cudaSpinor, spinor);
     *cudaSpinor = *spinor;
     
     double cpu_norm = norm2(*spinor);
@@ -319,7 +427,6 @@ void init(int argc, char **argv) {
     double cpu_norm = norm2(*spinor);
     printfQuda("Source: CPU = %e\n", cpu_norm);
   }
-    
 }
 
 void end() {
@@ -332,15 +439,19 @@ void end() {
   }
 
   // release memory
-  delete spinor;
+//printf("FEOTON %p\n", spinor);
+
+//  if (comm_rank() == 0)
+	  delete spinor;
+
   delete spinorOut;
   delete spinorRef;
   delete spinorTmp;
 
   for (int dir = 0; dir < 4; dir++) free(hostGauge[dir]);
   if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
-    if (hostClover != hostCloverInv && hostClover) free(hostClover);
-    free(hostCloverInv);
+//    if (hostClover != hostCloverInv && hostClover) free(hostClover);
+//    free(hostCloverInv);
   }
   endQuda();
 
@@ -563,6 +674,257 @@ void display_test_info()
     
 }
 
+/*	For testing	*/
+
+void	dumpSpinor	(cpuColorSpinorField *out, const char *end, const double factor)
+{
+	FILE	*output;
+	char	 name[256];
+	void	*spinorData, *spinorOrder;
+	int	myRank;
+
+	myRank	= comm_rank();
+
+	sprintf(name, "Spinor.%s.%d\0", end, myRank);
+
+	spinorData	= out->V();
+
+	if	((output = (fopen(name, "w+"))) == NULL)
+	{
+		printfQuda	("Error opening file\n");
+		return;
+	}
+
+	spinorOrder	= (void*)malloc(V*24*sizeof(double));
+
+	reOrder	((double*)spinorData, (double*)spinorOrder, 24);
+
+	for	(int j=0; j<V; j++)
+	{
+		int	tC	= j/(xdim*ydim*zdim);
+		int	zC	= (j - xdim*ydim*zdim*tC)/(xdim*ydim);
+		int	yC	= (j - xdim*ydim*(zdim*tC + zC))/xdim;
+		int	xC	= (j - xdim*(ydim*(zdim*tC + zC) + yC));
+
+		double	phase	= ((double) tC)/tdim*M_PI;
+
+		if	(tC/tdim != myRank)
+			continue;
+
+		for(int dirac=0; dirac<4; dirac++)
+			for(int col=0; col<3; col++)
+			{
+//				int	idx = (xC+(xdim*(yC+ydim*(zC+zdim*tC))))*12+((dirac+3)%4)*3+col;
+				int	idx = (xC+(xdim*(yC+ydim*(zC+zdim*tC))))*12+dirac*3+col;
+
+				double	rPart	=	((double*)spinorOrder)[2*idx]*cos(phase) + ((double*)spinorOrder)[2*idx+1]*sin(phase);
+				double	iPart	=	((double*)spinorOrder)[2*idx+1]*cos(phase) - ((double*)spinorOrder)[2*idx]*sin(phase);
+
+				if	(fabs(rPart) < 1e-8)
+					((double*)spinorOrder)[2*idx]	=	0.;
+
+				if	(fabs(iPart) < 1e-8)
+					((double*)spinorOrder)[2*idx+1]	=	0.;
+
+				fprintf	(output, "%02d %02d %02d %02d %d %d %+2.6le %+2.6le\n", xC, yC, zC, tC+tdim*myRank, col, dirac, rPart*factor, iPart*factor);
+			}
+	}
+
+	fclose(output);
+
+	free(spinorOrder);
+
+	return;
+}
+
+void	dumpContract	(cpuColorSpinorField *out, const char *end, double factor)
+{
+	FILE	*output;
+	char	 name[256];
+	void	*spinorData, *spinorOrder;
+	int	myRank;
+
+	myRank	= comm_rank();
+
+	sprintf(name, "SpinorC.%s.%d\0", end, myRank);
+
+	spinorData	= out->V();
+
+	if	((output = (fopen(name, "w+"))) == NULL)
+	{
+		printfQuda	("Error opening file\n");
+		return;
+	}
+
+	spinorOrder	= (void*)malloc(V*24*sizeof(double));
+
+	reOrder	((double*)spinorData, (double*)spinorOrder, 24);
+
+	for	(int j=0; j<V; j++)
+	{
+		int	tC	= j/(xdim*ydim*zdim);
+		int	zC	= (j - xdim*ydim*zdim*tC)/(xdim*ydim);
+		int	yC	= (j - xdim*ydim*(zdim*tC + zC))/xdim;
+		int	xC	= (j - xdim*(ydim*(zdim*tC + zC) + yC));
+
+		if	(tC/tdim != myRank)
+			continue;
+
+		double	phase	= ((double) tC)/tdim*M_PI;
+
+		for(int col=0; col<3; col++)
+		{
+			double	rE	= 0.;
+			double	iM	= 0.;
+/*
+			int	idx0 = (xC+(xdim*(yC+ydim*(zC+zdim*tC))))*12+0*3+col;
+			int	idx1 = (xC+(xdim*(yC+ydim*(zC+zdim*tC))))*12+1*3+col;
+			int	idx2 = (xC+(xdim*(yC+ydim*(zC+zdim*tC))))*12+2*3+col;
+			int	idx3 = (xC+(xdim*(yC+ydim*(zC+zdim*tC))))*12+3*3+col;
+
+			rE	+= 2.*(((double*)spinorOrder)[2*idx1]*((double*)spinorOrder)[2*idx3] + ((double*)spinorOrder)[2*idx1+1]*((double*)spinorOrder)[2*idx3+1]);
+			rE	+= 2.*(((double*)spinorOrder)[2*idx0]*((double*)spinorOrder)[2*idx2] + ((double*)spinorOrder)[2*idx0+1]*((double*)spinorOrder)[2*idx2+1]);
+*/
+			for(int dirac=0; dirac<2; dirac++)
+			{
+				int	idx = (xC+(xdim*(yC+ydim*(zC+zdim*tC))))*12+dirac*3+col;
+
+				double	rPart	=	((double*)spinorOrder)[2*idx]*cos(phase) + ((double*)spinorOrder)[2*idx+1]*sin(phase);
+				double	iPart	=	((double*)spinorOrder)[2*idx+1]*cos(phase) - ((double*)spinorOrder)[2*idx]*sin(phase);
+
+				rE	+= rPart*rPart + iPart*iPart;
+			}
+
+			for(int dirac=2; dirac<4; dirac++)
+			{
+				int	idx = (xC+(xdim*(yC+ydim*(zC+zdim*tC))))*12+dirac*3+col;
+
+				double	rPart	=	((double*)spinorOrder)[2*idx]*cos(phase) + ((double*)spinorOrder)[2*idx+1]*sin(phase);
+				double	iPart	=	((double*)spinorOrder)[2*idx+1]*cos(phase) - ((double*)spinorOrder)[2*idx]*sin(phase);
+
+				rE	-= rPart*rPart + iPart*iPart;
+			}
+
+			if	(fabs(rE) < 1e-8)
+				rE	= 0.;
+
+			fprintf	(output, "%02d %02d %02d %02d %d %+2.5le %+2.5le\n", xC, yC, zC, tC+tdim*myRank, col, rE*factor, iM*factor);
+		}
+	}
+
+	fclose(output);
+
+	free(spinorOrder);
+
+	return;
+}
+
+void	dumpVolume	(cpuColorSpinorField *out, const char *end, double factor)
+{
+	FILE	*output;
+	char	 name[256];
+	void	*spinorData, *spinorOrder;
+	double	*outCont;
+	int	myRank;
+
+	myRank	= comm_rank();
+
+	sprintf(name, "SpinorV.%s.%d\0", end, myRank);
+
+	spinorData	= out->V();
+
+	if	((output = (fopen(name, "w+"))) == NULL)
+	{
+		printfQuda	("Error opening file\n");
+		return;
+	}
+
+	spinorOrder	= (void*)malloc(V*24*sizeof(double));
+
+	reOrder	((double*)spinorData, (double*)spinorOrder, 24);
+
+	if	((outCont = ((double *) malloc(sizeof(double)*tdim))) == NULL)
+	{
+		printfQuda	("Error allocating memory for contraction\n");
+		return;
+	}
+
+	for	(int t=0; t<tdim; t++)
+		outCont[t]	= 0.;
+
+	for	(int j=0; j<V; j++)
+	{
+		int	tC	= j/(xdim*ydim*zdim);
+		int	zC	= (j - xdim*ydim*zdim*tC)/(xdim*ydim);
+		int	yC	= (j - xdim*ydim*(zdim*tC + zC))/xdim;
+		int	xC	= (j - xdim*(ydim*(zdim*tC + zC) + yC));
+
+		if	(tC/tdim != myRank)
+			continue;
+
+		double	phase	= ((double) tC)/tdim*M_PI;
+
+		double	rC	= 0.;
+
+		for(int col=0; col<3; col++)
+		{
+			double	rE	= 0.;
+			double	iM	= 0.;
+/*
+			int	idx0 = (xC+(xdim*(yC+ydim*(zC+zdim*tC))))*12+0*3+col;
+			int	idx1 = (xC+(xdim*(yC+ydim*(zC+zdim*tC))))*12+1*3+col;
+			int	idx2 = (xC+(xdim*(yC+ydim*(zC+zdim*tC))))*12+2*3+col;
+			int	idx3 = (xC+(xdim*(yC+ydim*(zC+zdim*tC))))*12+3*3+col;
+
+			rE	+= ((double*)spinorOrder)[2*idx1]*((double*)spinorOrder)[2*idx3] + ((double*)spinorOrder)[2*idx1+1]*((double*)spinorOrder)[2*idx3+1];
+			rE	+= ((double*)spinorOrder)[2*idx0]*((double*)spinorOrder)[2*idx2] + ((double*)spinorOrder)[2*idx0+1]*((double*)spinorOrder)[2*idx2+1];
+*/
+			for(int dirac=0; dirac<2; dirac++)
+			{
+				int	idx = (xC+(xdim*(yC+ydim*(zC+zdim*tC))))*12+dirac*3+col;
+
+				double	rPart	=	((double*)spinorOrder)[2*idx]*cos(phase) + ((double*)spinorOrder)[2*idx+1]*sin(phase);
+				double	iPart	=	((double*)spinorOrder)[2*idx+1]*cos(phase) - ((double*)spinorOrder)[2*idx]*sin(phase);
+
+				rE	+= rPart*rPart + iPart*iPart;
+			}
+
+			for(int dirac=2; dirac<4; dirac++)
+			{
+				int	idx = (xC+(xdim*(yC+ydim*(zC+zdim*tC))))*12+dirac*3+col;
+
+				double	rPart	=	((double*)spinorOrder)[2*idx]*cos(phase) + ((double*)spinorOrder)[2*idx+1]*sin(phase);
+				double	iPart	=	((double*)spinorOrder)[2*idx+1]*cos(phase) - ((double*)spinorOrder)[2*idx]*sin(phase);
+
+				rE	-= rPart*rPart + iPart*iPart;
+			}
+
+			rC	+= rE;
+		}
+
+		outCont[tC]	+= rC;
+	}
+
+	for	(int t=0; t<tdim; t++)
+	{
+		if	(fabs(outCont[t]) < 1e-8)
+			outCont[t]	= 0.;
+
+		fprintf	(output, "%02d %+2.5le %+2.5le\n", t+tdim*myRank, outCont[t]*factor, 0.0);
+	}
+
+	fclose(output);
+
+	free(spinorOrder);
+
+	return;
+}
+
+
+/*	End testing	*/
+
+
+
 extern void usage(char**);
 
 
@@ -590,6 +952,7 @@ int main(int argc, char **argv)
   
   int attempts = 1;
   dslashRef();
+    
   for (int i=0; i<attempts; i++) {
 
     if (tune) { // warm-up run
@@ -600,7 +963,7 @@ int main(int argc, char **argv)
     printfQuda("Executing %d kernel loops...\n", niter);
     if (!transfer) dirac->Flops();
     double secs = dslashCUDA(niter);
-    printfQuda("done.\n\n");
+    printfQuda("done.\n");
 
     if (!transfer) *spinorOut = *cudaSpinorOut;
 
@@ -633,6 +996,16 @@ int main(int argc, char **argv)
     
     cpuColorSpinorField::Compare(*spinorRef, *spinorOut);
   }    
+
+  const double	factor	= 2.*inv_param.kappa;
+
+  dumpVolume(spinor, "In", 1.);
+  dumpSpinor(spinor, "In", 1.);
+  dumpSpinor(spinorOut, "Out", factor);
+  dumpContract(spinor, "In", 1.);
+  dumpContract(spinorOut, "Out", factor*factor);
+  dumpVolume(spinorOut, "Out", factor*factor);
+
   end();
 
   finalizeComms();

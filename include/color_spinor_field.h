@@ -18,7 +18,6 @@ namespace quda {
 
     QudaTwistFlavorType twistFlavor; // used by twisted mass
 
-    QudaSiteSubset siteSubset; // Full, even or odd
     QudaSiteOrder siteOrder; // defined for full fields
   
     QudaFieldOrder fieldOrder; // Float, Float2, Float4 etc.
@@ -32,14 +31,15 @@ namespace quda {
 
   ColorSpinorParam()
     : LatticeFieldParam(), nColor(0), nSpin(0), twistFlavor(QUDA_TWIST_INVALID), 
-      siteSubset(QUDA_INVALID_SITE_SUBSET), siteOrder(QUDA_INVALID_SITE_ORDER), 
-      fieldOrder(QUDA_INVALID_FIELD_ORDER), gammaBasis(QUDA_INVALID_GAMMA_BASIS), 
-      create(QUDA_INVALID_FIELD_CREATE) { ; }
+      siteOrder(QUDA_INVALID_SITE_ORDER), fieldOrder(QUDA_INVALID_FIELD_ORDER), 
+      gammaBasis(QUDA_INVALID_GAMMA_BASIS), create(QUDA_INVALID_FIELD_CREATE) { ; }
   
     // used to create cpu params
   ColorSpinorParam(void *V, QudaInvertParam &inv_param, const int *X, const bool pc_solution)
-    : LatticeFieldParam(4, X, 0, inv_param.cpu_prec), nColor(3), nSpin(inv_param.dslash_type == QUDA_ASQTAD_DSLASH ? 1 : 4), 
-      twistFlavor(inv_param.twist_flavor), siteSubset(QUDA_INVALID_SITE_SUBSET), siteOrder(QUDA_INVALID_SITE_ORDER), 
+    : LatticeFieldParam(4, X, 0, inv_param.cpu_prec), nColor(3), 
+      nSpin( (inv_param.dslash_type == QUDA_ASQTAD_DSLASH ||
+	      inv_param.dslash_type == QUDA_STAGGERED_DSLASH) ? 1 : 4), 
+      twistFlavor(inv_param.twist_flavor), siteOrder(QUDA_INVALID_SITE_ORDER), 
       fieldOrder(QUDA_INVALID_FIELD_ORDER), gammaBasis(inv_param.gamma_basis), 
       create(QUDA_REFERENCE_FIELD_CREATE), v(V) { 
 
@@ -87,11 +87,11 @@ namespace quda {
   ColorSpinorParam(ColorSpinorParam &cpuParam, QudaInvertParam &inv_param) 
     : LatticeFieldParam(cpuParam.nDim, cpuParam.x, inv_param.sp_pad, inv_param.cuda_prec),
       nColor(cpuParam.nColor), nSpin(cpuParam.nSpin), twistFlavor(cpuParam.twistFlavor), 
-      siteSubset(cpuParam.siteSubset), siteOrder(QUDA_EVEN_ODD_SITE_ORDER), 
-      fieldOrder(QUDA_INVALID_FIELD_ORDER), 
+      siteOrder(QUDA_EVEN_ODD_SITE_ORDER), fieldOrder(QUDA_INVALID_FIELD_ORDER), 
       gammaBasis(nSpin == 4? QUDA_UKQCD_GAMMA_BASIS : QUDA_DEGRAND_ROSSI_GAMMA_BASIS), 
       create(QUDA_COPY_FIELD_CREATE), v(0)
       {
+	siteSubset = cpuParam.siteSubset;
 	fieldOrder = (precision == QUDA_DOUBLE_PRECISION || nSpin == 1) ? 
 	  QUDA_FLOAT2_FIELD_ORDER : QUDA_FLOAT4_FIELD_ORDER; 
       }
@@ -262,11 +262,11 @@ namespace quda {
 
     bool reference; // whether the field is a reference or not
 
+    static size_t ghostFaceBytes;
     static void* ghostFaceBuffer; // gpu memory
     static void* fwdGhostFaceBuffer[QUDA_MAX_DIM]; // pointers to ghostFaceBuffer
     static void* backGhostFaceBuffer[QUDA_MAX_DIM]; // pointers to ghostFaceBuffer
     static int initGhostFaceBuffer;
-    static QudaPrecision facePrecision;
 
     void create(const QudaFieldCreate);
     void destroy();
@@ -283,6 +283,18 @@ namespace quda {
     void loadSpinorField(const ColorSpinorField &src);
     void saveSpinorField (ColorSpinorField &src) const;
 
+    /** Whether we have initialized communication for this field */
+    bool initComms;
+
+    /** How many faces we are communicating in this communicator */
+    int nFaceComms; //FIXME - currently can only support one nFace in a field at once
+
+    /** Create the communication handlers and buffers */
+    void createComms(int nFace);
+
+    /** Destroy the communication handlers and buffers */
+    void destroyComms();
+
   public:
     //cudaColorSpinorField();
     cudaColorSpinorField(const cudaColorSpinorField&);
@@ -295,37 +307,55 @@ namespace quda {
     cudaColorSpinorField& operator=(const cudaColorSpinorField&);
     cudaColorSpinorField& operator=(const cpuColorSpinorField&);
 
-    void allocateGhostBuffer(void);
+    void allocateGhostBuffer(int nFace);
     static void freeGhostBuffer(void);
 
     /**
        Packs the cudaColorSpinorField's ghost zone 
+       @param nFace How many faces to pack (depth)
        @param parity Parity of the field
+       @param dim Labels space-time dimensions
+       @param dir Pack data to send in forward of backward directions, or both
        @param dagger Whether the operator is the Hermitian conjugate or not
        @param stream Which stream to use for the kernel
        @param buffer Optional parameter where the ghost should be
        stored (default is to use cudaColorSpinorField::ghostFaceBuffer)
+       @param a Twisted mass parameter (default=0)
+       @param b Twisted mass parameter (default=0)
      */
-    void packGhost(const QudaParity parity, const int dagger, 
-		   cudaStream_t* stream, void *buffer=0);
+    void packGhost(const int nFace, const QudaParity parity, const int dim, const QudaDirection dir, const int dagger, 
+		   cudaStream_t* stream, void *buffer=0, double a=0, double b=0);
 
     /**
-       Packs the cudaColorSpinorField's ghost zone (special case for twisted mass) 
-       @param parity Parity of the field
-       @param dagger Whether the operator is the Hermitian conjugate or not
-       @param a Twisted mass parameter
-       @param b Twisted mass parameter
-       @param stream Which stream to use for the kernel
-       @param buffer Optional parameter where the ghost should be
-       stored (default is to use cudaColorSpinorField::ghostFaceBuffer)
-     */
-    void packTwistedGhost(const QudaParity parity, const int dagger, double a, double b, 
-			  cudaStream_t *stream, void *buffer=0);
-
-    void sendGhost(void *ghost_spinor, const int dim, const QudaDirection dir,
+       Initiate the gpu to cpu send of the ghost zone (halo)
+       @param ghost_spinor Where to send the ghost zone
+       @param nFace Number of face to send
+       @param dim The lattice dimension we are sending
+       @param dir The direction (QUDA_BACKWARDS or QUDA_FORWARDS)
+       @param dagger Whether the operator is daggerer or not
+       @param stream The array of streams to use
+    */
+    void sendGhost(void *ghost_spinor, const int nFace, const int dim, const QudaDirection dir,
 		   const int dagger, cudaStream_t *stream);
-    void unpackGhost(void* ghost_spinor, const int dim, const QudaDirection dir, 
-		     const int dagger, cudaStream_t* stream);
+
+    /**
+       Initiate the cpu to gpu send of the ghost zone (halo)
+       @param ghost_spinor Source of the ghost zone
+       @param nFace Number of face to send
+       @param dim The lattice dimension we are sending
+       @param dir The direction (QUDA_BACKWARDS or QUDA_FORWARDS)
+       @param dagger Whether the operator is daggerer or not
+       @param stream The array of streams to use
+    */
+    void unpackGhost(const void* ghost_spinor, const int nFace, const int dim, 
+		     const QudaDirection dir, const int dagger, cudaStream_t* stream);
+
+    void pack(int nFace, int parity, int dagger, cudaStream_t *stream_p, bool zeroCopyPack,
+	      double a=0, double b=0);
+    void gather(int nFace, int dagger, int dir);
+    void commsStart(int nFace, int dir, int dagger=0);
+    int commsQuery(int nFace, int dir, int dagger=0); 
+    void scatter(int nFace, int dagger, int dir);
 
 #ifdef USE_TEXTURE_OBJECTS
     const cudaTextureObject_t& Tex() const { return tex; }

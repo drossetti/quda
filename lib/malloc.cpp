@@ -279,6 +279,7 @@ namespace quda {
       printfQuda("ERROR: Attempt to free invalid host pointer (%s:%d in %s())\n", file, line, func);
       errorQuda("Aborting");
     }
+
     free(ptr);
   }
 

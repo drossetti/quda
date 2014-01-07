@@ -3,29 +3,34 @@
 
 namespace quda {
 
-  DiracStaggered::DiracStaggered(const DiracParam &param) : 
-    Dirac(param), face(param.gauge->X(), 4, 6, 1, param.gauge->Precision()) 
+  DiracImprovedStaggered::DiracImprovedStaggered(const DiracParam &param) : 
+    Dirac(param), fatGauge(*(param.fatGauge)), longGauge(*(param.longGauge)), 
+    face(param.fatGauge->X(), 4, 6, 3, param.fatGauge->Precision()) 
     //FIXME: this may break mixed precision multishift solver since may not have fatGauge initializeed yet
   {
+    initStaggeredConstants(fatGauge, longGauge, profile);
   }
 
-  DiracStaggered::DiracStaggered(const DiracStaggered &dirac) 
-  : Dirac(dirac), face(dirac.face)
+  DiracImprovedStaggered::DiracImprovedStaggered(const DiracImprovedStaggered &dirac) 
+  : Dirac(dirac), fatGauge(dirac.fatGauge), longGauge(dirac.longGauge), face(dirac.face)
   {
+    initStaggeredConstants(fatGauge, longGauge, profile);
   }
 
-  DiracStaggered::~DiracStaggered() { }
+  DiracImprovedStaggered::~DiracImprovedStaggered() { }
 
-  DiracStaggered& DiracStaggered::operator=(const DiracStaggered &dirac)
+  DiracImprovedStaggered& DiracImprovedStaggered::operator=(const DiracImprovedStaggered &dirac)
   {
     if (&dirac != this) {
       Dirac::operator=(dirac);
+      fatGauge = dirac.fatGauge;
+      longGauge = dirac.longGauge;
       face = dirac.face;
     }
     return *this;
   }
 
-  void DiracStaggered::checkParitySpinor(const cudaColorSpinorField &in, const cudaColorSpinorField &out) const
+  void DiracImprovedStaggered::checkParitySpinor(const cudaColorSpinorField &in, const cudaColorSpinorField &out) const
   {
     if (in.Precision() != out.Precision()) {
       errorQuda("Input and output spinor precisions don't match in dslash_quda");
@@ -39,22 +44,27 @@ namespace quda {
       errorQuda("ColorSpinorFields are not single parity, in = %d, out = %d", 
 		in.SiteSubset(), out.SiteSubset());
     }
+
+    if ((out.Volume() != 2*fatGauge.VolumeCB() && out.SiteSubset() == QUDA_FULL_SITE_SUBSET) ||
+	(out.Volume() != fatGauge.VolumeCB() && out.SiteSubset() == QUDA_PARITY_SITE_SUBSET) ) {
+      errorQuda("Spinor volume %d doesn't match gauge volume %d", out.Volume(), fatGauge.VolumeCB());
+    }
   }
 
 
-  void DiracStaggered::Dslash(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
+  void DiracImprovedStaggered::Dslash(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
 			      const QudaParity parity) const
   {
     checkParitySpinor(in, out);
 
     initSpinorConstants(in, profile);
     setFace(face); // FIXME: temporary hack maintain C linkage for dslashCuda
-    staggeredDslashCuda(&out, gauge, &in, parity, dagger, 0, 0, commDim, profile);
+    improvedStaggeredDslashCuda(&out, fatGauge, longGauge, &in, parity, dagger, 0, 0, commDim, profile);
   
-    flops += 654ll*in.Volume();
+    flops += 1146ll*in.Volume();
   }
 
-  void DiracStaggered::DslashXpay(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
+  void DiracImprovedStaggered::DslashXpay(cudaColorSpinorField &out, const cudaColorSpinorField &in, 
 				  const QudaParity parity, const cudaColorSpinorField &x,
 				  const double &k) const
   {    
@@ -62,13 +72,13 @@ namespace quda {
 
     initSpinorConstants(in, profile);
     setFace(face); // FIXME: temporary hack maintain C linkage for dslashCuda
-    staggeredDslashCuda(&out, gauge, &in, parity, dagger, &x, k, commDim, profile);
+    improvedStaggeredDslashCuda(&out, fatGauge, longGauge, &in, parity, dagger, &x, k, commDim, profile);
   
-    flops += 666ll*in.Volume();
+    flops += 1158ll*in.Volume();
   }
 
   // Full staggered operator
-  void DiracStaggered::M(cudaColorSpinorField &out, const cudaColorSpinorField &in) const
+  void DiracImprovedStaggered::M(cudaColorSpinorField &out, const cudaColorSpinorField &in) const
   {
     bool reset = newTmp(&tmp1, in.Even());
 
@@ -78,7 +88,7 @@ namespace quda {
     deleteTmp(&tmp1, reset);
   }
 
-  void DiracStaggered::MdagM(cudaColorSpinorField &out, const cudaColorSpinorField &in) const
+  void DiracImprovedStaggered::MdagM(cudaColorSpinorField &out, const cudaColorSpinorField &in) const
   {
     bool reset = newTmp(&tmp1, in);
   
@@ -99,7 +109,7 @@ namespace quda {
     deleteTmp(&tmp1, reset);
   }
 
-  void DiracStaggered::prepare(cudaColorSpinorField* &src, cudaColorSpinorField* &sol,
+  void DiracImprovedStaggered::prepare(cudaColorSpinorField* &src, cudaColorSpinorField* &sol,
 			       cudaColorSpinorField &x, cudaColorSpinorField &b, 
 			       const QudaSolutionType solType) const
   {
@@ -111,45 +121,45 @@ namespace quda {
     sol = &x;  
   }
 
-  void DiracStaggered::reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
+  void DiracImprovedStaggered::reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
 				   const QudaSolutionType solType) const
   {
     // do nothing
   }
 
 
-  DiracStaggeredPC::DiracStaggeredPC(const DiracParam &param)
-    : DiracStaggered(param)
+  DiracImprovedStaggeredPC::DiracImprovedStaggeredPC(const DiracParam &param)
+    : DiracImprovedStaggered(param)
   {
 
   }
 
-  DiracStaggeredPC::DiracStaggeredPC(const DiracStaggeredPC &dirac) 
-    : DiracStaggered(dirac)
+  DiracImprovedStaggeredPC::DiracImprovedStaggeredPC(const DiracImprovedStaggeredPC &dirac) 
+    : DiracImprovedStaggered(dirac)
   {
 
   }
 
-  DiracStaggeredPC::~DiracStaggeredPC()
+  DiracImprovedStaggeredPC::~DiracImprovedStaggeredPC()
   {
 
   }
 
-  DiracStaggeredPC& DiracStaggeredPC::operator=(const DiracStaggeredPC &dirac)
+  DiracImprovedStaggeredPC& DiracImprovedStaggeredPC::operator=(const DiracImprovedStaggeredPC &dirac)
   {
     if (&dirac != this) {
-      DiracStaggered::operator=(dirac);
+      DiracImprovedStaggered::operator=(dirac);
     }
  
     return *this;
   }
 
-  void DiracStaggeredPC::M(cudaColorSpinorField &out, const cudaColorSpinorField &in) const
+  void DiracImprovedStaggeredPC::M(cudaColorSpinorField &out, const cudaColorSpinorField &in) const
   {
-    errorQuda("DiracStaggeredPC::M() is not implemented\n");
+    errorQuda("DiracImprovedStaggeredPC::M() is not implemented\n");
   }
 
-  void DiracStaggeredPC::MdagM(cudaColorSpinorField &out, const cudaColorSpinorField &in) const
+  void DiracImprovedStaggeredPC::MdagM(cudaColorSpinorField &out, const cudaColorSpinorField &in) const
   {
     bool reset = newTmp(&tmp1, in);
   
@@ -170,7 +180,7 @@ namespace quda {
     deleteTmp(&tmp1, reset);
   }
 
-  void DiracStaggeredPC::prepare(cudaColorSpinorField* &src, cudaColorSpinorField* &sol,
+  void DiracImprovedStaggeredPC::prepare(cudaColorSpinorField* &src, cudaColorSpinorField* &sol,
 				 cudaColorSpinorField &x, cudaColorSpinorField &b, 
 				 const QudaSolutionType solType) const
   {
@@ -178,7 +188,7 @@ namespace quda {
     sol = &x;  
   }
 
-  void DiracStaggeredPC::reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
+  void DiracImprovedStaggeredPC::reconstruct(cudaColorSpinorField &x, const cudaColorSpinorField &b,
 				     const QudaSolutionType solType) const
   {
     // do nothing

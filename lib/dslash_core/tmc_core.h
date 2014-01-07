@@ -428,6 +428,7 @@
 }\
 \
 
+
 #define APPLY_CLOVER_TWIST_INV(c, cinv, a, reg)\
 \
 /* change to chiral basis*/\
@@ -640,15 +641,16 @@
   reg##10_re = a10_re;  reg##10_im = a10_im;\
   reg##11_re = a11_re;  reg##11_im = a11_im;\
   reg##12_re = a12_re;  reg##12_im = a12_im;\
-  \
-  /*Apply inverse clover*/\
+}\
+/*Apply inverse clover*/\
+{\
   ASSN_CLOVER(TM_INV_CLOVERTEX, 0)\
-  a00_re = 0; a00_im = 0;\
-  a01_re = 0; a01_im = 0;\
-  a02_re = 0; a02_im = 0;\
-  a10_re = 0; a10_im = 0;\
-  a11_re = 0; a11_im = 0;\
-  a12_re = 0; a12_im = 0;\
+  spinorFloat a00_re = 0; spinorFloat a00_im = 0;\
+  spinorFloat a01_re = 0; spinorFloat a01_im = 0;\
+  spinorFloat a02_re = 0; spinorFloat a02_im = 0;\
+  spinorFloat a10_re = 0; spinorFloat a10_im = 0;\
+  spinorFloat a11_re = 0; spinorFloat a11_im = 0;\
+  spinorFloat a12_re = 0; spinorFloat a12_im = 0;\
   \
   a00_re += cinv##00_00_re * reg##00_re;\
   a00_im += cinv##00_00_re * reg##00_im;\
@@ -959,15 +961,16 @@
   reg##30_re = a30_re;  reg##30_im = a30_im;\
   reg##31_re = a31_re;  reg##31_im = a31_im;\
   reg##32_re = a32_re;  reg##32_im = a32_im;\
-  \
-  /*Apply inverse clover*/\
+}\
+/*Apply inverse clover*/\
+{\
   ASSN_CLOVER(TM_INV_CLOVERTEX, 1)\
-  a20_re = 0; a20_im = 0;\
-  a21_re = 0; a21_im = 0;\
-  a22_re = 0; a22_im = 0;\
-  a30_re = 0; a30_im = 0;\
-  a31_re = 0; a31_im = 0;\
-  a32_re = 0; a32_im = 0;\
+  spinorFloat a20_re = 0; spinorFloat a20_im = 0;\
+  spinorFloat a21_re = 0; spinorFloat a21_im = 0;\
+  spinorFloat a22_re = 0; spinorFloat a22_im = 0;\
+  spinorFloat a30_re = 0; spinorFloat a30_im = 0;\
+  spinorFloat a31_re = 0; spinorFloat a31_im = 0;\
+  spinorFloat a32_re = 0; spinorFloat a32_im = 0;\
   \
   a20_re += cinv##20_20_re * reg##20_re;\
   a20_im += cinv##20_20_re * reg##20_im;\

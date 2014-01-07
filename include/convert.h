@@ -35,6 +35,8 @@ __device__ inline void copyFloatN(FloatN &a, const FloatN &b) { a = b; }
 // This is emulating the texture normalized return
 __device__ inline void copyFloatN(float2 &a, const short2 &b) { a = make_float2(s2f(b.x), s2f(b.y)); }
 __device__ inline void copyFloatN(float4 &a, const short4 &b) { a = make_float4(s2f(b.x), s2f(b.y), s2f(b.z), s2f(b.w)); }
+__device__ inline void copyFloatN(double2 &a, const short2 &b) { a = make_double2(s2f(b.x), s2f(b.y)); }
+__device__ inline void copyFloatN(double4 &a, const short4 &b) { a = make_double4(s2f(b.x), s2f(b.y), s2f(b.z), s2f(b.w)); }
 
 __device__ inline void copyFloatN(float2 &a, const double2 &b) { a = make_float2(b.x, b.y); }
 __device__ inline void copyFloatN(double2 &a, const float2 &b) { a = make_double2(b.x, b.y); }

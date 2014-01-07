@@ -73,8 +73,8 @@ namespace quda {
 	this->norm[1] = (float*)((char*)this->norm[0] + clover.NormBytes()/2);
       }
       
-      inline bool  Twisted()	const	{return twisted;}
-      inline Float Mu2()	const	{return mu2;}
+      bool  Twisted()	const	{return twisted;}
+      Float Mu2()	const	{return mu2;}
 
       /*	END OF MODIFICATIONS	*/
 
@@ -148,8 +148,8 @@ namespace quda {
 	this->clover[1] = (Float*)((char*)this->clover[0] + clover.Bytes()/2);
       }
 
-      inline bool  Twisted()	const	{return twisted;}
-      inline Float Mu2()	const	{return mu2;}
+      bool  Twisted()	const	{return twisted;}
+      Float Mu2()	const	{return mu2;}
 
       /*	END OF MODIFICATIONS	*/
 
@@ -186,8 +186,8 @@ namespace quda {
 	diag = clover_ ? ((Float**)clover_)[1] : ((Float**)clover.V(inverse))[1];
       }
 
-      inline bool  Twisted()	const	{return twisted;}
-      inline Float Mu2()	const	{return mu2;}
+      bool  Twisted()	const	{return twisted;}
+      Float Mu2()	const	{return mu2;}
 
       /*	END OF MODIFICATIONS	*/
 
@@ -257,8 +257,8 @@ namespace quda {
       }
 
 
-      inline bool  Twisted()	const	{return twisted;}
-      inline Float Mu2()	const	{return mu2;}
+      bool  Twisted()	const	{return twisted;}
+      Float Mu2()	const	{return mu2;}
 
       /*	END OF MODIFICATIONS	*/
 

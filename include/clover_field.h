@@ -9,7 +9,6 @@ namespace quda {
   struct CloverFieldParam : public LatticeFieldParam {
     bool direct; // whether to create the direct clover 
     bool inverse; // whether to create the inverse clover
-
     void *clover;
     void *norm;
     void *cloverInv;
@@ -60,7 +59,7 @@ namespace quda {
     const void* V(bool inverse=false) const { return inverse ? cloverInv : clover; }
     const void* Norm(bool inverse=false) const { return inverse ? invNorm : norm; }
 
-    double* TrLog() const {return trlog;}
+    double* TrLog() const { return trlog; }
     
     CloverFieldOrder Order() const { return order; }
     size_t Bytes() const { return bytes; }
@@ -124,6 +123,14 @@ namespace quda {
      */
     void loadCPUField(const cpuCloverField &cpu);
 
+
+    /**
+      Copy from this CloverField into cpuCloverField cpu
+      @param cpu The cpu clover destination field
+    */
+    void saveCPUField(cpuCloverField &cpu);  
+
+
     friend class DiracClover;
     friend class DiracCloverPC;
     friend struct FullClover;
@@ -184,7 +191,10 @@ namespace quda {
   };
 
   // driver for computing the clover field from the gauge field
-  void computeCloverCuda(cudaCloverField &clover, const cudaGaugeField &gauge);
+  void computeClover(CloverField &clover, const GaugeField &gauge, double coeff,  QudaFieldLocation location);
+
+
+  void computeCloverSigmaTrace(GaugeField &gauge, const CloverField &clover, int dir1, int dir2, QudaFieldLocation location);
 
   /**
      This generic function is used for copying the clover field where
@@ -202,7 +212,7 @@ namespace quda {
 			 void *Out=0, void *In=0, void *outNorm=0, void *inNorm=0);
   
 
-  void cloverDerivative(cudaGaugeField &out, cudaGaugeField& gauge, cudaGaugeField& oprod, int mu, int nu, QudaParity parity, int conjugate);
+  void cloverDerivative(cudaGaugeField &out, cudaGaugeField& gauge, cudaGaugeField& oprod, int mu, int nu, double coeff, QudaParity parity, int conjugate);
 
 
 

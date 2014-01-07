@@ -3,6 +3,7 @@
 #include <complex_quda.h>
 #include <cub/cub.cuh>
 #include <launch_kernel.cuh>
+#include <face_quda.h>
 
 namespace quda {
 
@@ -29,8 +30,8 @@ namespace quda {
     do {
       assumed = old;
       old = __longlong_as_double( atomicCAS((unsigned long long int*)addr,
-                                            __double_as_longlong(assumed),
-                                            __double_as_longlong(val+assumed)));
+                                          __double_as_longlong(assumed),
+                                          __double_as_longlong(val+assumed)));
     } while( __double_as_longlong(assumed)!=__double_as_longlong(old) );
     
     return old;
@@ -40,12 +41,12 @@ namespace quda {
      Use a Cholesky decomposition to invert the clover matrix
      Here we use an inplace inversion which hopefully reduces register pressure
    */
-  // FIXME - compute the trlog in this kernel
+
   template <int blockSize, typename Float, typename Clover>
   __device__ __host__ double cloverInvertCompute(CloverInvertArg<Clover> arg, int x, int parity) {
 
     Float A[72];
-    double trlogA = 0.0; // fixme - write this out
+    double trlogA = 0.0;
 
     // load the clover term into memory
     arg.clover.load(A, x, parity);
@@ -190,9 +191,9 @@ namespace quda {
   void cloverInvert(CloverInvertArg<Clover> arg) {  
     for (int parity=0; parity<2; parity++) {
       for (int x=0; x<arg.clover.volumeCB; x++) {
-        // should make this thread safe if we ever apply threads to cpu code
+	// should make this thread safe if we ever apply threads to cpu code
 	double trlogA = cloverInvertCompute<blockSize,Float>(arg, x, parity);
-        if (arg.computeTraceLog) arg.trlogA_h[parity] += trlogA;
+	if (arg.computeTraceLog) arg.trlogA_h[parity] += trlogA;
       }
     }
   }
@@ -206,10 +207,15 @@ namespace quda {
     if (idx < arg.clover.volumeCB) trlogA = cloverInvertCompute<blockSize, Float>(arg, idx, parity);
 
     if (arg.computeTraceLog) {
+#if (__COMPUTE_CAPABILITY__ >= 300)
       typedef cub::BlockReduce<double, blockSize> BlockReduce;
       __shared__ typename BlockReduce::TempStorage temp_storage;
       double aggregate = BlockReduce(temp_storage).Sum(trlogA);
       if (threadIdx.x == 0) atomicAdd(arg.trlogA_d+parity, aggregate);
+#else
+      // FIXME disable cub on pre-Kepler
+      atomicAdd(arg.trlogA_d+parity, trlogA);
+#endif // __COMPUTE_CAPABILITY__
     }
   }
 
@@ -240,7 +246,10 @@ namespace quda {
       } else {
 	cloverInvert<1, Float, Clover>(arg);
       }
-      if (arg.computeTraceLog) cudaDeviceSynchronize();
+      if (arg.computeTraceLog) {
+	cudaDeviceSynchronize();
+	reduceDoubleArray(arg.trlogA_h, 2);
+      }
     }
 
     TuneKey tuneKey() const {
@@ -280,7 +289,7 @@ namespace quda {
       cloverInvert<Float>(FloatNOrder<Float,72,4>(clover, 1), 
 			  FloatNOrder<Float,72,4>(clover, 0),
 			  computeTraceLog, clover.TrLog(), location);
-    } else if (clover.Order() == QUDA_PACKED_CLOVER_ORDER) {
+/*    } else if (clover.Order() == QUDA_PACKED_CLOVER_ORDER) {
       cloverInvert<Float>(QDPOrder<Float,72>(clover, 1), 
 			  QDPOrder<Float,72>(clover, 0),
 			  computeTraceLog, clover.TrLog(), location);
@@ -295,7 +304,7 @@ namespace quda {
 #endif
 
     } else if (clover.Order() == QUDA_BQCD_CLOVER_ORDER) {
-      errorQuda("BQCD output not supported");
+      errorQuda("BQCD output not supported");*/
     } else {
       errorQuda("Clover field %d order not supported", clover.Order());
     }

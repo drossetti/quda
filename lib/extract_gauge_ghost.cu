@@ -1,5 +1,4 @@
 #include <gauge_field_order.h>
-#include <omp.h>
 
 namespace quda {
   template <typename Order, int nDim>
@@ -128,7 +127,7 @@ namespace quda {
       int faceMax = 0;
       for (int d=0; d<nDim; d++) 
 	faceMax = (arg.surfaceCB[d] > faceMax ) ? arg.surfaceCB[d] : faceMax;
-      size = 2 * arg.nFace * faceMax; // factor of comes from parity
+      size = 2 * arg.nFace * faceMax; // factor 2 of comes from parity
     }
     virtual ~ExtractGhost() { ; }
   
@@ -190,9 +189,12 @@ namespace quda {
     //only switch if X[dir] is odd and the gridsize in that dimension is greater than 1
     // FIXME - I don't understand this, shouldn't it be commDim(dim) == 0 ?
     int localParity[nDim];
-    for (int dim=0; dim<nDim; dim++) localParity[dim] = (X[dim]%2==0 || commDim(dim)) ? 0 : 1;
+    for (int dim=0; dim<nDim; dim++) 
+      //localParity[dim] = (X[dim]%2==0 || commDim(dim)) ? 0 : 1;
+      localParity[dim] = ((X[dim] % 2 ==1) && (commDim(dim) > 1)) ? 1 : 0;
 
     ExtractGhostArg<Order, nDim> arg(order, nFace, X, surfaceCB, A, B, C, f, localParity);
+
     if (location==QUDA_CPU_FIELD_LOCATION) {
       extractGhost<Float,length,nDim,Order>(arg);
     } else {
@@ -298,6 +300,15 @@ namespace quda {
 				 u.Nface(), u.SurfaceCB(), u.X(), location);
 #else
       errorQuda("BQCD interface has not been built\n");
+#endif
+
+    } else if (u.Order() == QUDA_TIFR_GAUGE_ORDER) {
+
+#ifdef BUILD_TIFR_INTERFACE
+      extractGhost<Float,length>(TIFROrder<Float,length>(u, 0, Ghost),
+				 u.Nface(), u.SurfaceCB(), u.X(), location);
+#else
+      errorQuda("TIFR interface has not been built\n");
 #endif
 
     } else {

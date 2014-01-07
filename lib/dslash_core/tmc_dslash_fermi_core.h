@@ -1,5 +1,4 @@
 // *** CUDA DSLASH ***
-
 #define DSLASH_SHARED_FLOATS_PER_THREAD 24
 
 
@@ -2527,12 +2526,13 @@ if (!incomplete)
 {
 #ifdef DSLASH_XPAY
   READ_ACCUM(ACCUMTEX, sp_stride)
-  
+
 #ifndef CLOVER_TWIST_XPAY
 #ifndef CLOVER_TWIST_INV_DSLASH
   //perform invert twist first:
   APPLY_CLOVER_TWIST_INV(c, cinv, a, o);
 #endif
+
   o00_re += acc00_re;
   o00_im += acc00_im;
   o01_re += acc01_re;
@@ -2560,7 +2560,7 @@ if (!incomplete)
 #else
   APPLY_CLOVER_TWIST(c, a, acc);
   //warning! b is unrelated to the twisted mass parameter in this case!
-  
+
   o00_re = b*o00_re+acc00_re;
   o00_im = b*o00_im+acc00_im;
   o01_re = b*o01_re+acc01_re;
@@ -2585,6 +2585,7 @@ if (!incomplete)
   o31_im = b*o31_im+acc31_im;
   o32_re = b*o32_re+acc32_re;
   o32_im = b*o32_im+acc32_im;
+
 #endif//CLOVER_TWIST_XPAY
 #else //no XPAY
 #ifndef CLOVER_TWIST_INV_DSLASH
