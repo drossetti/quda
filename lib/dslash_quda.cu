@@ -1493,11 +1493,11 @@ namespace quda {
 
 #ifdef MULTI_GPU
 
-#ifndef GPU_COMMS
-    // Record the start of the dslash
-    PROFILE(cudaEventRecord(dslashStart, streams[Nstream-1]), 
-	    profile, QUDA_PROFILE_EVENT_RECORD);
-#endif // GPU_COMMS
+    // Record the start of the dslash if doing communication in T and not kernel packing
+    if (dslashParam.commDim[3] && !(getKernelPackT() || getTwistPack())) {
+      PROFILE(cudaEventRecord(dslashStart, streams[Nstream-1]), 
+	      profile, QUDA_PROFILE_EVENT_RECORD);
+    }
 
     bool pack = false;
     for (int i=3; i>=0; i--) 
@@ -1547,12 +1547,12 @@ namespace quda {
       if (!dslashParam.commDim[i]) continue;
 
       if ((i!=3 || getKernelPackT() || getTwistPack()) && !pack_event) {
-	 cudaEventSynchronize(packEnd[0]);
-	 pack_event = true;
+	cudaEventSynchronize(packEnd[0]);
+	pack_event = true;
       } else {
 	cudaEventSynchronize(dslashStart);
       }
-      
+
       for (int dir=1; dir>=0; dir--) {	
 	PROFILE(inSpinor->commsStart(dslash.Nface()/2, 2*i+dir, dagger), profile, QUDA_PROFILE_COMMS_START);
 	inSpinor->commsQuery(dslash.Nface()/2, 2*i+dir, dagger); // do a comms query to ensure MPI has begun
@@ -2681,7 +2681,7 @@ namespace quda {
 #endif
 
 #ifdef GPU_HISQ_FORCE
-#include "hisq_paths_force_quda.cu"
+//#include "hisq_paths_force_quda.cu"
 #include "unitarize_force_quda.cu"
 #endif
 

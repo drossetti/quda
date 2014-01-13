@@ -33,13 +33,13 @@ namespace quda {
     twisted = false;//param.twisted;
     mu2 = 0.0; //param.mu2;
   }
-
+  
   CloverField::~CloverField() {
     host_free(trlog);
   }
 
   cudaCloverField::cudaCloverField(const CloverFieldParam &param) : CloverField(param) {
-
+    
     if (create != QUDA_NULL_FIELD_CREATE && create != QUDA_REFERENCE_FIELD_CREATE) 
       errorQuda("Create type %d not supported", create);
 

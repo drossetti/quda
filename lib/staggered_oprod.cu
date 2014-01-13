@@ -300,7 +300,7 @@ namespace quda {
   template<typename Complex, typename Output, typename Input>
     __global__ void interiorOprodKernel(StaggeredOprodArg<Complex, Output, Input> arg)
     {
-/*      unsigned int idx = blockIdx.x*blockDim.x + threadIdx.x;
+      unsigned int idx = blockIdx.x*blockDim.x + threadIdx.x;
       const unsigned int gridSize = gridDim.x*blockDim.x;
 
       typedef typename RealTypeId<Complex>::Type real;
@@ -326,7 +326,7 @@ namespace quda {
         } // dir
         idx += gridSize;
       }
-      return;*/
+      return;
     } // interiorOprodKernel
 
 
@@ -334,7 +334,7 @@ namespace quda {
   template<typename Complex, typename Output, typename Input> 
     __global__ void exteriorOprodKernel(StaggeredOprodArg<Complex, Output, Input> arg)
     {
-/*      unsigned int cb_idx = blockIdx.x*blockDim.x + threadIdx.x;
+      unsigned int cb_idx = blockIdx.x*blockDim.x + threadIdx.x;
       const unsigned int gridSize = gridDim.x*blockDim.x;
 
       Complex a[3];
@@ -367,7 +367,7 @@ namespace quda {
 
         cb_idx += gridSize;
       }
-      return;*/
+      return;
     }
 
 

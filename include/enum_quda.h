@@ -362,6 +362,7 @@ extern "C" {
     QUDA_TIFR_STAGGERED_PHASE = 2,
     QUDA_INVALID_STAGGERED_PHASE = QUDA_INVALID_ENUM
   } QudaStaggeredPhase;
+
 #ifdef __cplusplus
 }
 #endif
