@@ -548,7 +548,8 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
 {
   profileClover.Start(QUDA_PROFILE_TOTAL);
 
-  bool device_calc = false; // calculate clover and inverse on the device?
+  bool device_calc = true; // calculate clover and inverse on the device?
+  bool twistedClover = false;
 
   pushVerbosity(inv_param->verbosity);
   if (getVerbosity() >= QUDA_DEBUG_VERBOSE) printQudaInvertParam(inv_param);
@@ -573,6 +574,9 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
   }
   if ((inv_param->dslash_type != QUDA_CLOVER_WILSON_DSLASH) && (inv_param->dslash_type != QUDA_TWISTED_CLOVER_DSLASH)) {
     errorQuda("Wrong dslash_type in loadCloverQuda()");
+
+  } else if (inv_param->dslash_type != QUDA_TWISTED_CLOVER_DSLASH) {
+    twistedClover = true;
   }
 
   // determines whether operator is preconditioned when calling invertQuda()
@@ -599,7 +603,6 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     warningQuda("Uninverted clover term not loaded");
   }
 
-  bool twistedClover = false;
   CloverFieldParam clover_param;
   CloverField *in = NULL, *inInv = NULL;
 
@@ -3224,6 +3227,7 @@ void createCloverQuda(QudaInvertParam* invertParam)
     cloverParam.siteSubset = QUDA_FULL_SITE_SUBSET;
     cloverParam.setPrecision(invertParam->cuda_prec);
     cloverPrecise = new cudaCloverField(cloverParam);
+    cloverInvPrecise = new cudaCloverField(cloverParam);	//FIXME Only with tmClover
   }
 
   int y[4];
@@ -3281,6 +3285,7 @@ void createCloverQuda(QudaInvertParam* invertParam)
 
   profileCloverCreate.Start(QUDA_PROFILE_COMPUTE);
   computeClover(*cloverPrecise, *cudaGaugeExtended, invertParam->clover_coeff, QUDA_CUDA_FIELD_LOCATION);
+  computeClover(*cloverInvPrecise, *cudaGaugeExtended, invertParam->clover_coeff, QUDA_CUDA_FIELD_LOCATION);	//FIXME Only with tmClover
   profileCloverCreate.Stop(QUDA_PROFILE_COMPUTE);
 
   profileCloverCreate.Stop(QUDA_PROFILE_TOTAL);
@@ -3463,8 +3468,6 @@ void computeCloverTraceQuda(void *out,
   return;
 }
 
-#else
-
 
 void computeCloverDerivativeQuda(void* out,
     void* gauge,
@@ -3531,9 +3534,6 @@ void computeCloverDerivativeQuda(void* out,
   cudaGaugeField* gPointer = reinterpret_cast<cudaGaugeField*>(gauge);
   cudaGaugeField* oPointer = reinterpret_cast<cudaGaugeField*>(oprod);
 
-#ifndef MULTI_GPU
-  cudaGaugeField *cudaGauge = cudaSiteLink;
-#else
 
   profileCloverDerivative.Start(QUDA_PROFILE_COMPUTE);
   cloverDerivative(*cudaOut, *gPointer, *oPointer, mu, nu, coeff, parity, conjugate);
@@ -3641,13 +3641,6 @@ void computeStaggeredForceQuda(void* cudaMom, void* qudaQuark, double coeff)
 
 
 
-
-
-void computeKSOprodQuda(void* oprod,
-    void* fermion,
-    double coeff,
-    int X[4],
-    QudaPrecision prec)
 
 
 void computeStaggeredOprodQuda(void** oprod,   
