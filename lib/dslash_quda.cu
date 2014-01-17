@@ -2624,7 +2624,7 @@ namespace quda {
     else //twist doublet    
       dslashParam.threads = in->Volume() / 2;
 
-#if GPU_TWISTED_CLOVER_DIRAC
+#ifdef GPU_TWISTED_CLOVER_DIRAC
     Tunable *tmClovGamma5 = 0;
 
     void *clover, *cNorm, *cloverInv, *cNorm2;
