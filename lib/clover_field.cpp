@@ -96,6 +96,8 @@ namespace quda {
     createTexObject(evenInvTex, evenInvNormTex, evenInv, evenInvNorm);
     createTexObject(oddInvTex, oddInvNormTex, oddInv, oddInvNorm);
 #endif
+    twisted = param.twisted;
+    mu2 = param.mu2;
 
   }
 

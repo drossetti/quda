@@ -628,6 +628,7 @@ __device__ double2 operator*(const double &x, const double2 &y)
 	#define READ_CLOVER READ_CLOVER_DOUBLE_TEX
 	#define ASSN_CLOVER ASSN_CLOVER_DOUBLE_TEX
 #endif
+
 #define CLOVER_DOUBLE
 
 __global__ void twistCloverGamma5Kernel(double2 *spinor, float *null, double a, const double2 *in, const float *null2, DslashParam param,

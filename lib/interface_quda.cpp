@@ -548,7 +548,7 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
 {
   profileClover.Start(QUDA_PROFILE_TOTAL);
 
-  bool device_calc = true; // calculate clover and inverse on the device?
+  bool device_calc = false; // calculate clover and inverse on the device?
   bool twistedClover = false;
 
   pushVerbosity(inv_param->verbosity);
@@ -575,7 +575,7 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
   if ((inv_param->dslash_type != QUDA_CLOVER_WILSON_DSLASH) && (inv_param->dslash_type != QUDA_TWISTED_CLOVER_DSLASH)) {
     errorQuda("Wrong dslash_type in loadCloverQuda()");
 
-  } else if (inv_param->dslash_type != QUDA_TWISTED_CLOVER_DSLASH) {
+  } else if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
     twistedClover = true;
   }
 
@@ -623,8 +623,7 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     cpuParam.create = QUDA_REFERENCE_FIELD_CREATE;
     cpuParam.siteSubset = QUDA_FULL_SITE_SUBSET;
 
-    if (cpuParam.direct && cpuParam.inverse) {
-      twistedClover = true;
+    if (twistedClover) {
       cpuParam.inverse = false;
       cpuParam.cloverInv = NULL;
       in = (inv_param->clover_location == QUDA_CPU_FIELD_LOCATION) ?
@@ -634,6 +633,7 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
       cpuParam.direct = false;
       cpuParam.clover = NULL;
       cpuParam.inverse = true;
+      cpuParam.twisted = true;
       cpuParam.cloverInv = h_clovinv;
 
       inInv = (inv_param->clover_location == QUDA_CPU_FIELD_LOCATION) ?
@@ -659,7 +659,9 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
       cloverPrecise = new cudaCloverField(clover_param);
       clover_param.direct = false;
       clover_param.inverse = true;
+      clover_param.twisted = true;
       cloverInvPrecise = new cudaCloverField(clover_param);
+      clover_param.twisted = false;
     } else {
       cloverPrecise = new cudaCloverField(clover_param);
     }
@@ -676,7 +678,19 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     profileClover.Stop(QUDA_PROFILE_H2D);
   }else{
     profileClover.Start(QUDA_PROFILE_COMPUTE);
+    printfQuda("Clover term created in GPU\n");
     createCloverQuda(inv_param);
+
+    if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
+    {
+      printfQuda("Inverting...\n");
+      fflush(stdout);
+      cloverInvert(*cloverInvPrecise, inv_param->compute_clover_trlog, QUDA_CUDA_FIELD_LOCATION);
+      printfQuda("Done!\n");
+      fflush(stdout);
+    }
+    else
+	printfQuda("NO ES TMCLOVER!!! %d\n\n\n", inv_param->dslash_type);
     profileClover.Stop(QUDA_PROFILE_COMPUTE);
   }
 
@@ -686,18 +700,10 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     cloverInvert(*cloverPrecise, inv_param->compute_clover_trlog, QUDA_CUDA_FIELD_LOCATION);
     profileClover.Stop(QUDA_PROFILE_COMPUTE);
     if (inv_param->compute_clover_trlog) {
-      inv_param->trlogA[0] = cloverPrecise->TrLog()[0];
-      inv_param->trlogA[1] = cloverPrecise->TrLog()[1];
-    }
-  } else if (twistedClover) {
-    profileClover.Start(QUDA_PROFILE_COMPUTE);
-    cloverInvert(*cloverInvPrecise, inv_param->compute_clover_trlog, QUDA_CUDA_FIELD_LOCATION);
-    profileClover.Stop(QUDA_PROFILE_COMPUTE);
-    if (inv_param->compute_clover_trlog) {
       inv_param->trlogA[0] = cloverInvPrecise->TrLog()[0];
       inv_param->trlogA[1] = cloverInvPrecise->TrLog()[1];
     }
-  } 
+  }
 
   if (!twistedClover)
     inv_param->cloverGiB = cloverPrecise->GBytes();
@@ -711,8 +717,10 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
 
     if (twistedClover) {
       clover_param.inverse = true;
+      clover_param.twisted = true;
       cloverInvSloppy = new cudaCloverField(clover_param); 
       cloverInvSloppy->copy(*cloverInvPrecise);
+      clover_param.twisted = false;
       clover_param.direct = true;
       clover_param.inverse = false;
       cloverSloppy = new cudaCloverField(clover_param); 
@@ -740,8 +748,10 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
       cloverPrecondition->copy(*cloverSloppy);
       clover_param.direct = false;
       clover_param.inverse = true;
+      clover_param.twisted = true;
       cloverInvPrecondition = new cudaCloverField(clover_param); 
       cloverInvPrecondition->copy(*cloverInvSloppy);
+      clover_param.twisted = false;
       inv_param->cloverGiB += cloverPrecondition->GBytes() + cloverInvPrecondition->GBytes();
     } else {
       cloverPrecondition = new cudaCloverField(clover_param);
@@ -753,29 +763,6 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     cloverPrecondition = cloverSloppy;
     if (twistedClover)
       cloverInvPrecondition = cloverInvSloppy;
-  }
-
-  // need to copy back the odd inverse field into the application clover field
-  if (!h_clovinv && pc_solve && !device_calc) {
-    // copy the inverted clover term into host application order on the device
-    clover_param.setPrecision(inv_param->clover_cpu_prec);
-    clover_param.direct = false;
-    clover_param.inverse = true;
-    clover_param.order = inv_param->clover_order;
-
-    // this isn't really "epilogue" but this label suffices
-    profileClover.Start(QUDA_PROFILE_EPILOGUE);
-    cudaCloverField hack(clover_param);
-    hack.copy(*cloverPrecise);
-    profileClover.Stop(QUDA_PROFILE_EPILOGUE);
-
-    // copy the odd components into the host application's clover field
-    profileClover.Start(QUDA_PROFILE_D2H);
-    cudaMemcpy((char*)(in->V(false))+in->Bytes()/2, (char*)(hack.V(true))+hack.Bytes()/2, 
-        in->Bytes()/2, cudaMemcpyDeviceToHost);
-    profileClover.Stop(QUDA_PROFILE_D2H);
-
-    checkCudaError();
   }
 
   // need to copy back the odd inverse field into the application clover field
@@ -883,8 +870,8 @@ void freeCloverQuda(void)
   cloverPrecise = NULL;
 
   if (cloverInvPrecise != NULL) {
-     if (cloverInvPrecondition != cloverInvSloppy && cloverPrecondition) delete cloverInvPrecondition;
-     if (cloverInvSloppy != cloverInvPrecise && cloverSloppy) delete cloverInvSloppy;
+     if (cloverInvPrecondition != cloverInvSloppy && cloverInvPrecondition) delete cloverInvPrecondition;
+     if (cloverInvSloppy != cloverInvPrecise && cloverInvSloppy) delete cloverInvSloppy;
      if (cloverInvPrecise) delete cloverInvPrecise;
 
      cloverInvPrecondition = NULL;
@@ -1207,6 +1194,8 @@ void dslashQuda(void *h_out, void *h_in, QudaInvertParam *inv_param, QudaParity 
   if (gaugePrecise == NULL) errorQuda("Gauge field not allocated");
   if (cloverPrecise == NULL && ((inv_param->dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH))) 
     errorQuda("Clover field not allocated");
+  if (cloverInvPrecise == NULL && inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
+    errorQuda("Clover field not allocated");
 
   pushVerbosity(inv_param->verbosity);
   if (getVerbosity() >= QUDA_DEBUG_VERBOSE) printQudaInvertParam(inv_param);
@@ -1280,6 +1269,8 @@ void MatQuda(void *h_out, void *h_in, QudaInvertParam *inv_param)
   if (gaugePrecise == NULL) errorQuda("Gauge field not allocated");
   if (cloverPrecise == NULL && ((inv_param->dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH))) 
     errorQuda("Clover field not allocated");
+  if (cloverInvPrecise == NULL && inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
+    errorQuda("Clover field not allocated");
   if (getVerbosity() >= QUDA_DEBUG_VERBOSE) printQudaInvertParam(inv_param);
 
   bool pc = (inv_param->solution_type == QUDA_MATPC_SOLUTION ||
@@ -1352,6 +1343,8 @@ void MatDagMatQuda(void *h_out, void *h_in, QudaInvertParam *inv_param)
   if (!initialized) errorQuda("QUDA not initialized");
   if (gaugePrecise == NULL) errorQuda("Gauge field not allocated");
   if (cloverPrecise == NULL && ((inv_param->dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH))) 
+    errorQuda("Clover field not allocated");
+  if (cloverInvPrecise == NULL && inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
     errorQuda("Clover field not allocated");
   if (getVerbosity() >= QUDA_DEBUG_VERBOSE) printQudaInvertParam(inv_param);
 
@@ -3227,7 +3220,11 @@ void createCloverQuda(QudaInvertParam* invertParam)
     cloverParam.siteSubset = QUDA_FULL_SITE_SUBSET;
     cloverParam.setPrecision(invertParam->cuda_prec);
     cloverPrecise = new cudaCloverField(cloverParam);
-    cloverInvPrecise = new cudaCloverField(cloverParam);	//FIXME Only with tmClover
+    if (invertParam->dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
+    {
+      cloverParam.twisted = true;
+      cloverInvPrecise = new cudaCloverField(cloverParam);	//FIXME Only with tmClover
+    }
   }
 
   int y[4];
@@ -3285,7 +3282,12 @@ void createCloverQuda(QudaInvertParam* invertParam)
 
   profileCloverCreate.Start(QUDA_PROFILE_COMPUTE);
   computeClover(*cloverPrecise, *cudaGaugeExtended, invertParam->clover_coeff, QUDA_CUDA_FIELD_LOCATION);
-  computeClover(*cloverInvPrecise, *cudaGaugeExtended, invertParam->clover_coeff, QUDA_CUDA_FIELD_LOCATION);	//FIXME Only with tmClover
+
+  if (invertParam->dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
+  {
+    computeClover(*cloverInvPrecise, *cudaGaugeExtended, invertParam->clover_coeff, QUDA_CUDA_FIELD_LOCATION);	//FIXME Only with tmClover
+//    cloverInvert(*cloverInvPrecise, invertParam->compute_clover_trlog, QUDA_CUDA_FIELD_LOCATION);
+  }
   profileCloverCreate.Stop(QUDA_PROFILE_COMPUTE);
 
   profileCloverCreate.Stop(QUDA_PROFILE_TOTAL);

@@ -1061,14 +1061,14 @@ namespace quda {
       key.aux += ",reconstruct=" + recon.str();
 
       switch(dslashType){
-        case QUDA_DEG_TWIST_CLOVER_INV_DSLASH:
-        key.aux += ",TwistInvDslash";
+        case QUDA_DEG_CLOVER_TWIST_INV_DSLASH:
+        key.aux += ",CloverTwistInvDslash";
         break;
-        case QUDA_DEG_DSLASH_TWIST_CLOVER_INV:
+        case QUDA_DEG_DSLASH_CLOVER_TWIST_INV:
         key.aux += ",";
         break;
-        case QUDA_DEG_DSLASH_TWIST_CLOVER_XPAY:
-        key.aux += ",DslashTwist";
+        case QUDA_DEG_DSLASH_CLOVER_TWIST_XPAY:
+        key.aux += ",DslashCloverTwist";
         break;
       }
       if (x) key.aux += "Xpay";
@@ -1085,17 +1085,17 @@ namespace quda {
   
       switch(dslashType){
 
-        case QUDA_DEG_TWIST_CLOVER_INV_DSLASH:
+        case QUDA_DEG_CLOVER_TWIST_INV_DSLASH:
           DSLASH(twistedCloverInvDslash, tp.grid, tp.block, tp.shared_bytes, stream, dslashParam,
 	     (sFloat*)out->V(), (float*)out->Norm(), gauge0, gauge1, clover, cNorm, cloverInv, cNrm2,
 	     (sFloat*)in->V(), (float*)in->Norm(), a, b, (sFloat*)(x ? x->V() : 0), (float*)(x ? x->Norm() : 0));
         break;
-        case QUDA_DEG_DSLASH_TWIST_CLOVER_INV:
+        case QUDA_DEG_DSLASH_CLOVER_TWIST_INV:
           DSLASH(twistedCloverDslash, tp.grid, tp.block, tp.shared_bytes, stream, dslashParam,
 	     (sFloat*)out->V(), (float*)out->Norm(), gauge0, gauge1, clover, cNorm, cloverInv, cNrm2,
 	     (sFloat*)in->V(), (float*)in->Norm(), a, b, (sFloat*)(x ? x->V() : 0), (float*)(x ? x->Norm() : 0));
         break;
-        case QUDA_DEG_DSLASH_TWIST_CLOVER_XPAY:
+        case QUDA_DEG_DSLASH_CLOVER_TWIST_XPAY:
           DSLASH(twistedCloverDslashTwist, tp.grid, tp.block, tp.shared_bytes, stream, dslashParam,
 	     (sFloat*)out->V(), (float*)out->Norm(), gauge0, gauge1, clover, cNorm, cloverInv, cNrm2,
 	     (sFloat*)in->V(), (float*)in->Norm(), a, b, (sFloat*)x->V(), (float*)x->Norm());
@@ -2007,7 +2007,7 @@ namespace quda {
     }
 
 #ifdef MULTI_GPU
-    if(type == QUDA_DEG_TWIST_CLOVER_INV_DSLASH){
+    if(type == QUDA_DEG_CLOVER_TWIST_INV_DSLASH){
         setTwistPack(true);
         twist_a = kappa; 
         twist_b = mu;
@@ -2051,7 +2051,7 @@ namespace quda {
     delete dslash;
 
 #ifdef MULTI_GPU
-    if(type == QUDA_DEG_TWIST_CLOVER_INV_DSLASH){
+    if(type == QUDA_DEG_CLOVER_TWIST_INV_DSLASH){
         setTwistPack(false);
         twist_a = 0.0; 
         twist_b = 0.0;
@@ -2624,7 +2624,7 @@ namespace quda {
     else //twist doublet    
       dslashParam.threads = in->Volume() / 2;
 
-#if GPU_TWISTED_CLOVER_DIRAC
+#ifdef GPU_TWISTED_CLOVER_DIRAC
     Tunable *tmClovGamma5 = 0;
 
     void *clover, *cNorm, *cloverInv, *cNorm2;

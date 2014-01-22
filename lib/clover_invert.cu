@@ -67,10 +67,10 @@ namespace quda {
 //Compute (T^2 + mu2) first, then invert (not optimized!):
       if(arg.twist)
       {
-         //complex<Float> aux[15];//hmmm, better to reuse A-regs...
+         complex<Float> aux[15];//hmmm, better to reuse A-regs...
          //another solution just to define (but compiler may not be happy with this, swapping everything in
          //the global buffer):
-         complex<Float>* aux = (complex<Float>*)&A[ch*36];
+         //complex<Float>* aux = (complex<Float>*)&A[ch*36];
          //compute off-diagonal terms:
 //
          aux[ 0] = tri[0]*diag[0]+diag[1]*tri[0]+conj(tri[2])*tri[1]+conj(tri[4])*tri[3]+conj(tri[7])*tri[6]+conj(tri[11])*tri[10];
