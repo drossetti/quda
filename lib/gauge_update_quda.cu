@@ -252,7 +252,7 @@ namespace quda {
 			double dt, const int *X, bool conj_mom, bool exact, 
 			QudaFieldLocation location) {
     // degree of exponential expansion
-    const int N = 6;
+    const int N = 8;
 
     typedef typename ComplexTypeId<Float>::Type Complex;
     if (conj_mom) {

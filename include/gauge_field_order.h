@@ -411,7 +411,7 @@ namespace quda {
       }
     }
 
-      virtual ~FloatNOrder() { ; }
+      virtual ~FloatNOrder() { ; } 
 
       __device__ __host__ inline void load(RegType v[length], int x, int dir, int parity) const {
         const int M = reconLen / N;
@@ -424,8 +424,10 @@ namespace quda {
           }
         }
         RegType phase = 0.;
+#if __COMPUTE_CAPABILITY__ >= 200
         if(hasPhase) copy(phase, gauge[parity][phaseOffset/sizeof(Float) + stride*dir + x]);
         // The phases come after the ghost matrices
+#endif
         reconstruct.Unpack(v, tmp, x, dir, 2.*M_PI*phase);
       }
 
@@ -440,11 +442,13 @@ namespace quda {
             copy(gauge[parity][dir*stride*M*N + (padIdx*stride + x)*N + intIdx%N], tmp[i*N+j]);
           }
         }
+#if __COMPUTE_CAPABILITY__ >= 200
         if(hasPhase){
           RegType phase;
           reconstruct.getPhase(&phase,v);
           copy(gauge[parity][phaseOffset/sizeof(Float) + dir*stride + x], static_cast<RegType>(phase/(2.*M_PI))); 
         }        
+#endif
       }
 
       __device__ __host__ inline void loadGhost(RegType v[length], int x, int dir, int parity) const {
@@ -458,11 +462,16 @@ namespace quda {
             for (int j=0; j<N; j++) {
               int intIdx = i*N + j; // internal dof index
               int padIdx = intIdx / N;
+#if __COMPUTE_CAPABILITY__ < 200
+	      const int hasPhase = 0;
+#endif
               copy(tmp[i*N+j], ghost[dir][parity*faceVolumeCB[dir]*(M*N + hasPhase) + (padIdx*faceVolumeCB[dir]+x)*N + intIdx%N]);
             }
           }
           RegType phase=0.; 
+#if __COMPUTE_CAPABILITY__ >= 200
           if(hasPhase) copy(phase, ghost[dir][parity*faceVolumeCB[dir]*(M*N + 1) + faceVolumeCB[dir]*M*N + x]); 
+#endif
           reconstruct.Unpack(v, tmp, x, dir, 2.*M_PI*phase);	 
         }
       }
@@ -481,11 +490,14 @@ namespace quda {
               copy(ghost[dir][parity*faceVolumeCB[dir]*(M*N + hasPhase) + (padIdx*faceVolumeCB[dir]+x)*N + intIdx%N], tmp[i*N+j]);
             }
           }
+
+#if __COMPUTE_CAPABILITY__ >= 200
           if(hasPhase){
             RegType phase=0.;
             reconstruct.getPhase(&phase, v); 
             copy(ghost[dir][parity*faceVolumeCB[dir]*(M*N + 1) + faceVolumeCB[dir]*M*N + x], static_cast<RegType>(phase/(2.*M_PI)));
           }
+#endif
         }
       }
 

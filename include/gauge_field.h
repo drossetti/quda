@@ -125,6 +125,7 @@ namespace quda {
     double tadpole;
     double fat_link_max;
     double scale;
+  
     
     QudaFieldCreate create; // used to determine the type of field created
 
@@ -192,6 +193,8 @@ namespace quda {
       if ( isNative() ) errorQuda("No ghost zone pointer for quda-native gauge fields");
       return (const void**)ghost; 
     }
+    
+    bool GhostInit() const { return ghostInit; }
   };
 
   class cudaGaugeField : public GaugeField {
