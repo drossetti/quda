@@ -71,7 +71,7 @@ namespace quda {
 		if (in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS)
 		{
 			FullClover cs(clover);
-			FullClover cI(cloverInv, true);
+			FullClover cI(cloverInv, false);
 			double flavor_mu = in.TwistFlavor() * mu;
 			twistCloverGamma5Cuda(&out, &in, dagger, kappa, flavor_mu, 0.0, twistType, cs, cI, parity);
 			flops += 24ll*in.Volume();
@@ -109,7 +109,7 @@ namespace quda {
     initConstants(in);
 
     FullClover cs(clover);
-    FullClover cI(cloverInv, true);
+    FullClover cI(cloverInv, false);
   
     if(in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS){
       double a = 2.0 * kappa * in.TwistFlavor() * mu;//for direct twist (must be daggered separately)  
@@ -192,7 +192,7 @@ namespace quda {
     initConstants(in);
   
     FullClover cs(clover);
-    FullClover cI(cloverInv, true);
+    FullClover cI(cloverInv, false);
 
     if (in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS){
       double a = -2.0 * kappa * in.TwistFlavor() * mu;  //for invert twist (not daggered)
@@ -224,7 +224,7 @@ namespace quda {
    initConstants(in);  
   
     FullClover cs(clover);
-    FullClover cI(cloverInv, true);
+    FullClover cI(cloverInv, false);
 
     if(in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS){
       double a = -2.0 * kappa * in.TwistFlavor() * mu;  //for invert twist
@@ -248,7 +248,7 @@ namespace quda {
     bool reset = newTmp(&tmp1, in);
 
     FullClover cs(clover);
-    FullClover cI(cloverInv, true);
+    FullClover cI(cloverInv, false);
 
     if(in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS){
       if (matpcType == QUDA_MATPC_EVEN_EVEN) {

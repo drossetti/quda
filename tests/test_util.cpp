@@ -31,8 +31,10 @@ extern "C"
 	#include <lime.h>
 }
 
-#include <qcd.h>
+//#include <qcd.h>
+#ifdef MPI_COMMS
 #define MPI_READCONF
+#endif
 
 //extern "C" { char* qcd_getParamComma(char token[],char* params,int len); };
 char* qcd_getParamComma(char token[],char* params,int len)
@@ -2400,7 +2402,7 @@ read gauge fileld config stored in binary file
 		fprintf	(stderr, "Error, could not alloc ftmp\n");
 		return	6;
 	}
- 
+
 	iread	 = fread	(ftmp, sizeof(double), 72*lvol, fid);
 
 	if	(iread != 72*lvol)

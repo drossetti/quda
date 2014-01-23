@@ -150,7 +150,6 @@ void init(int argc, char **argv) {
   gauge_param.cuda_prec_sloppy = cuda_prec;
   gauge_param.gauge_fix = QUDA_GAUGE_FIXED_NO;
 
-  inv_param.kappa = 1.0;
   if (dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
     inv_param.clover_coeff = 0.001;
     inv_param.mu = 0.5;
@@ -304,6 +303,7 @@ void init(int argc, char **argv) {
     construct_gauge_field(hostGauge, 0, gauge_param.cpu_prec, &gauge_param);
 }
 
+  inv_param.kappa = 1.0;
 //  spinor->Source(QUDA_RANDOM_SOURCE);
 
 //  FILE *Caca = fopen("/home/avaquero/src/tmLQCD-master/SpinorTm.In", "r+");

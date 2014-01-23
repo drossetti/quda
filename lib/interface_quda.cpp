@@ -556,7 +556,6 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
   profileClover.Start(QUDA_PROFILE_TOTAL);
 
   bool device_calc = false; // calculate clover and inverse on the device?
-  bool twistedClover = false;
 
   pushVerbosity(inv_param->verbosity);
   if (getVerbosity() >= QUDA_DEBUG_VERBOSE) printQudaInvertParam(inv_param);
@@ -582,8 +581,6 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
   if ((inv_param->dslash_type != QUDA_CLOVER_WILSON_DSLASH) && (inv_param->dslash_type != QUDA_TWISTED_CLOVER_DSLASH)) {
     errorQuda("Wrong dslash_type in loadCloverQuda()");
 
-  } else if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
-    twistedClover = true;
   }
 
   // determines whether operator is preconditioned when calling invertQuda()
@@ -630,16 +627,15 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     cpuParam.create = QUDA_REFERENCE_FIELD_CREATE;
     cpuParam.siteSubset = QUDA_FULL_SITE_SUBSET;
 
-    if (twistedClover) {
-      cpuParam.inverse = false;
+    if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
+      cpuParam.direct = true;
+      cpuParam.inverse = true;
       cpuParam.cloverInv = NULL;
       in = (inv_param->clover_location == QUDA_CPU_FIELD_LOCATION) ?
         static_cast<CloverField*>(new cpuCloverField(cpuParam)) : 
         static_cast<CloverField*>(new cudaCloverField(cpuParam));
 
-      cpuParam.direct = false;
       cpuParam.clover = NULL;
-      cpuParam.inverse = true;
       cpuParam.twisted = true;
       cpuParam.cloverInv = h_clovinv;
 
@@ -661,11 +657,10 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     clover_param.create = QUDA_NULL_FIELD_CREATE;
     clover_param.siteSubset = QUDA_FULL_SITE_SUBSET;
 
-    if (twistedClover) {
-      clover_param.inverse = false;
-      cloverPrecise = new cudaCloverField(clover_param);
-      clover_param.direct = false;
+    if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
+      clover_param.direct = true;
       clover_param.inverse = true;
+      cloverPrecise = new cudaCloverField(clover_param);
       clover_param.twisted = true;
       cloverInvPrecise = new cudaCloverField(clover_param);
       clover_param.twisted = false;
@@ -676,7 +671,7 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     profileClover.Stop(QUDA_PROFILE_INIT);
 
     profileClover.Start(QUDA_PROFILE_H2D);
-    if (twistedClover) {
+    if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
       cloverPrecise->copy(*in, false);
       cloverInvPrecise->copy(*inInv, true);
     } else
@@ -691,10 +686,14 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
       cloverInvert(*cloverInvPrecise, inv_param->compute_clover_trlog, QUDA_CUDA_FIELD_LOCATION);
     profileClover.Stop(QUDA_PROFILE_COMPUTE);
+    if (inv_param->compute_clover_trlog) {
+      inv_param->trlogA[0] = cloverInvPrecise->TrLog()[0];
+      inv_param->trlogA[1] = cloverInvPrecise->TrLog()[1];
+    }
   }
 
   // inverted clover term is required when applying preconditioned operator
-  if ((!h_clovinv && pc_solve) && !twistedClover) {
+  if ((!h_clovinv && pc_solve) && inv_param->dslash_type != QUDA_TWISTED_CLOVER_DSLASH) {
     profileClover.Start(QUDA_PROFILE_COMPUTE);
     cloverInvert(*cloverPrecise, inv_param->compute_clover_trlog, QUDA_CUDA_FIELD_LOCATION);
     profileClover.Stop(QUDA_PROFILE_COMPUTE);
@@ -704,7 +703,7 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     }
   }
 
-  if (!twistedClover)
+  if (inv_param->dslash_type != QUDA_TWISTED_CLOVER_DSLASH)
     inv_param->cloverGiB = cloverPrecise->GBytes();
   else
     inv_param->cloverGiB = cloverPrecise->GBytes() + cloverInvPrecise->GBytes();
@@ -714,14 +713,13 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     profileClover.Start(QUDA_PROFILE_INIT);
     clover_param.setPrecision(inv_param->clover_cuda_prec_sloppy);
 
-    if (twistedClover) {
+    if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
+      clover_param.direct = true;
       clover_param.inverse = true;
       clover_param.twisted = true;
       cloverInvSloppy = new cudaCloverField(clover_param); 
       cloverInvSloppy->copy(*cloverInvPrecise);
       clover_param.twisted = false;
-      clover_param.direct = true;
-      clover_param.inverse = false;
       cloverSloppy = new cudaCloverField(clover_param); 
       cloverSloppy->copy(*cloverPrecise);
       inv_param->cloverGiB += cloverSloppy->GBytes() + cloverInvSloppy->GBytes();
@@ -733,7 +731,7 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     profileClover.Stop(QUDA_PROFILE_INIT);
   } else {
     cloverSloppy = cloverPrecise;
-    if (twistedClover)
+    if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
       cloverInvSloppy = cloverInvPrecise;
   }
 
@@ -742,11 +740,9 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
       inv_param->clover_cuda_prec_precondition != QUDA_INVALID_PRECISION) {
     profileClover.Start(QUDA_PROFILE_INIT);
     clover_param.setPrecision(inv_param->clover_cuda_prec_precondition);
-    if (twistedClover) {
+    if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
       cloverPrecondition = new cudaCloverField(clover_param); 
       cloverPrecondition->copy(*cloverSloppy);
-      clover_param.direct = false;
-      clover_param.inverse = true;
       clover_param.twisted = true;
       cloverInvPrecondition = new cudaCloverField(clover_param); 
       cloverInvPrecondition->copy(*cloverInvSloppy);
@@ -760,7 +756,7 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     profileClover.Stop(QUDA_PROFILE_INIT);
   } else {
     cloverPrecondition = cloverSloppy;
-    if (twistedClover)
+    if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
       cloverInvPrecondition = cloverInvSloppy;
   }
 
