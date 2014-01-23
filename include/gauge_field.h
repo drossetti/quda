@@ -126,7 +126,6 @@ namespace quda {
     double fat_link_max;
     double scale;
   
-    
     QudaFieldCreate create; // used to determine the type of field created
 
     QudaGhostExchange ghostExchange; // the type of ghost exchange to perform
@@ -193,8 +192,6 @@ namespace quda {
       if ( isNative() ) errorQuda("No ghost zone pointer for quda-native gauge fields");
       return (const void**)ghost; 
     }
-    
-    bool GhostInit() const { return ghostInit; }
   };
 
   class cudaGaugeField : public GaugeField {

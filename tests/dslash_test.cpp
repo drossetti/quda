@@ -208,15 +208,19 @@ void init(int argc, char **argv) {
   case 0:
   case 1:
     inv_param.solution_type = QUDA_MATPC_SOLUTION;
+    inv_param.solve_type = QUDA_DIRECT_PC_SOLVE;
     break;
   case 2:
     inv_param.solution_type = QUDA_MAT_SOLUTION;
+    inv_param.solve_type = QUDA_DIRECT_SOLVE;
     break;
   case 3:
     inv_param.solution_type = QUDA_MATPCDAG_MATPC_SOLUTION;
+    inv_param.solve_type = QUDA_DIRECT_PC_SOLVE;
     break;
   case 4:
     inv_param.solution_type = QUDA_MATDAG_MAT_SOLUTION;
+    inv_param.solve_type = QUDA_DIRECT_SOLVE;
     break;
   default:
     errorQuda("Test type %d not defined\n", test_type);
@@ -377,7 +381,7 @@ void init(int argc, char **argv) {
   loadGaugeQuda(hostGauge, &gauge_param);
 
   if (dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
-    createCloverQuda(&inv_param);
+    loadCloverQuda(NULL, NULL, &inv_param);
   }
 
   if (!transfer) {
@@ -685,7 +689,7 @@ void	dumpSpinor	(cpuColorSpinorField *out, const char *end, const double factor)
 
 	myRank	= comm_rank();
 
-	sprintf(name, "Spinor.%s.%d\0", end, myRank);
+	sprintf(name, "Spinor.%s.%d", end, myRank);
 
 	spinorData	= out->V();
 
@@ -746,7 +750,7 @@ void	dumpContract	(cpuColorSpinorField *out, const char *end, double factor)
 
 	myRank	= comm_rank();
 
-	sprintf(name, "SpinorC.%s.%d\0", end, myRank);
+	sprintf(name, "SpinorC.%s.%d", end, myRank);
 
 	spinorData	= out->V();
 
@@ -829,7 +833,7 @@ void	dumpVolume	(cpuColorSpinorField *out, const char *end, double factor)
 
 	myRank	= comm_rank();
 
-	sprintf(name, "SpinorV.%s.%d\0", end, myRank);
+	sprintf(name, "SpinorV.%s.%d", end, myRank);
 
 	spinorData	= out->V();
 
