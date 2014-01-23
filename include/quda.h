@@ -172,7 +172,7 @@ extern "C" {
 
     QudaCloverFieldOrder clover_order;     /**< The order of the input clover field */
     QudaUseInitGuess use_init_guess;       /**< Whether to use an initial guess in the solver or not */
-  
+
     double clover_coeff;                   /**< Coefficient of the clover term */
 
     int compute_clover_trlog;              /**< Whether to compute the trace log of the clover term */
@@ -432,7 +432,7 @@ extern "C" {
    *               storage and solver parameters
    */
   void invertMultiShiftMDQuda(void **_hp_xe, void **_hp_xo, void **_hp_ye, 
-			      void **_hp_yo, void *_hp_b, QudaInvertParam *param);
+      void **_hp_yo, void *_hp_b, QudaInvertParam *param);
 
   /**
    * Solve for multiple shifts (e.g., masses).
@@ -494,9 +494,11 @@ extern "C" {
   void pack_ghost(void **cpuLink, void **cpuGhost, int nFace,
       QudaPrecision precision);
   void setFatLinkPadding(QudaComputeFatMethod method, QudaGaugeParam* param);
-  int computeKSLinkQuda(void* fatlink, void* longlink, void** sitelink,
-      double* act_path_coeff, QudaGaugeParam* param, 
-      QudaComputeFatMethod method);
+
+  void computeKSLinkQuda(void* fatlink, void* longlink, void* ulink, void* inlink, 
+                         double *path_coeff, QudaGaugeParam *param, QudaComputeFatMethod method);
+
+
 
   /**
    * Compute the gauge force and update the mometum field
@@ -513,8 +515,8 @@ extern "C" {
    * @param timeinfo
    */
   int computeGaugeForceQuda(void* mom, void* sitelink,  int*** input_path_buf, int* path_length,
-			    void* loop_coeff, int num_paths, int max_length, double dt,
-			    QudaGaugeParam* qudaGaugeParam, double* timeinfo);
+      void* loop_coeff, int num_paths, int max_length, double dt,
+      QudaGaugeParam* qudaGaugeParam, double* timeinfo);
 
   /**
    * Evolve the gauge field by step size dt, using the momentum field
@@ -528,7 +530,7 @@ extern "C" {
    * @param param The parameters of the external fields and the computation settings
    */
   void updateGaugeFieldQuda(void* gauge, void* momentum, double dt, 
-			    int conj_mom, int exact, QudaGaugeParam* param);
+      int conj_mom, int exact, QudaGaugeParam* param);
 
 
   /**
@@ -536,7 +538,7 @@ extern "C" {
    * Return a pointer to the extended gauge field.
    */
   void* createExtendedGaugeField(void* gauge, int geometry, QudaGaugeParam* param);
-  
+
   void* createGaugeField(void* gauge, int geometry, QudaGaugeParam* param);
 
   void  saveGaugeField(void* outGauge, void* inGauge, QudaGaugeParam* param);
@@ -555,8 +557,8 @@ extern "C" {
   void computeCloverTraceQuda(void* out, void* clover, int mu, int nu, int dim[4]);
 
   void computeCloverDerivativeQuda(void* out, void* gauge, void* oprod, int mu, int nu,
-                                   double coeff,
-                                   QudaParity parity, QudaGaugeParam* param, int conjugate);
+      double coeff,
+      QudaParity parity, QudaGaugeParam* param, int conjugate);
 
   /**
    * Compute the quark-field outer product needed for gauge generation
@@ -570,6 +572,48 @@ extern "C" {
   void computeStaggeredOprodQuda(void** oprod, void** quark, int num, double** coeff, QudaGaugeParam* param);
 
   void computeStaggeredForceQuda(void* mom, void* quark, double* coeff);
+
+  /**
+   * Compute the fermion force for the asqtad quark action. 
+   * @param momentum          The momentum contribution from the quark action.
+   * @param act_path_coeff    The coefficients that define the asqtad action.
+   * @param one_link_src      The quark field outer product corresponding to the one-link term in the action. 
+   * @param naik_src          The quark field outer product corresponding to the naik term in the action.
+   * @param link              The gauge field.
+   * @param param             The field parameters.
+   */
+  void computeAsqtadForceQuda(void* const momentum,
+        const double act_path_coeff[6],
+        const void* const one_link_src[4],
+        const void* const naik_src[4],
+        const void* const link,
+        const QudaGaugeParam* param);
+
+
+  /**
+   * Compute the fermion force for the HISQ quark action. 
+   * @param momentum        The momentum contribution from the quark action.
+   * @param level2_coeff    The coefficients for the second level of smearing in the quark action.
+   * @param fat7_coeff      The coefficients for the first level of smearing (fat7) in the quark action.
+   * @param staple_src      Quark outer-product for the staple.
+   * @param one_link_src    Quark outer-product for the one-link term in the action.
+   * @param naik_src        Quark outer-product for the three-hop term in the action.
+   * @param w_link          Unitarized link variables obtained by applying fat7 smearing and unitarization to the original links.
+   * @param v_link          Fat7 link variables. 
+   * @param u_link          SU(3) think link variables. 
+   * @param param.          The field parameters.
+   */
+
+  void computeHISQForce(void* momentum,
+    const double level2_coeff[6],
+    const double fat7_coeff[6],
+    const void* const staple_src[4],
+    const void* const one_link_src[4],
+    const void* const naik_src[4],
+    const void* const w_link,
+    const void* const v_link,
+    const void* const u_link,
+    const QudaGaugeParam* param);
 
 
 #ifdef __cplusplus

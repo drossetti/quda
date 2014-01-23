@@ -2,7 +2,7 @@
 #include <lattice_field.h>
 #include <read_gauge.h>
 #include <gauge_field.h>
-#include <hisq_force_quda.h>
+#include <ks_improved_force.h>
 #include <hw_quda.h>
 #include <hisq_force_macros.h>
 #include <utility>
@@ -81,7 +81,7 @@ namespace quda {
         thin_link_stride = extended_half_volume + param.site_ga_pad;
         color_matrix_stride = extended_half_volume;
 #else
-        thin_link_stride + param.site_ga_pad;
+        thin_link_stride  = half_volume + param.site_ga_pad;
         color_matrix_stride = half_volume;
 #endif
         momentum_stride = half_volume + param.mom_ga_pad;
@@ -115,13 +115,16 @@ namespace quda {
       return idx;
     }
 
-    // Need to look at this again.
     inline __device__ __host__ void updateCoords(int x[], int dir, int shift, const int X[4], const int partitioned){
+#ifdef MULTI_GPU
       if(shift == 1){
         x[dir] = (partitioned || (x[dir] != X[dir]+1)) ? x[dir]+1 : 2;
       }else if(shift == -1){
         x[dir] = (partitioned || (x[dir] != 2)) ? x[dir]-1 : X[dir]+1;
       }
+#else 
+      x[dir] = (x[dir]+shift + X[dir])%X[dir];
+#endif
       return;
     }
 
@@ -1520,10 +1523,12 @@ namespace quda {
               int sig, cudaGaugeField &mom, const QudaGaugeParam &param) :
             link(link), oprod(oprod), sig(sig), mom(mom)
         {  
+
           for(int dir=0; dir<4; ++dir){
             X[dir] = param.X[dir];
             kparam.X[dir] = X[dir];
           }
+          kparam.threads = X[0]*X[1]*X[2]*X[3]/2;
           kparam.setStride(param);
         }
 
@@ -1724,8 +1729,14 @@ namespace quda {
         kparam.base_idx[1]=0;
         kparam.base_idx[2]=0;
         kparam.base_idx[3]=0;
-        kparam_2g = kparam_1g = kparam;
-
+        kparam_2g.threads = kparam_1g.threads = kparam.threads;
+  
+        for(int i=0; i<4; ++i){
+          kparam_2g.D[i] = kparam_1g.D[i] = kparam.D[i];
+          kparam_2g.D1h  = kparam_1g.D1h  = kparam.D1h;
+          kparam_2g.base_idx[i] = kparam_1g.base_idx[i] = 0;
+          kparam_2g.ghostDim[i] = kparam_1g.ghostDim[i] = 0;
+        }
 #endif
         for(int sig=0; sig<8; sig++){
           for(int mu=0; mu<8; mu++){

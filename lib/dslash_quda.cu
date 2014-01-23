@@ -2660,7 +2660,7 @@ namespace quda {
 #include "misc_helpers.cu"
 
 
-#if defined(GPU_FATLINK) || defined(GPU_GAUGE_FORCE) || defined(GPU_FERMION_FORCE) || defined(GPU_HISQ_FORCE) || defined(GPU_UNITARIZE)
+#if defined(GPU_FATLINK) || defined(GPU_GAUGE_FORCE) || defined(GPU_FERMION_FORCE) // || defined(GPU_UNITARIZE)
 #include <force_common.h>
 #endif
 
@@ -2676,12 +2676,5 @@ namespace quda {
 #include "fermion_force_quda.cu"
 #endif
 
-#ifdef GPU_UNITARIZE
-#include "unitarize_links_quda.cu"
-#endif
 
-#ifdef GPU_HISQ_FORCE
-//#include "hisq_paths_force_quda.cu"
-#include "unitarize_force_quda.cu"
-#endif
 
