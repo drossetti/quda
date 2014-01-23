@@ -688,16 +688,16 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     printfQuda("Clover term created in GPU\n");
     createCloverQuda(inv_param);
 
-//    if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
-//      cloverInvert(*cloverInvPrecise, inv_param->compute_clover_trlog, QUDA_CUDA_FIELD_LOCATION);
+    if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
+      cloverInvert(*cloverInvPrecise, inv_param->compute_clover_trlog, QUDA_CUDA_FIELD_LOCATION);
     profileClover.Stop(QUDA_PROFILE_COMPUTE);
   }
 
   // inverted clover term is required when applying preconditioned operator
   if ((!h_clovinv && pc_solve) && !twistedClover) {
-//    profileClover.Start(QUDA_PROFILE_COMPUTE);
-//    cloverInvert(*cloverPrecise, inv_param->compute_clover_trlog, QUDA_CUDA_FIELD_LOCATION);
-//    profileClover.Stop(QUDA_PROFILE_COMPUTE);
+    profileClover.Start(QUDA_PROFILE_COMPUTE);
+    cloverInvert(*cloverPrecise, inv_param->compute_clover_trlog, QUDA_CUDA_FIELD_LOCATION);
+    profileClover.Stop(QUDA_PROFILE_COMPUTE);
     if (inv_param->compute_clover_trlog) {
       inv_param->trlogA[0] = cloverInvPrecise->TrLog()[0];
       inv_param->trlogA[1] = cloverInvPrecise->TrLog()[1];
@@ -3275,7 +3275,6 @@ void createCloverQuda(QudaInvertParam* invertParam)
   if (invertParam->dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
   {
     computeClover(*cloverInvPrecise, *cudaGaugeExtended, invertParam->clover_coeff, QUDA_CUDA_FIELD_LOCATION);	//FIXME Only with tmClover
-//    cloverInvert(*cloverInvPrecise, invertParam->compute_clover_trlog, QUDA_CUDA_FIELD_LOCATION);
   }
   profileCloverCreate.Stop(QUDA_PROFILE_COMPUTE);
 

@@ -21,11 +21,7 @@
 
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
-
 using namespace quda;
-
-template <typename Float>
-ColorSpinorFieldOrder<Float>* createOrder(const cpuColorSpinorField &a);
 
 const QudaParity parity = QUDA_EVEN_PARITY; // even or odd?
 const int transfer = 0; // include transfer time in the benchmark?
@@ -308,8 +304,6 @@ void init(int argc, char **argv) {
     construct_gauge_field(hostGauge, 0, gauge_param.cpu_prec, &gauge_param);
 }
 
-  inv_param.kappa = 1.0;
-
 //  spinor->Source(QUDA_RANDOM_SOURCE);
 
 //  FILE *Caca = fopen("/home/avaquero/src/tmLQCD-master/SpinorTm.In", "r+");
@@ -335,8 +329,10 @@ void init(int argc, char **argv) {
 	Cidx	= (Cx + Cy*xdim + Cz*xdim*ydim + Ct*xdim*ydim*zdim)/2;
 
 	if	(oddbit)
-		Cidx += V/2;
-//		continue;
+ 		if (test_type < 2 || test_type ==3)
+			continue;
+		else
+			Cidx += V/2;
 
 	unsigned long indexRe = ((Cidx*spinor->Nspin()+diracIdx)*spinor->Ncolor()+colIdx)*2;
 	unsigned long indexIm = ((Cidx*spinor->Nspin()+diracIdx)*spinor->Ncolor()+colIdx)*2 + 1;
