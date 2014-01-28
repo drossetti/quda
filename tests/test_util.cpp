@@ -2204,8 +2204,8 @@ read gauge fileld config stored in binary file
 	MPI_File		mpifid;
 	MPI_Status		status;
 	int			sizes[5], lsizes[5], starts[5];
-	qcd_uint_8		i=0;
-	qcd_uint_2		chunksize;
+	unsigned long		i=0;
+	unsigned short		chunksize;
 	char			*ftmp=NULL;
 #else
 	double			*ftmp=NULL;
@@ -2372,7 +2372,7 @@ read gauge fileld config stored in binary file
 
 	//load time-slice by time-slice:
 
-	chunksize	 = 4*3*3*sizeof(qcd_complex_16);
+	chunksize	 = 4*3*3*2*sizeof(double);
 	ftmp		 = (char*) malloc(((unsigned int) chunksize*nvh*2));
 
 	if	(ftmp == NULL)

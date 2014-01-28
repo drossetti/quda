@@ -563,6 +563,7 @@ VOLATILE spinorFloat o32_im;
 
 #include "read_gauge.h"
 #include "io_spinor.h"
+#include "read_clover.h"
 #include "tmc_core.h"
 
 int x1, x2, x3, x4;
@@ -2533,7 +2534,31 @@ if (!incomplete)
   APPLY_CLOVER_TWIST_INV(c, cinv, a, o);
 #endif
 
-  o00_re += acc00_re;
+  o00_re = b*o00_re+acc00_re;
+  o00_im = b*o00_im+acc00_im;
+  o01_re = b*o01_re+acc01_re;
+  o01_im = b*o01_im+acc01_im;
+  o02_re = b*o02_re+acc02_re;
+  o02_im = b*o02_im+acc02_im;
+  o10_re = b*o10_re+acc10_re;
+  o10_im = b*o10_im+acc10_im;
+  o11_re = b*o11_re+acc11_re;
+  o11_im = b*o11_im+acc11_im;
+  o12_re = b*o12_re+acc12_re;
+  o12_im = b*o12_im+acc12_im;
+  o20_re = b*o20_re+acc20_re;
+  o20_im = b*o20_im+acc20_im;
+  o21_re = b*o21_re+acc21_re;
+  o21_im = b*o21_im+acc21_im;
+  o22_re = b*o22_re+acc22_re;
+  o22_im = b*o22_im+acc22_im;
+  o30_re = b*o30_re+acc30_re;
+  o30_im = b*o30_im+acc30_im;
+  o31_re = b*o31_re+acc31_re;
+  o31_im = b*o31_im+acc31_im;
+  o32_re = b*o32_re+acc32_re;
+  o32_im = b*o32_im+acc32_im;
+/*  o00_re += acc00_re;
   o00_im += acc00_im;
   o01_re += acc01_re;
   o01_im += acc01_im;
@@ -2556,7 +2581,7 @@ if (!incomplete)
   o31_re += acc31_re;
   o31_im += acc31_im;
   o32_re += acc32_re;
-  o32_im += acc32_im;
+  o32_im += acc32_im;*/
 #else
   APPLY_CLOVER_TWIST(c, a, acc);
   //warning! b is unrelated to the twisted mass parameter in this case!

@@ -103,7 +103,8 @@
 #else             // half-precision fields
 	#define DD_PARAMCLOVER const short4 *clover, const float *cNorm, const short4 *cloverInv, const float *cNrm2
 	#ifdef DIRECT_ACCESS_CLOVER
-		#define CLOVERTEX clover
+		#define TMCLOVERTEX clover
+		#define TM_INV_CLOVERTEX cloverInv
 		#define READ_CLOVER READ_CLOVER_HALF
 		#define ASSN_CLOVER ASSN_CLOVER_HALF
 	#else

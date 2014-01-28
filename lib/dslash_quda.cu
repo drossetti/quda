@@ -104,6 +104,8 @@ namespace quda {
 
   static FaceBuffer *face;
   static cudaColorSpinorField *inSpinor;
+  static FullClover *inClover = NULL;
+  static FullClover *inCloverInv = NULL;
 
   // For tuneLaunch() to uniquely identify a suitable set of launch parameters, we need copies of a few of
   // the constants set by initDslashConstants().
@@ -1383,8 +1385,14 @@ namespace quda {
 	{ pack = true; break; }
 
     // Initialize pack from source spinor
-    PROFILE(face->pack(*inSpinor, 1-parity, dagger, streams, twist_a, twist_b), 
-	    profile, QUDA_PROFILE_PACK_KERNEL);
+
+    if (inCloverInv == NULL) {
+      PROFILE(face->pack(*inSpinor, 1-parity, dagger, streams, twist_a, twist_b), 
+	      profile, QUDA_PROFILE_PACK_KERNEL);
+    } else {
+      PROFILE(face->pack(*inSpinor, *inClover, *inCloverInv, 1-parity, dagger,
+	      streams, twist_a, twist_b), profile, QUDA_PROFILE_PACK_KERNEL);
+    }
 
     if (pack) {
       // Record the end of the packing
@@ -1985,13 +1993,15 @@ namespace quda {
 #endif
   }
 
-  void twistedCloverDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, const FullClover clover, const FullClover cloverInv,
+  void twistedCloverDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, const FullClover *clover, const FullClover *cloverInv,
 			     const cudaColorSpinorField *in, const int parity, const int dagger, 
 			     const cudaColorSpinorField *x, const QudaTwistCloverDslashType type, const double &kappa, const double &mu, 
 			     const double &epsilon, const double &k,  const int *commOverride,
 			     TimeProfile &profile)
   {
     inSpinor = (cudaColorSpinorField*)in; // EVIL
+    inClover = (FullClover*) clover; // EVIL
+    inCloverInv = (FullClover*) cloverInv; // EVIL
   #ifdef GPU_TWISTED_CLOVER_DIRAC
     int Npad = (in->Ncolor()*in->Nspin()*2)/in->FieldOrder(); // SPINOR_HOP in old code
   
@@ -2018,7 +2028,7 @@ namespace quda {
     bindGaugeTex(gauge, parity, &gauge0, &gauge1);
 
     void *cloverP, *cloverNormP, *cloverInvP, *cloverInvNormP;
-    QudaPrecision clover_prec = bindTwistedCloverTex(clover, cloverInv, parity, &cloverP, &cloverNormP, &cloverInvP, &cloverInvNormP);
+    QudaPrecision clover_prec = bindTwistedCloverTex(*clover, *cloverInv, parity, &cloverP, &cloverNormP, &cloverInvP, &cloverInvNormP);
 
     if (in->Precision() != clover_prec)
       errorQuda("Mixing clover and spinor precision not supported");
@@ -2059,7 +2069,7 @@ namespace quda {
 #endif
 
     unbindGaugeTex(gauge);
-    unbindTwistedCloverTex(clover);
+    unbindTwistedCloverTex(*clover);
 
     checkCudaError();
 #else

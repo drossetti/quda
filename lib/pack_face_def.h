@@ -788,6 +788,11 @@ struct PackParam {
   FloatN *in;
   float *inNorm;
 
+  FloatN *clover;
+  FloatN *cloverInv;
+  float *cloverNorm;
+  float *cloverInvNorm;
+
   int threads; // total number of threads
 
   // offsets which determine thread mapping to dimension
@@ -1208,8 +1213,8 @@ __global__ void packTwistedFaceWilsonKernel(Float a, Float b, PackParam<FloatN> 
 #define SPINOR_DOUBLE
 
 	#if (defined DIRECT_ACCESS_CLOVER) || (defined FERMI_NO_DBLE_TEX)
-		#define TMCLOVERTEX clover
-		#define TM_INV_CLOVERTEX cloverInv
+		#define TMCLOVERTEX (param.clover)
+		#define TM_INV_CLOVERTEX (param.cloverInv)
 		#define ASSN_CLOVER PACK_CLOVER_DOUBLE
 	#else
 		#ifdef USE_TEXTURE_OBJECTS
@@ -1269,8 +1274,8 @@ static inline __device__ void packCloverTwistedFaceWilsonCore(double2 *out, floa
 #define WRITE_HALF_SPINOR WRITE_HALF_SPINOR_FLOAT4
 
 	#ifdef DIRECT_ACCESS_CLOVER
-		#define TMCLOVERTEX clover
-		#define TM_INV_CLOVERTEX cloverInv
+		#define TMCLOVERTEX (param.clover)
+		#define TM_INV_CLOVERTEX (param.cloverInv)
 		#define ASSN_CLOVER PACK_CLOVER_SINGLE
 	#else
 		#ifdef USE_TEXTURE_OBJECTS
@@ -1324,8 +1329,10 @@ static inline __device__ void packCloverTwistedFaceWilsonCore(float4 *out, float
 #define WRITE_HALF_SPINOR WRITE_HALF_SPINOR_SHORT4
 
 	#ifdef DIRECT_ACCESS_CLOVER
-		#define TMCLOVERTEX clover
-		#define TM_INV_CLOVERTEX cloverInv
+		#define TMCLOVERTEX (param.clover)
+		#define TMCLOVERTEXNORM (param.cloverNorm)
+		#define TM_INV_CLOVERTEX (param.cloverInv)
+		#define TM_INV_CLOVERTEXNORM (param.cloverInvNorm)
 		#define ASSN_CLOVER PACK_CLOVER_HALF
 	#else
 		#ifdef USE_TEXTURE_OBJECTS
@@ -1438,6 +1445,8 @@ class PackFace : public Tunable {
   protected:
     FloatN *faces;
     const cudaColorSpinorField *in;
+    const FullClover *clov;
+    const FullClover *clovInv;
     const int dagger;
     const int parity;
     const int nFace;
@@ -1473,10 +1482,35 @@ class PackFace : public Tunable {
       param.inNorm = (float*)in->Norm();
       param.parity = parity;
       param.dim = dim;
-      param.parity = parity;
+      if (clov != NULL && clovInv != NULL) {
+        if (param.parity == QUDA_EVEN_PARITY) {
+          param.clover = (FloatN*)clov->even;
+          param.cloverNorm = (float*)clov->evenNorm;
+          param.cloverInv = (FloatN*)clovInv->even;
+          param.cloverInvNorm = (float*)clovInv->evenNorm;
+	} else {
+          param.clover = (FloatN*)clov->odd;
+          param.cloverNorm = (float*)clov->oddNorm;
+          param.cloverInv = (FloatN*)clovInv->odd;
+          param.cloverInvNorm = (float*)clovInv->oddNorm;
+	}	
+      }
 #ifdef USE_TEXTURE_OBJECTS
       param.inTex = in->Tex();
       param.inTexNorm = in->TexNorm();
+      if (clov != NULL && clovInv != NULL) {
+        if (param.parity == QUDA_EVEN_PARITY) {
+          param.cloverTex = clov->evenTex;
+          param.cloverTexNorm = clov->evenTexNorm;
+          param.cloverInvTex = clovInv->evenTex;
+          param.cloverInvTexNorm = clovInv->evenTexNorm;
+	} else {
+          param.cloverTex = clov->oddTex;
+          param.cloverTexNorm = clov->oddTexNorm;
+          param.cloverInvTex = clovInv->oddTex;
+          param.cloverInvTexNorm = clovInv->oddTexNorm;
+	}
+      }
 #endif
 
       param.threads = threads();
@@ -1524,7 +1558,10 @@ class PackFace : public Tunable {
   public:
     PackFace(FloatN *faces, const cudaColorSpinorField *in, 
         const int dagger, const int parity, const int nFace, const int dim=-1, const int face_num=2)
-      : faces(faces), in(in), dagger(dagger), parity(parity), nFace(nFace), dim(dim), face_num(face_num) { }
+      : faces(faces), in(in), clov(NULL), clovInv(NULL), dagger(dagger), parity(parity), nFace(nFace), dim(dim), face_num(face_num) { }
+    PackFace(FloatN *faces, const cudaColorSpinorField *in, const FullClover *clov, const FullClover *clovInv,
+        const int dagger, const int parity, const int nFace, const int dim=-1, const int face_num=2)
+      : faces(faces), in(in), clov(clov), clovInv(clovInv), dagger(dagger), parity(parity), nFace(nFace), dim(dim), face_num(face_num) { }
     virtual ~PackFace() { }
 
     virtual int tuningIter() const { return 100; }
@@ -1563,6 +1600,9 @@ class PackFaceWilson : public PackFace<FloatN, Float> {
     PackFaceWilson(FloatN *faces, const cudaColorSpinorField *in, 
         const int dagger, const int parity)
       : PackFace<FloatN, Float>(faces, in, dagger, parity, 1) { }
+    PackFaceWilson(FloatN *faces, const cudaColorSpinorField *in, 
+        const FullClover *clov, const FullClover *clovInv, const int dagger, const int parity)
+      : PackFace<FloatN, Float>(faces, in, clov, clovInv, dagger, parity, 1) { }
     virtual ~PackFaceWilson() { }
 
     void apply(const cudaStream_t &stream) {
@@ -1665,25 +1705,25 @@ void packTwistedFaceWilson(void *ghost_buf, cudaColorSpinorField &in, const int 
 }
 
 //!
-void packCloverTwistedFaceWilson(void *ghost_buf, cudaColorSpinorField &in, const int dagger, 
-    const int parity, const double a, const cudaStream_t &stream) {
+void packCloverTwistedFaceWilson(void *ghost_buf, cudaColorSpinorField &in, FullClover &clover, FullClover &clovInv,
+    const int dagger, const int parity, const double a, const cudaStream_t &stream) {
 
   switch(in.Precision()) {
     case QUDA_DOUBLE_PRECISION:
       {
-        PackFaceWilson<double2, double> pack((double2*)ghost_buf, &in, dagger, parity);
+        PackFaceWilson<double2, double> pack((double2*)ghost_buf, &in, &clover, &clovInv, dagger, parity);
         pack.apply_twisted_clover((double)a, stream);
       }
       break;
     case QUDA_SINGLE_PRECISION:
       {
-        PackFaceWilson<float4, float> pack((float4*)ghost_buf, &in, dagger, parity);
+        PackFaceWilson<float4, float> pack((float4*)ghost_buf, &in, &clover, &clovInv, dagger, parity);
         pack.apply_twisted_clover((float)a, stream);
       }
       break;
     case QUDA_HALF_PRECISION:
       {
-        PackFaceWilson<short4, float> pack((short4*)ghost_buf, &in, dagger, parity);
+        PackFaceWilson<short4, float> pack((short4*)ghost_buf, &in, &clover, &clovInv, dagger, parity);
         pack.apply_twisted_clover((float)a, stream);
       }
       break;
@@ -2135,6 +2175,31 @@ void packFaceNdegTM(void *ghost_buf, cudaColorSpinorField &in, const int dagger,
   } 
 }
 
+void packFace(void *ghost_buf, cudaColorSpinorField &in, FullClover &clover, FullClover &clovInv,
+    const int nFace, const int dagger, const int parity, 
+     const int dim, const int face_num, const cudaStream_t &stream, 
+    const double a)
+{
+  int nDimPack = 0;
+  if(dim < 0){
+    for (int d=0; d<4; d++) {
+      if(!dslashParam.commDim[d]) continue;
+      if (d != 3 || getKernelPackT() || a != 0.0) nDimPack++;
+    }
+  }else{
+    if(dslashParam.commDim[dim]){
+      if(dim!=3 || getKernelPackT() || a!=0.0) nDimPack++;
+    }
+  }
+  if (!nDimPack) return; // if zero then we have nothing to pack 
+
+  if (nFace != 1 && in.Nspin() != 1) 
+    errorQuda("Unsupported number of faces %d", nFace);
+
+  // Need to update this logic for other multi-src dslash packing
+  packCloverTwistedFaceWilson(ghost_buf, in, clover, clovInv, dagger, parity, a, stream);
+}
+
 void packFace(void *ghost_buf, cudaColorSpinorField &in, const int nFace, 
     const int dagger, const int parity, 
      const int dim, const int face_num, 
@@ -2163,8 +2228,7 @@ void packFace(void *ghost_buf, cudaColorSpinorField &in, const int nFace,
   } else if (a!=0.0 || b!=0.0) {
     // Need to update this logic for other multi-src dslash packing
     if(in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS) {
-//TEST      packTwistedFaceWilson(ghost_buf, in, dagger, parity, a, b, stream);
-      packCloverTwistedFaceWilson(ghost_buf, in, dagger, parity, a, stream);
+      packTwistedFaceWilson(ghost_buf, in, dagger, parity, a, b, stream);
     } else {
       errorQuda("Cannot perform twisted packing for the spinor.");
     }
