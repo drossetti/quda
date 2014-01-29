@@ -148,10 +148,10 @@ void init(int argc, char **argv) {
   gauge_param.reconstruct = link_recon;
   gauge_param.reconstruct_sloppy = link_recon;
   gauge_param.cuda_prec_sloppy = cuda_prec;
+//  gauge_param.cuda_prec_precondition = cuda_prec;
   gauge_param.gauge_fix = QUDA_GAUGE_FIXED_NO;
 
   if (dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
-    inv_param.clover_coeff = 0.001;
     inv_param.mu = 0.5;
     inv_param.epsilon = 0.0; 
     inv_param.twist_flavor = QUDA_TWIST_MINUS;
@@ -173,6 +173,7 @@ void init(int argc, char **argv) {
     errorQuda("Gauge and spinor CPU precisions must match");
   }
   inv_param.cuda_prec = cuda_prec;
+  inv_param.cuda_prec_precondition = cuda_prec;
 
   inv_param.input_location = QUDA_CPU_FIELD_LOCATION;
   inv_param.output_location = QUDA_CPU_FIELD_LOCATION;
@@ -196,7 +197,6 @@ void init(int argc, char **argv) {
   //inv_param.cl_pad = 24*24*24;
 
   inv_param.gamma_basis = QUDA_DEGRAND_ROSSI_GAMMA_BASIS; // test code only supports DeGrand-Rossi Basis
-//  inv_param.gamma_basis = QUDA_UKQCD_GAMMA_BASIS; // test code only supports DeGrand-Rossi Basis
   inv_param.dirac_order = QUDA_DIRAC_ORDER;
 
   switch(test_type) {
@@ -303,10 +303,9 @@ void init(int argc, char **argv) {
     construct_gauge_field(hostGauge, 0, gauge_param.cpu_prec, &gauge_param);
 }
 
-  inv_param.kappa = 1.0;
+  inv_param.kappa = 2.0;
 //  spinor->Source(QUDA_RANDOM_SOURCE);
 
-//  FILE *Caca = fopen("/home/avaquero/src/tmLQCD-master/SpinorTm.In", "r+");
   FILE *Caca = fopen("SpinorTm.In", "r+");
 
   int		Cx,Cy,Cz,Ct,Cidx,colIdx,diracIdx;
@@ -329,10 +328,12 @@ void init(int argc, char **argv) {
 	Cidx	= (Cx + Cy*xdim + Cz*xdim*ydim + Ct*xdim*ydim*zdim)/2;
 
 	if	(oddbit)
+	{
  		if (test_type < 2 || test_type ==3)
 			continue;
 		else
 			Cidx += V/2;
+	}
 
 	unsigned long indexRe = ((Cidx*spinor->Nspin()+diracIdx)*spinor->Ncolor()+colIdx)*2;
 	unsigned long indexIm = ((Cidx*spinor->Nspin()+diracIdx)*spinor->Ncolor()+colIdx)*2 + 1;

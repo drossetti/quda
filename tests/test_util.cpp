@@ -31,7 +31,6 @@ extern "C"
 	#include <lime.h>
 }
 
-//#include <qcd.h>
 #ifdef MPI_COMMS
 #define MPI_READCONF
 #endif
