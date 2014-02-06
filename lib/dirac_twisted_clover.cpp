@@ -195,8 +195,8 @@ namespace quda {
     FullClover cI(cloverInv, false);
 
     if (in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS){
-      double a = -2.0 * kappa * in.TwistFlavor() * mu;  //for invert twist (not daggered)
-      double b = 1.;                     //for invert twist
+      double a = 2.0 * kappa * in.TwistFlavor() * mu;  //for invert twist (not daggered)
+      double b = 1.;// / (1.0 + a*a);                     //for invert twist 
       if (!dagger || matpcType == QUDA_MATPC_EVEN_EVEN_ASYMMETRIC || matpcType == QUDA_MATPC_ODD_ODD_ASYMMETRIC) {
 	twistedCloverDslashCuda(&out, gauge, &cs, &cI, &in, parity, dagger, 0, QUDA_DEG_DSLASH_CLOVER_TWIST_INV, a, b, 0.0, 0.0, commDim, profile);
 	flops += 1392ll*in.Volume();
@@ -227,8 +227,9 @@ namespace quda {
     FullClover cI(cloverInv, false);
 
     if(in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS){
-      double a = -2.0 * kappa * in.TwistFlavor() * mu;  //for invert twist
-      double b = k / (1.0 + a*a);                     //for invert twist 
+      double a = 2.0 * kappa * in.TwistFlavor() * mu;  //for invert twist
+//      double b = k / (1.0 + a*a);                     //for invert twist	NO HABRÍA QUE APLICAR CLOVER_TWIST_INV???
+      double b = k;                     //for invert twist	NO HABRÍA QUE APLICAR CLOVER_TWIST_INV???
       if (!dagger) {
         twistedCloverDslashCuda(&out, gauge, &cs, &cI, &in, parity, dagger, &x, QUDA_DEG_DSLASH_CLOVER_TWIST_INV, a, b, 0.0, 0.0, commDim, profile);
         flops += 1416ll*in.Volume();
@@ -254,6 +255,11 @@ namespace quda {
       if (matpcType == QUDA_MATPC_EVEN_EVEN) {
 	  Dslash(*tmp1, in, QUDA_ODD_PARITY);
 	  DslashXpay(out, *tmp1, QUDA_EVEN_PARITY, in, kappa2); 
+
+//	  Dslash(out, in, QUDA_ODD_PARITY);
+//	tmp1->zero();
+//	  DslashXpay(out, in, QUDA_EVEN_PARITY, in, kappa2); 
+
       } else if (matpcType == QUDA_MATPC_ODD_ODD) {
 	  Dslash(*tmp1, in, QUDA_EVEN_PARITY);
 	  DslashXpay(out, *tmp1, QUDA_ODD_PARITY, in, kappa2); 

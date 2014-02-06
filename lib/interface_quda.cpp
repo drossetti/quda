@@ -627,7 +627,7 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     cpuParam.create = QUDA_REFERENCE_FIELD_CREATE;
     cpuParam.siteSubset = QUDA_FULL_SITE_SUBSET;
     cpuParam.twisted = false;
-    cpuParam.mu2 = 0.0;
+    cpuParam.mu2 = 0.;
 
     if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
       cpuParam.direct = true;
@@ -639,7 +639,7 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
 
       cpuParam.clover = NULL;
       cpuParam.twisted = true;
-      cpuParam.mu2 = 0.0;	//FIXME
+      cpuParam.mu2 = 4.*inv_param->kappa*inv_param->kappa*inv_param->mu*inv_param->mu;
       cpuParam.cloverInv = h_clovinv;
 
       inInv = (inv_param->clover_location == QUDA_CPU_FIELD_LOCATION) ?
@@ -662,8 +662,10 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
 
     if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
       clover_param.direct = true;
-      clover_param.inverse = true;
+      clover_param.inverse = false;
       cloverPrecise = new cudaCloverField(clover_param);
+      clover_param.direct = false;
+      clover_param.inverse = true;
       clover_param.twisted = true;
       cloverInvPrecise = new cudaCloverField(clover_param);
       clover_param.twisted = false;
@@ -723,11 +725,13 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     clover_param.setPrecision(inv_param->clover_cuda_prec_sloppy);
 
     if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
-      clover_param.direct = true;
+      clover_param.direct = false;
       clover_param.inverse = true;
       clover_param.twisted = true;
       cloverInvSloppy = new cudaCloverField(clover_param); 
-      cloverInvSloppy->copy(*cloverInvPrecise);
+      cloverInvSloppy->copy(*cloverInvPrecise, true);
+      clover_param.direct = true;
+      clover_param.inverse = false;
       clover_param.twisted = false;
       cloverSloppy = new cudaCloverField(clover_param); 
       cloverSloppy->copy(*cloverPrecise);
@@ -750,12 +754,16 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     profileClover.Start(QUDA_PROFILE_INIT);
     clover_param.setPrecision(inv_param->clover_cuda_prec_precondition);
     if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
+      clover_param.direct = true;
+      clover_param.inverse = false;
+      clover_param.twisted = false;
       cloverPrecondition = new cudaCloverField(clover_param); 
       cloverPrecondition->copy(*cloverSloppy);
+      clover_param.direct = false;
+      clover_param.inverse = true;
       clover_param.twisted = true;
       cloverInvPrecondition = new cudaCloverField(clover_param); 
-      cloverInvPrecondition->copy(*cloverInvSloppy);
-      clover_param.twisted = false;
+      cloverInvPrecondition->copy(*cloverInvSloppy, true);
       inv_param->cloverGiB += cloverPrecondition->GBytes() + cloverInvPrecondition->GBytes();
     } else {
       cloverPrecondition = new cudaCloverField(clover_param);
@@ -3222,7 +3230,7 @@ void createCloverQuda(QudaInvertParam* invertParam)
       cloverParam.inverse = true;
       cloverParam.direct = false;
       cloverParam.twisted = true;
-      cloverParam.mu2 = 0.;
+      cloverParam.mu2 = 4.*invertParam->kappa*invertParam->kappa*invertParam->mu*invertParam->mu;
       cloverInvPrecise = new cudaCloverField(cloverParam);	//FIXME Only with tmClover
     } else {
       cloverPrecise = new cudaCloverField(cloverParam);
@@ -3286,10 +3294,8 @@ void createCloverQuda(QudaInvertParam* invertParam)
   computeClover(*cloverPrecise, *cudaGaugeExtended, invertParam->clover_coeff, QUDA_CUDA_FIELD_LOCATION);
 
   if (invertParam->dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
-  {
-    printfQuda	("\n\n\n\nComputing inverse clover term...\n\n\n\n");
     computeClover(*cloverInvPrecise, *cudaGaugeExtended, invertParam->clover_coeff, QUDA_CUDA_FIELD_LOCATION);	//FIXME Only with tmClover
-  }
+
   profileCloverCreate.Stop(QUDA_PROFILE_COMPUTE);
 
   profileCloverCreate.Stop(QUDA_PROFILE_TOTAL);

@@ -224,7 +224,7 @@ void init(int argc, char **argv) {
   inv_param.dslash_type = dslash_type;
 
   if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
-    inv_param.clover_coeff = 0.001;
+    inv_param.clover_coeff = 0.2;//0.000000000000000000000000001;
     inv_param.clover_cpu_prec = cpu_prec;
     inv_param.clover_cuda_prec = cuda_prec;
     inv_param.clover_cuda_prec_sloppy = inv_param.clover_cuda_prec;
@@ -340,7 +340,7 @@ void init(int argc, char **argv) {
 	double *inputRe = ((double*)(spinor->V()) + indexRe);
 	double *inputIm = ((double*)(spinor->V()) + indexIm);
 
-	double	phase	= (((double) (Ct+myRank*tdim))/(tdim*comm_dim(3)))*M_PI;
+	double	phase	= (((double) (Ct + myRank*tdim))/(tdim*comm_dim(3)))*M_PI;
 
 	*inputRe = cos(phase)*reP - sin(phase)*imP;
 	*inputIm = cos(phase)*imP + sin(phase)*reP;
@@ -682,7 +682,7 @@ void	dumpSpinor	(cpuColorSpinorField *out, const char *end, const double factor)
 	FILE	*output;
 	char	 name[256];
 	void	*spinorData, *spinorOrder;
-	int	myRank;
+	int	myRank, totalTdim;
 
 	myRank	= comm_rank();
 
@@ -700,6 +700,8 @@ void	dumpSpinor	(cpuColorSpinorField *out, const char *end, const double factor)
 
 	reOrder	((double*)spinorData, (double*)spinorOrder, 24);
 
+	totalTdim	= comm_dim(3)*tdim;
+
 	for	(int j=0; j<V; j++)
 	{
 		int	tC	= j/(xdim*ydim*zdim);
@@ -707,10 +709,7 @@ void	dumpSpinor	(cpuColorSpinorField *out, const char *end, const double factor)
 		int	yC	= (j - xdim*ydim*(zdim*tC + zC))/xdim;
 		int	xC	= (j - xdim*(ydim*(zdim*tC + zC) + yC));
 
-		double	phase	= ((double) tC)/tdim*M_PI;
-
-		if	(tC/tdim != myRank)
-			continue;
+		double	phase	= (((double) (tC + myRank*tdim))/totalTdim)*M_PI;
 
 		for(int dirac=0; dirac<4; dirac++)
 			for(int col=0; col<3; col++)
@@ -743,7 +742,7 @@ void	dumpContract	(cpuColorSpinorField *out, const char *end, double factor)
 	FILE	*output;
 	char	 name[256];
 	void	*spinorData, *spinorOrder;
-	int	myRank;
+	int	myRank, totalTdim;
 
 	myRank	= comm_rank();
 
@@ -761,6 +760,8 @@ void	dumpContract	(cpuColorSpinorField *out, const char *end, double factor)
 
 	reOrder	((double*)spinorData, (double*)spinorOrder, 24);
 
+	totalTdim	= comm_dim(3)*tdim;
+
 	for	(int j=0; j<V; j++)
 	{
 		int	tC	= j/(xdim*ydim*zdim);
@@ -768,10 +769,7 @@ void	dumpContract	(cpuColorSpinorField *out, const char *end, double factor)
 		int	yC	= (j - xdim*ydim*(zdim*tC + zC))/xdim;
 		int	xC	= (j - xdim*(ydim*(zdim*tC + zC) + yC));
 
-		if	(tC/tdim != myRank)
-			continue;
-
-		double	phase	= ((double) tC)/tdim*M_PI;
+		double	phase	= (((double) (tC + myRank*tdim))/totalTdim)*M_PI;
 
 		for(int col=0; col<3; col++)
 		{
@@ -826,7 +824,7 @@ void	dumpVolume	(cpuColorSpinorField *out, const char *end, double factor)
 	char	 name[256];
 	void	*spinorData, *spinorOrder;
 	double	*outCont;
-	int	myRank;
+	int	myRank, totalTdim;
 
 	myRank	= comm_rank();
 
@@ -853,6 +851,8 @@ void	dumpVolume	(cpuColorSpinorField *out, const char *end, double factor)
 	for	(int t=0; t<tdim; t++)
 		outCont[t]	= 0.;
 
+	totalTdim	= comm_dim(3)*tdim;
+
 	for	(int j=0; j<V; j++)
 	{
 		int	tC	= j/(xdim*ydim*zdim);
@@ -860,10 +860,7 @@ void	dumpVolume	(cpuColorSpinorField *out, const char *end, double factor)
 		int	yC	= (j - xdim*ydim*(zdim*tC + zC))/xdim;
 		int	xC	= (j - xdim*(ydim*(zdim*tC + zC) + yC));
 
-		if	(tC/tdim != myRank)
-			continue;
-
-		double	phase	= ((double) tC)/tdim*M_PI;
+		double	phase	= (((double) (tC + myRank*tdim))/totalTdim)*M_PI;
 
 		double	rC	= 0.;
 

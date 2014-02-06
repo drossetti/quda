@@ -2043,6 +2043,7 @@ namespace quda {
 #if (__COMPUTE_CAPABILITY__ >= 130)
       dslash = new TwistedCloverDslashCuda<double2,double2,double2>(out, (double2*)gauge0,(double2*)gauge1, gauge.Reconstruct(), (double2*)cloverP, (float*)cloverNormP,
 						     (double2*)cloverInvP, (float*)cloverInvNormP, in, x, type, kappa, mu, epsilon, k, dagger);
+
       regSize = sizeof(double);
 #else
       errorQuda("Double precision not supported on this GPU");
@@ -2555,9 +2556,10 @@ namespace quda {
       cNrm2 = cN2;
 
       if((in->TwistFlavor() == QUDA_TWIST_PLUS) || (in->TwistFlavor() == QUDA_TWIST_MINUS))
-        setTwistParam(a, b, kappa, mu, dagger, tw);
+//        setTwistParam(a, b, kappa, mu, dagger, tw);
+	  a = 2.*kappa*mu;
       else{//twist doublet
-        errorQuda("ERROR: Non-degenerated tiwted-mass not supported in this regularization\n");
+        errorQuda("ERROR: Non-degenerated twisted-mass not supported in this regularization\n");
       } 
     }
     virtual ~TwistCloverGamma5Cuda() {
