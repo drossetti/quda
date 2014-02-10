@@ -20,7 +20,8 @@ QUDA_OBJS = gauge_phase.o timer.o malloc.o solver.o			\
 	extract_gauge_ghost_extended.o copy_color_spinor.o		\
 	copy_gauge.o copy_clover.o staggered_oprod.o			\
 	clover_trace_quda.o ks_force_quda.o hisq_paths_force_quda.o	\
-	unitarize_force_quda.o unitarize_links_quda.o
+	unitarize_force_quda.o unitarize_links_quda.o			\
+	milc_interface.o
 
 # header files, found in include/
 QUDA_HDRS = blas_quda.h clover_field.h color_spinor_field.h convert.h	\
@@ -124,6 +125,9 @@ cuda_color_spinor_field.o: cuda_color_spinor_field.cu $(HDRS) $(CSF_INLN)
 	$(NVCC) $(NVCCFLAGS) $< -c -o $@
 
 dslash_quda.o: dslash_quda.cu $(HDRS) $(DSLASH_INLN) $(CORE)
+	$(NVCC) $(NVCCFLAGS) $< -c -o $@
+
+milc_interface.o: milc_interface.cpp $(HDRS) $(CORE)
 	$(NVCC) $(NVCCFLAGS) $< -c -o $@
 
 %.o: %.cpp $(HDRS)

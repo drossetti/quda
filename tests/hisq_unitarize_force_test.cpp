@@ -99,9 +99,9 @@ hisq_force_init()
   gParam.ghostExchange = QUDA_GHOST_EXCHANGE_NO;
   gParam.anisotropy = 1;
   
-  cpuFatLink = new cpuGaugeField(gParam);
-  cpuOprod   = new cpuGaugeField(gParam);
-  cpuResult  = new cpuGaugeField(gParam); 
+  cpuFatLink   = new cpuGaugeField(gParam);
+  cpuOprod     = new cpuGaugeField(gParam);
+  cpuResult    = new cpuGaugeField(gParam); 
   cpuReference = new cpuGaugeField(gParam);
  
   // create "gauge fields"

@@ -348,7 +348,6 @@ hisq_force_init()
   gParam_ex.reconstruct = link_recon;
   //gParam_ex.pad = E1*E2*E3/2;
   gParam_ex.pad = 0;
-  gParam_ex.ghostInit = false;
   gParam_ex.order = QUDA_FLOAT2_GAUGE_ORDER;
   cudaGauge_ex = new cudaGaugeField(gParam_ex);
   qudaGaugeParam.site_ga_pad = gParam_ex.pad;
@@ -369,17 +368,10 @@ hisq_force_init()
   gParam_ex.pad = 0;
   gParam_ex.reconstruct = QUDA_RECONSTRUCT_NO;
   gParam_ex.create = QUDA_ZERO_FIELD_CREATE;
-<<<<<<< HEAD
-  gParam_ex.order = QUDA_QDP_GAUGE_ORDER;
-  cpuForce_ex = new cpuGaugeField(gParam_ex); 
-  
-  gParam_ex.order = QUDA_FLOAT2_GAUGE_ORDER;
-=======
   gParam_ex.order = gauge_order;
   cpuForce_ex = new cpuGaugeField(gParam_ex); 
  
   gParam_ex.order = QUDA_FLOAT2_GAUGE_ORDER; 
->>>>>>> origin/tifr-redux
   gParam_ex.reconstruct = QUDA_RECONSTRUCT_NO;
   cudaForce_ex = new cudaGaugeField(gParam_ex); 
 #else
@@ -484,10 +476,7 @@ hisq_force_init()
   cudaOprod_ex = new cudaGaugeField(gParam_ex);
   gParam_ex.order = gauge_order;
 #else
-<<<<<<< HEAD
-=======
 
->>>>>>> origin/tifr-redux
   gParam.order = QUDA_FLOAT2_GAUGE_ORDER;
   cudaOprod = new cudaGaugeField(gParam);
   cudaLongLinkOprod = new cudaGaugeField(gParam);

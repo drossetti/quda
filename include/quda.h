@@ -14,7 +14,7 @@
 #include <stdio.h> /* for FILE */
 
 #define QUDA_VERSION_MAJOR     0
-#define QUDA_VERSION_MINOR     5
+#define QUDA_VERSION_MINOR     6
 #define QUDA_VERSION_SUBMINOR  0
 
 /**
@@ -515,7 +515,7 @@ extern "C" {
    * @param timeinfo
    */
   int computeGaugeForceQuda(void* mom, void* sitelink,  int*** input_path_buf, int* path_length,
-      void* loop_coeff, int num_paths, int max_length, double dt,
+      double* loop_coeff, int num_paths, int max_length, double dt,
       QudaGaugeParam* qudaGaugeParam, double* timeinfo);
 
   /**
@@ -604,7 +604,7 @@ extern "C" {
    * @param param.          The field parameters.
    */
 
-  void computeHISQForce(void* momentum,
+  void computeHISQForceQuda(void* momentum,
     const double level2_coeff[6],
     const double fat7_coeff[6],
     const void* const staple_src[4],
