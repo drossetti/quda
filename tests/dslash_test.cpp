@@ -230,8 +230,8 @@ void init(int argc, char **argv) {
     inv_param.clover_cuda_prec_sloppy = inv_param.clover_cuda_prec;
     inv_param.clover_order = QUDA_FLOAT2_CLOVER_ORDER;
     //if (test_type > 0) {
-//      hostClover = malloc(V*cloverSiteSize*inv_param.clover_cpu_prec);
-//      hostCloverInv = malloc(V*cloverSiteSize*inv_param.clover_cpu_prec);
+      hostClover = malloc(V*cloverSiteSize*inv_param.clover_cpu_prec);
+      hostCloverInv = malloc(V*cloverSiteSize*inv_param.clover_cpu_prec);
 //      hostCloverInv = hostClover; // fake it
       /*} else {
       hostClover = NULL;
@@ -303,7 +303,7 @@ void init(int argc, char **argv) {
     construct_gauge_field(hostGauge, 0, gauge_param.cpu_prec, &gauge_param);
 }
 
-  inv_param.kappa = 2.0;
+  inv_param.kappa = 1.0;
 //  spinor->Source(QUDA_RANDOM_SOURCE);
 
   FILE *Caca = fopen("SpinorTm.In", "r+");
@@ -352,15 +352,15 @@ void init(int argc, char **argv) {
 //  spinor->Source(QUDA_RANDOM_SOURCE);
 
 /*	FIN MIERDAS DE ALEX	*/
-/*
+
   if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
     double norm = 0.0; // clover components are random numbers in the range (-norm, norm)
     double diag = 1.0; // constant added to the diagonal
 
     if (dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
-	diag = 1.0; // constant added to the diagonal
+	diag = 2.0; // constant added to the diagonal
         construct_clover_field(hostClover, norm, diag, inv_param.clover_cpu_prec);
-	diag = 1.0; // constant added to the diagonal
+	diag = 0.5; // constant added to the diagonal
         construct_clover_field(hostCloverInv, norm, diag, inv_param.clover_cpu_prec);
      } else {
       if (test_type == 2 || test_type == 4) {
@@ -371,13 +371,14 @@ void init(int argc, char **argv) {
     }
   }
   printfQuda("done.\n"); fflush(stdout);
-  */
+ 
   initQuda(device);
 
   printfQuda("Sending gauge field to GPU\n");
   loadGaugeQuda(hostGauge, &gauge_param);
 
   if (dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
+ //   loadCloverQuda(NULL, NULL, &inv_param);
     loadCloverQuda(NULL, NULL, &inv_param);
   }
 
@@ -440,19 +441,15 @@ void end() {
   }
 
   // release memory
-//printf("FEOTON %p\n", spinor);
-
-//  if (comm_rank() == 0)
-	  delete spinor;
-
+  delete spinor;
   delete spinorOut;
   delete spinorRef;
   delete spinorTmp;
 
   for (int dir = 0; dir < 4; dir++) free(hostGauge[dir]);
   if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
-//    if (hostClover != hostCloverInv && hostClover) free(hostClover);
-//    free(hostCloverInv);
+    if (hostClover != hostCloverInv && hostClover) free(hostClover);
+    free(hostCloverInv);
   }
   endQuda();
 

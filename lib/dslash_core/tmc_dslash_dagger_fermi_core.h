@@ -564,6 +564,7 @@ VOLATILE spinorFloat o32_im;
 
 #include "read_gauge.h"
 #include "io_spinor.h"
+#include "read_clover.h"
 #include "tmc_core.h"
 
 int x1, x2, x3, x4;
@@ -2017,7 +2018,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4<X4m1)) ||
       b0_re = 2*i10_re;  b0_im = 2*i10_im;
       b1_re = 2*i11_re;  b1_im = 2*i11_im;
       b2_re = 2*i12_re;  b2_im = 2*i12_im;
-#endif 
+#endif
       
     }
 #endif // MULTI_GPU

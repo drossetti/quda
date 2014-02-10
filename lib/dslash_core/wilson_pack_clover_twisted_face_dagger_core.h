@@ -405,9 +405,9 @@
 #define cinv31_32_im cinv11_12_im
 #define cinv32_32_re cinv12_12_re
 
+#include "io_spinor.h"
 #include "read_clover.h"
 #include "tmc_core.h"
-#include "io_spinor.h"
 
 if (face_num) {
   

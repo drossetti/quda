@@ -631,14 +631,16 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
 
     if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
       cpuParam.direct = true;
-      cpuParam.inverse = true;
+      cpuParam.inverse = false;
       cpuParam.cloverInv = NULL;
       in = (inv_param->clover_location == QUDA_CPU_FIELD_LOCATION) ?
         static_cast<CloverField*>(new cpuCloverField(cpuParam)) : 
         static_cast<CloverField*>(new cudaCloverField(cpuParam));
 
-      cpuParam.clover = NULL;
+      cpuParam.clover = h_clover;
       cpuParam.twisted = true;
+      cpuParam.direct = false;
+      cpuParam.inverse = true;
       cpuParam.mu2 = 4.*inv_param->kappa*inv_param->kappa*inv_param->mu*inv_param->mu;
       cpuParam.cloverInv = h_clovinv;
 
