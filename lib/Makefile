@@ -1,20 +1,27 @@
 include ../make.inc
 
 QUDA = libquda.a
-QUDA_OBJS = timer.o malloc.o solver.o inv_bicgstab_quda.o		\
-	inv_cg_quda.o inv_multi_cg_quda.o inv_gcr_quda.o		\
-	inv_mr_quda.o inv_mre.o interface_quda.o util_quda.o		\
-	color_spinor_field.o color_spinor_util.o copy_color_spinor.o	\
+QUDA_OBJS = gauge_phase.o timer.o malloc.o solver.o			\
+	inv_bicgstab_quda.o inv_cg_quda.o inv_multi_cg_quda.o		\
+	inv_gcr_quda.o inv_mr_quda.o inv_mre.o interface_quda.o		\
+	util_quda.o color_spinor_field.o color_spinor_util.o		\
 	cpu_color_spinor_field.o cuda_color_spinor_field.o dirac.o	\
-	hw_quda.o blas_cpu.o clover_field.o copy_clover.o		\
-	lattice_field.o gauge_field.o cpu_gauge_field.o			\
-	cuda_gauge_field.o copy_gauge.o extract_gauge_ghost.o		\
-	max_gauge.o gauge_update_quda.o dirac_clover.o			\
-	dirac_wilson.o dirac_staggered.o dirac_domain_wall.o		\
+	hw_quda.o blas_cpu.o clover_field.o lattice_field.o		\
+	gauge_field.o cpu_gauge_field.o cuda_gauge_field.o		\
+	extract_gauge_ghost.o max_gauge.o gauge_update_quda.o		\
+	dirac_clover.o dirac_wilson.o dirac_staggered.o			\
+	dirac_improved_staggered.o dirac_domain_wall.o			\
+	dirac_twisted_clover.o						\
 	dirac_twisted_mass.o tune.o fat_force_quda.o llfat_quda_itf.o	\
 	clover_quda.o dslash_quda.o blas_quda.o copy_quda.o		\
 	reduce_quda.o face_buffer.o face_gauge.o comm_common.o		\
-	${COMM_OBJS} ${NUMA_AFFINITY_OBJS}
+	${COMM_OBJS} ${NUMA_AFFINITY_OBJS} clover_deriv_quda.o		\
+	clover_invert.o copy_gauge_extended.o				\
+	extract_gauge_ghost_extended.o copy_color_spinor.o		\
+	copy_gauge.o copy_clover.o staggered_oprod.o			\
+	clover_trace_quda.o ks_force_quda.o hisq_paths_force_quda.o	\
+	unitarize_force_quda.o unitarize_links_quda.o			\
+	milc_interface.o
 
 # header files, found in include/
 QUDA_HDRS = blas_quda.h clover_field.h color_spinor_field.h convert.h	\
@@ -24,7 +31,8 @@ QUDA_HDRS = blas_quda.h clover_field.h color_spinor_field.h convert.h	\
 	face_quda.h tune_quda.h comm_quda.h lattice_field.h		\
 	gauge_field.h double_single.h texture.h	\
 	numa_affinity.h misc_helpers.h fermion_force_quda.h malloc_quda.h\
-	gauge_field_order.h clover_field_order.h color_spinor_field_order.h
+	gauge_field_order.h clover_field_order.h color_spinor_field_order.h \
+	staggered_oprod.h
 
 # These are only inlined into blas_quda.cu
 BLAS_INLN = blas_core.h 
@@ -40,11 +48,11 @@ DSLASH_INLN = clover_def.h dslash_constants.h dslash_textures.h		\
 	io_spinor.h staggered_dslash_def.h wilson_dslash_def.h		\
 	dw_dslash_def.h tm_dslash_def.h tm_ndeg_dslash_def.h		\
 	pack_face_def.h hisq_force_macros.h llfat_quda.cu		\
-	unitarize_links_quda.cu fermion_force_quda.cu			\
-	gauge_force_quda.cu hisq_paths_force_quda.cu			\
-	unitarize_force_quda.cu gauge_force_core.h			\
-	hisq_paths_force_core.h llfat_core.h svd_quda.h read_clover.h	\
-	read_gauge.h misc_helpers.cu
+	fermion_force_quda.cu			\
+	gauge_force_quda.cu 						\
+	gauge_force_core.h			                        \
+	llfat_core.h svd_quda.h read_clover.h				\
+	read_gauge.h misc_helpers.cu tmc_dslash_def.h
 
 
 # files containing complex macros and other code fragments to be inlined,
@@ -57,10 +65,13 @@ QUDA_CORE = clover_core.h staggered_dslash_core.h			\
 	dw_dslash_dagger_core.h dw_dslash_core.h 			\
 	wilson_dslash_fermi_core.h wilson_dslash_dagger_fermi_core.h 	\
 	tm_dslash_fermi_core.h tm_dslash_dagger_fermi_core.h		\
+	tmc_dslash_fermi_core.h tmc_dslash_dagger_fermi_core.h		\
 	wilson_dslash_gt200_core.h wilson_dslash_dagger_gt200_core.h 	\
 	tm_dslash_gt200_core.h tm_dslash_dagger_gt200_core.h		\
+	tmc_dslash_gt200_core.h tmc_dslash_dagger_gt200_core.h		\
 	wilson_dslash_g80_core.h wilson_dslash_dagger_g80_core.h 	\
 	tm_dslash_g80_core.h tm_dslash_dagger_g80_core.h		\
+	tmc_dslash_g80_core.h tmc_dslash_dagger_g80_core.h		\
 	wilson_pack_face_core.h wilson_pack_face_dagger_core.h		\
 	tm_ndeg_dslash_core.h tm_ndeg_dslash_dagger_core.h	
 
@@ -95,6 +106,8 @@ gen:
 	$(PYTHON) generate/dw_dslash_cuda_gen.py
 	$(PYTHON) generate/ndeg_tm_dslash_cuda_gen.py
 	$(PYTHON) generate/deg_tm_dslash_cuda_gen.py
+	$(PYTHON) generate/deg_tmc_dslash_cuda_gen.py
+	$(PYTHON) generate/gen_tmc.py
 
 clean:
 	-rm -f *.o $(QUDA)
@@ -112,6 +125,9 @@ cuda_color_spinor_field.o: cuda_color_spinor_field.cu $(HDRS) $(CSF_INLN)
 	$(NVCC) $(NVCCFLAGS) $< -c -o $@
 
 dslash_quda.o: dslash_quda.cu $(HDRS) $(DSLASH_INLN) $(CORE)
+	$(NVCC) $(NVCCFLAGS) $< -c -o $@
+
+milc_interface.o: milc_interface.cpp $(HDRS) $(CORE)
 	$(NVCC) $(NVCCFLAGS) $< -c -o $@
 
 %.o: %.cpp $(HDRS)

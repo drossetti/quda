@@ -6,16 +6,18 @@ namespace quda {
     Order order;
     const unsigned char nFace;
     unsigned short X[nDim];
+    unsigned short surfaceCB[nDim];
     unsigned short A[nDim];
     unsigned short B[nDim];
     unsigned short C[nDim];
     int f[nDim][nDim];
     bool localParity[nDim];
-    ExtractGhostArg(const Order &order, int nFace, const int *X_, const int *A_,
+    ExtractGhostArg(const Order &order, int nFace, const int *X_, const int *surfaceCB_, const int *A_,
 		    const int *B_, const int *C_, const int f_[nDim][nDim], const int *localParity_) 
   : order(order), nFace(nFace) { 
       for (int d=0; d<nDim; d++) {
 	X[d] = X_[d];
+	surfaceCB[d] = surfaceCB_[d];
 	A[d] = A_[d];
 	B[d] = B_[d];
 	C[d] = C_[d];
@@ -126,9 +128,8 @@ namespace quda {
     ExtractGhost(ExtractGhostArg<Order,nDim> &arg) : arg(arg) { 
       int faceMax = 0;
       for (int d=0; d<nDim; d++) 
-	faceMax = (arg.order.faceVolumeCB[d] > faceMax ) 
-	  ? arg.order.faceVolumeCB[d] : faceMax;
-      size = 2 * faceMax; // factor of comes from parity
+	faceMax = (arg.surfaceCB[d] > faceMax ) ? arg.surfaceCB[d] : faceMax;
+      size = 2 * arg.nFace * faceMax; // factor 2 of comes from parity
     }
     virtual ~ExtractGhost() { ; }
   
@@ -190,9 +191,11 @@ namespace quda {
     //only switch if X[dir] is odd and the gridsize in that dimension is greater than 1
     // FIXME - I don't understand this, shouldn't it be commDim(dim) == 0 ?
     int localParity[nDim];
-    for (int dim=0; dim<nDim; dim++) localParity[dim] = (X[dim]%2==0 || commDim(dim)) ? 0 : 1;
+    for (int dim=0; dim<nDim; dim++) 
+      //localParity[dim] = (X[dim]%2==0 || commDim(dim)) ? 0 : 1;
+      localParity[dim] = ((X[dim] % 2 ==1) && (commDim(dim) > 1)) ? 1 : 0;
 
-    ExtractGhostArg<Order, nDim> arg(order, nFace, X, A, B, C, f, localParity);
+    ExtractGhostArg<Order, nDim> arg(order, nFace, X, surfaceCB, A, B, C, f, localParity);
     if (location==QUDA_CPU_FIELD_LOCATION) {
       extractGhost<Float,length,nDim,Order>(arg);
     } else {
@@ -298,6 +301,15 @@ namespace quda {
 				 u.Nface(), u.SurfaceCB(), u.X(), location);
 #else
       errorQuda("BQCD interface has not been built\n");
+#endif
+
+    } else if (u.Order() == QUDA_TIFR_GAUGE_ORDER) {
+
+#ifdef BUILD_TIFR_INTERFACE
+      extractGhost<Float,length>(TIFROrder<Float,length>(u, 0, Ghost),
+				 u.Nface(), u.SurfaceCB(), u.X(), location);
+#else
+      errorQuda("TIFR interface has not been built\n");
 #endif
 
     } else {

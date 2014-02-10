@@ -3,11 +3,13 @@ include ../make.inc
 QUDA = ../lib/libquda.a
 
 INC += -I../include -I. 
+INC += -I$(HOME)/src/qcd/include -I$(HOME)/src/lime-1.3.2/include -I$(HOME)/src/gsl-1.15
+LIB += -lcufft -lgsl -lgslcblas -lqcd -llime -L$(HOME)/src/qcd/lib -L$(HOME)/src/lime-1.3.2/lib -L$(HOME)/src/gsl-1.15
 
 HDRS = blas_reference.h wilson_dslash_reference.h staggered_dslash_reference.h    \
 	domain_wall_dslash_reference.h test_util.h dslash_util.h
 
-TESTS = su3_test pack_test blas_test dslash_test invert_test	\
+TESTS = dslash_test su3_test pack_test blas_test dslash_test invert_test	\
 	$(DIRAC_TEST) $(STAGGERED_DIRAC_TEST) $(FATLINK_TEST)	\
 	$(GAUGE_FORCE_TEST) $(FERMION_FORCE_TEST)		\
 	$(UNITARIZE_LINK_TEST) $(HISQ_PATHS_FORCE_TEST)		\

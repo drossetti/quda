@@ -84,6 +84,8 @@ namespace quda {
     cudaTextureObject_t longPhase1Tex;
     cudaTextureObject_t cloverTex;
     cudaTextureObject_t cloverNormTex;
+    cudaTextureObject_t cloverInvTex;
+    cudaTextureObject_t cloverInvNormTex;
 #endif
   };
 
@@ -102,6 +104,8 @@ namespace quda {
 
   static FaceBuffer *face;
   static cudaColorSpinorField *inSpinor;
+  static FullClover *inClover = NULL;
+  static FullClover *inCloverInv = NULL;
 
   // For tuneLaunch() to uniquely identify a suitable set of launch parameters, we need copies of a few of
   // the constants set by initDslashConstants().
@@ -162,7 +166,7 @@ namespace quda {
 #endif // DIRECT_ACCESS inclusions
 
   // Enable shared memory dslash for Fermi architecture
-  //#define SHARED_WILSON_DSLASH
+  #define SHARED_WILSON_DSLASH
   //#define SHARED_8_BYTE_WORD_SIZE // 8-byte shared memory access
 
 #include <pack_face_def.h>        // kernels for packing the ghost zones and general indexing
@@ -173,6 +177,7 @@ namespace quda {
 #include <tm_core.h>              // solo twisted mass kernel
 #include <clover_def.h>           // kernels for applying the clover term alone
 #include <tm_ndeg_dslash_def.h>   // Non-degenerate twisted Mass
+#include <tmc_dslash_def.h>       // Twisted Clover kernels
 
 #ifndef DSLASH_SHARED_FLOATS_PER_THREAD
 #define DSLASH_SHARED_FLOATS_PER_THREAD 0
@@ -348,7 +353,10 @@ namespace quda {
 
   // macro used for staggered dslash
 #define STAGGERED_DSLASH(gridDim, blockDim, shared, stream, param, ...)	\
-    GENERIC_STAGGERED_DSLASH(staggeredDslash, , Axpy, gridDim, blockDim, shared, stream, param, __VA_ARGS__) \
+  GENERIC_STAGGERED_DSLASH(staggeredDslash, , Axpy, gridDim, blockDim, shared, stream, param, __VA_ARGS__)
+
+#define IMPROVED_STAGGERED_DSLASH(gridDim, blockDim, shared, stream, param, ...) \
+  GENERIC_STAGGERED_DSLASH(improvedStaggeredDslash, , Axpy, gridDim, blockDim, shared, stream, param, __VA_ARGS__) 
 
 #define MORE_GENERIC_ASYM_DSLASH(FUNC, DAG, X, kernel_type, gridDim, blockDim, shared, stream, param,  ...) \
   if (reconstruct == QUDA_RECONSTRUCT_NO) {				\
@@ -999,6 +1007,108 @@ namespace quda {
     long long flops() const { return (x ? 1416ll : 1392ll) * dslashConstants.VolumeCB(); } // FIXME for multi-GPU
   };
 
+  template <typename sFloat, typename gFloat, typename cFloat>
+  class TwistedCloverDslashCuda : public SharedDslashCuda {
+
+  private:
+    const gFloat *gauge0, *gauge1;
+    const QudaReconstructType reconstruct;
+    const QudaTwistCloverDslashType dslashType;
+    const int dagger;
+    double a, b, c, d;
+    const cFloat *clover;
+    const float *cNorm;
+    const cFloat *cloverInv;
+    const float *cNrm2;
+
+  protected:
+    unsigned int sharedBytesPerThread() const
+    {
+#if (__COMPUTE_CAPABILITY__ >= 200)
+      if (dslashParam.kernel_type == INTERIOR_KERNEL) {
+        int reg_size = (typeid(sFloat)==typeid(double2) ? sizeof(double) : sizeof(float));
+        return DSLASH_SHARED_FLOATS_PER_THREAD * reg_size;
+      } else {
+        return 0;
+      }
+#else
+     int reg_size = (typeid(sFloat)==typeid(double2) ? sizeof(double) : sizeof(float));
+     return DSLASH_SHARED_FLOATS_PER_THREAD * reg_size;
+#endif
+    }
+
+  public:
+    TwistedCloverDslashCuda(cudaColorSpinorField *out, const gFloat *gauge0, const gFloat *gauge1, 
+		      const QudaReconstructType reconstruct, const cFloat *clover, const float *cNorm,
+		      const cFloat *cloverInv, const float *cNrm2, const cudaColorSpinorField *in,
+		      const cudaColorSpinorField *x, const QudaTwistCloverDslashType dslashType, const double kappa,
+		      const double mu, const double epsilon, const double k, const int dagger)
+      : SharedDslashCuda(out, in, x),gauge0(gauge0), gauge1(gauge1), clover(clover),
+	cNorm(cNorm), cloverInv(cloverInv), cNrm2(cNrm2),
+	reconstruct(reconstruct), dslashType(dslashType), dagger(dagger)
+    { 
+      bindSpinorTex<sFloat>(in, out, x); 
+      a = kappa;
+      b = mu;
+      c = epsilon;
+      d = k;
+    }
+    virtual ~TwistedCloverDslashCuda() { unbindSpinorTex<sFloat>(in, out, x); }
+
+    TuneKey tuneKey() const
+    {
+      TuneKey key = DslashCuda::tuneKey();
+      std::stringstream recon, dslash_type;
+      recon << reconstruct;
+      key.aux += ",reconstruct=" + recon.str();
+
+      switch(dslashType){
+        case QUDA_DEG_CLOVER_TWIST_INV_DSLASH:
+        key.aux += ",CloverTwistInvDslash";
+        break;
+        case QUDA_DEG_DSLASH_CLOVER_TWIST_INV:
+        key.aux += ",";
+        break;
+        case QUDA_DEG_DSLASH_CLOVER_TWIST_XPAY:
+        key.aux += ",DslashCloverTwist";
+        break;
+      }
+      if (x) key.aux += "Xpay";
+      return key;
+    }
+
+    void apply(const cudaStream_t &stream)
+    {
+#ifdef SHARED_WILSON_DSLASH
+      if (dslashParam.kernel_type == EXTERIOR_KERNEL_X) 
+        errorQuda("Shared dslash does not yet support X-dimension partitioning");
+#endif
+      TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
+  
+      switch(dslashType){
+
+        case QUDA_DEG_CLOVER_TWIST_INV_DSLASH:
+          DSLASH(twistedCloverInvDslash, tp.grid, tp.block, tp.shared_bytes, stream, dslashParam,
+	     (sFloat*)out->V(), (float*)out->Norm(), gauge0, gauge1, clover, cNorm, cloverInv, cNrm2,
+	     (sFloat*)in->V(), (float*)in->Norm(), a, b, (sFloat*)(x ? x->V() : 0), (float*)(x ? x->Norm() : 0));
+        break;
+        case QUDA_DEG_DSLASH_CLOVER_TWIST_INV:
+          DSLASH(twistedCloverDslash, tp.grid, tp.block, tp.shared_bytes, stream, dslashParam,
+	     (sFloat*)out->V(), (float*)out->Norm(), gauge0, gauge1, clover, cNorm, cloverInv, cNrm2,
+	     (sFloat*)in->V(), (float*)in->Norm(), a, b, (sFloat*)(x ? x->V() : 0), (float*)(x ? x->Norm() : 0));
+        break;
+        case QUDA_DEG_DSLASH_CLOVER_TWIST_XPAY:
+          DSLASH(twistedCloverDslashTwist, tp.grid, tp.block, tp.shared_bytes, stream, dslashParam,
+	     (sFloat*)out->V(), (float*)out->Norm(), gauge0, gauge1, clover, cNorm, cloverInv, cNrm2,
+	     (sFloat*)in->V(), (float*)in->Norm(), a, b, (sFloat*)x->V(), (float*)x->Norm());
+        break;
+        default: errorQuda("Invalid twisted clover dslash type");
+      }
+    }
+
+    long long flops() const { return (x ? 1416ll : 1392ll) * dslashConstants.VolumeCB(); } // FIXME for multi-GPU
+  };
+
   template <typename sFloat, typename gFloat>
   class DomainWallDslashCuda : public DslashCuda {
 
@@ -1137,11 +1247,11 @@ namespace quda {
   private:
     const fatGFloat *fat0, *fat1;
     const longGFloat *long0, *long1;
-   // const typename RealType<longGFloat>::type *phase0, *phase1;
     const phaseFloat *phase0, *phase1;
     const QudaReconstructType reconstruct;
     const int dagger;
     const double a;
+    QudaDslashType type;
 
   protected:
     unsigned int sharedBytesPerThread() const
@@ -1152,13 +1262,12 @@ namespace quda {
 
   public:
     StaggeredDslashCuda(cudaColorSpinorField *out, const fatGFloat *fat0, const fatGFloat *fat1,
-			const longGFloat *long0, const longGFloat *long1,
-                        const phaseFloat *phase0, 
-                        const phaseFloat *phase1, 
-			const QudaReconstructType reconstruct, const cudaColorSpinorField *in,
-			const cudaColorSpinorField *x, const double a, const int dagger)
+				const longGFloat *long0, const longGFloat *long1,
+				const phaseFloat *phase0, const phaseFloat *phase1, 
+				const QudaReconstructType reconstruct, const cudaColorSpinorField *in,
+				const cudaColorSpinorField *x, const double a, const int dagger)
       : DslashCuda(out, in, x), fat0(fat0), fat1(fat1), long0(long0), long1(long1), phase0(phase0), phase1(phase1), 
-	reconstruct(reconstruct), dagger(dagger), a(a)
+	reconstruct(reconstruct), dagger(dagger), a(a), type(long0 ? QUDA_ASQTAD_DSLASH : QUDA_STAGGERED_DSLASH)
     { 
       bindSpinorTex<sFloat>(in, out, x);
     }
@@ -1179,14 +1288,31 @@ namespace quda {
     {
       TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
       dim3 gridDim( (dslashParam.threads+tp.block.x-1) / tp.block.x, 1, 1);
-      STAGGERED_DSLASH(gridDim, tp.block, tp.shared_bytes, stream, dslashParam,
-		       (sFloat*)out->V(), (float*)out->Norm(), fat0, fat1, long0, long1, phase0, phase1, 
-		       (sFloat*)in->V(), (float*)in->Norm(), (sFloat*)(x ? x->V() : 0), (float*)(x ? x->Norm() : 0), a);
+      if (type == QUDA_STAGGERED_DSLASH) {
+	STAGGERED_DSLASH(gridDim, tp.block, tp.shared_bytes, stream, dslashParam,
+			 (sFloat*)out->V(), (float*)out->Norm(), fat0, fat1, 
+			 (sFloat*)in->V(), (float*)in->Norm(), 
+			 (sFloat*)(x ? x->V() : 0), (float*)(x ? x->Norm() : 0), a); 
+      } else {
+	IMPROVED_STAGGERED_DSLASH(gridDim, tp.block, tp.shared_bytes, stream, dslashParam,
+				  (sFloat*)out->V(), (float*)out->Norm(), 
+				  fat0, fat1, long0, long1, phase0, phase1, 
+				  (sFloat*)in->V(), (float*)in->Norm(), 
+				  (sFloat*)(x ? x->V() : 0), (float*)(x ? x->Norm() : 0), a); 
+      }
+
     }
 
-    int Nface() { return 6; }
+    int Nface() { return type == QUDA_STAGGERED_DSLASH ? 2 : 6; } 
 
-    long long flops() const { return (x ? 1158ll : 1146ll) * dslashConstants.VolumeCB(); } // FIXME for multi-GPU
+    long long flops() const { 
+      long long flops;
+      if (type == QUDA_STAGGERED_DSLASH) 
+	flops = (x ? 666ll : 654ll) * dslashConstants.VolumeCB();
+      else 
+	flops = (x ? 1158ll : 1146ll) * dslashConstants.VolumeCB(); 
+      return flops;
+    } 
   };
 
   int gatherCompleted[Nstream];
@@ -1200,7 +1326,11 @@ namespace quda {
    */
   void inline initDslashCommsPattern() {
     for (int i=0; i<Nstream-1; i++) {
+#ifndef GPU_COMMS
       gatherCompleted[i] = 0;
+#else
+      gatherCompleted[i] = 1;      
+#endif
       commsCompleted[i] = 0;
       dslashCompleted[i] = 0;
     }
@@ -1224,7 +1354,11 @@ namespace quda {
     // total.  Used for exiting the while loop
     commDimTotal = 0;
     for (int i=3; i>=0; i--) commDimTotal += dslashParam.commDim[i];
+#ifndef GPU_COMMS
     commDimTotal *= 4; // 2 from pipe length, 2 from direction
+#else
+    commDimTotal *= 2; // 2 from pipe length, 2 from direction
+#endif
   }
 
 #define PROFILE(f, profile, idx)		\
@@ -1247,15 +1381,17 @@ namespace quda {
 
     bool pack = false;
     for (int i=3; i>=0; i--) 
-      if (dslashParam.commDim[i] && (i!=3 || kernelPackT || twistPack)) { pack = true; break; }
+      if (dslashParam.commDim[i] && (i!=3 || getKernelPackT() || getTwistPack())) 
+	{ pack = true; break; }
 
     // Initialize pack from source spinor
-    if (!twistPack) {
-      PROFILE(face->pack(*inSpinor, 1-parity, dagger, streams), 
+
+    if (inCloverInv == NULL) {
+      PROFILE(face->pack(*inSpinor, 1-parity, dagger, streams, twist_a, twist_b), 
 	      profile, QUDA_PROFILE_PACK_KERNEL);
-    } else {	
-      PROFILE(face->pack(*inSpinor, 1-parity, dagger, twist_a, twist_b, streams), 
-	      profile, QUDA_PROFILE_PACK_KERNEL);
+    } else {
+      PROFILE(face->pack(*inSpinor, *inClover, *inCloverInv, 1-parity, dagger,
+	      streams, twist_a, twist_b), profile, QUDA_PROFILE_PACK_KERNEL);
     }
 
     if (pack) {
@@ -1294,15 +1430,15 @@ namespace quda {
 	if (!dslashParam.commDim[i]) continue;
       
 	for (int dir=1; dir>=0; dir--) {
-	
+
 	  // Query if gather has completed
 	  if (!gatherCompleted[2*i+dir] && gatherCompleted[previousDir[2*i+dir]]) { 
-	    PROFILE(cudaError_t event_test = cudaEventQuery(gatherEnd[2*i+dir]), 
-		    profile, QUDA_PROFILE_EVENT_QUERY);
-
 	    //CUresult event_test;
 	    //event_test = cuEventQuery(gatherEnd[2*i+dir]);
 	    //if (CUDA_SUCCESS == event_test) {
+	    PROFILE(cudaError_t event_test = cudaEventQuery(gatherEnd[2*i+dir]), 
+		    profile, QUDA_PROFILE_EVENT_QUERY);
+
 	    if (cudaSuccess == event_test) {
 	      gatherCompleted[2*i+dir] = 1;
 	      completeSum++;
@@ -1355,6 +1491,153 @@ namespace quda {
     profile.Stop(QUDA_PROFILE_TOTAL);
   }
 
+  void dslashCuda2(DslashCuda &dslash, const size_t regSize, const int parity, const int dagger, 
+		  const int volume, const int *faceVolumeCB, TimeProfile &profile) {
+    profile.Start(QUDA_PROFILE_TOTAL);
+
+    dslashParam.parity = parity;
+    dslashParam.kernel_type = INTERIOR_KERNEL;
+    dslashParam.threads = volume;
+
+#ifdef MULTI_GPU
+
+    // Record the start of the dslash if doing communication in T and not kernel packing
+    if (dslashParam.commDim[3] && !(getKernelPackT() || getTwistPack())) {
+      PROFILE(cudaEventRecord(dslashStart, streams[Nstream-1]), 
+	      profile, QUDA_PROFILE_EVENT_RECORD);
+    }
+
+    bool pack = false;
+    for (int i=3; i>=0; i--) 
+      if (dslashParam.commDim[i] && (i!=3 || getKernelPackT() || getTwistPack())) 
+	{ pack = true; break; }
+
+    // Initialize pack from source spinor
+    PROFILE(inSpinor->pack(dslash.Nface()/2, 1-parity, dagger, streams, twist_a, twist_b),
+	    profile, QUDA_PROFILE_PACK_KERNEL);
+
+    if (pack) {
+      // Record the end of the packing
+      PROFILE(cudaEventRecord(packEnd[0], streams[Nstream-1]), 
+	      profile, QUDA_PROFILE_EVENT_RECORD);
+    }
+
+#ifndef GPU_COMMS
+    for(int i = 3; i >=0; i--){
+      if (!dslashParam.commDim[i]) continue;
+
+      for (int dir=1; dir>=0; dir--) {
+	cudaEvent_t &event = (i!=3 || getKernelPackT() || getTwistPack()) ? packEnd[0] : dslashStart;
+
+	PROFILE(cudaStreamWaitEvent(streams[2*i+dir], event, 0), 
+		profile, QUDA_PROFILE_STREAM_WAIT_EVENT);
+
+	// Initialize host transfer from source spinor
+	PROFILE(inSpinor->gather(dslash.Nface()/2, dagger, 2*i+dir), profile, QUDA_PROFILE_GATHER);
+
+	// Record the end of the gathering
+	PROFILE(cudaEventRecord(gatherEnd[2*i+dir], streams[2*i+dir]), 
+		profile, QUDA_PROFILE_EVENT_RECORD);
+      }
+    }
+#endif // GPU_COMMS
+
+#endif // MULTI_GPU
+
+    PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
+
+#ifdef MULTI_GPU
+    initDslashCommsPattern();
+
+#ifdef GPU_COMMS
+    bool pack_event = false;
+    for (int i=3; i>=0; i--) {
+      if (!dslashParam.commDim[i]) continue;
+
+      if ((i!=3 || getKernelPackT() || getTwistPack()) && !pack_event) {
+	cudaEventSynchronize(packEnd[0]);
+	pack_event = true;
+      } else {
+	cudaEventSynchronize(dslashStart);
+      }
+
+      for (int dir=1; dir>=0; dir--) {	
+	PROFILE(inSpinor->commsStart(dslash.Nface()/2, 2*i+dir, dagger), profile, QUDA_PROFILE_COMMS_START);
+	inSpinor->commsQuery(dslash.Nface()/2, 2*i+dir, dagger); // do a comms query to ensure MPI has begun
+      }
+    }
+#endif
+
+    int completeSum = 0;
+    while (completeSum < commDimTotal) {
+      for (int i=3; i>=0; i--) {
+	if (!dslashParam.commDim[i]) continue;
+      
+	for (int dir=1; dir>=0; dir--) {
+	
+#ifndef GPU_COMMS
+	  // Query if gather has completed
+	  if (!gatherCompleted[2*i+dir] && gatherCompleted[previousDir[2*i+dir]]) { 
+	    PROFILE(cudaError_t event_test = cudaEventQuery(gatherEnd[2*i+dir]), 
+		    profile, QUDA_PROFILE_EVENT_QUERY);
+
+	    if (cudaSuccess == event_test) {
+	      gatherCompleted[2*i+dir] = 1;
+	      completeSum++;
+	      PROFILE(inSpinor->commsStart(dslash.Nface()/2, 2*i+dir, dagger), profile, QUDA_PROFILE_COMMS_START);
+	    }
+	  }
+#endif
+	
+	  // Query if comms has finished
+	  if (!commsCompleted[2*i+dir] && commsCompleted[previousDir[2*i+dir]] &&
+	      gatherCompleted[2*i+dir]) {
+	    PROFILE(int comms_test = inSpinor->commsQuery(dslash.Nface()/2, 2*i+dir, dagger), 
+		    profile, QUDA_PROFILE_COMMS_QUERY);
+	    if (comms_test) { 
+	      commsCompleted[2*i+dir] = 1;
+	      completeSum++;
+	    
+	      // Scatter into the end zone
+	      // Both directions use the same stream
+#ifndef GPU_COMMS
+	      PROFILE(inSpinor->scatter(dslash.Nface()/2, dagger, 2*i+dir), 
+		      profile, QUDA_PROFILE_SCATTER);
+#endif
+	    }
+	  }
+
+	} // dir=0,1
+	 
+	// enqueue the boundary dslash kernel as soon as the scatters have been enqueued
+	if (!dslashCompleted[2*i] && commsCompleted[2*i] && commsCompleted[2*i+1] ) {
+	  // Record the end of the scattering
+#ifndef GPU_COMMS
+	  PROFILE(cudaEventRecord(scatterEnd[2*i], streams[2*i]), 
+		  profile, QUDA_PROFILE_EVENT_RECORD);
+
+	  // wait for scattering to finish and then launch dslash
+	  PROFILE(cudaStreamWaitEvent(streams[Nstream-1], scatterEnd[2*i], 0), 
+		  profile, QUDA_PROFILE_STREAM_WAIT_EVENT);
+#endif
+
+	  dslashParam.kernel_type = static_cast<KernelType>(i);
+	  dslashParam.threads = dslash.Nface()*faceVolumeCB[i]; // updating 2 or 6 faces
+	  
+	  // all faces use this stream
+	  PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
+
+	  dslashCompleted[2*i] = 1;
+	}
+
+      }
+    
+    }
+#endif // MULTI_GPU
+
+    profile.Stop(QUDA_PROFILE_TOTAL);
+  }
+
   /**
      Variation of multi-gpu dslash where the packing kernel writes
      buffers directly to host memory
@@ -1378,13 +1661,8 @@ namespace quda {
 	    profile, QUDA_PROFILE_STREAM_WAIT_EVENT);
 
     // Initialize pack from source spinor
-    if (!twistPack) {
-      PROFILE(face->pack(*inSpinor, 1-parity, dagger, streams, true), 
-	      profile, QUDA_PROFILE_PACK_KERNEL);
-    } else {	
-      PROFILE(face->pack(*inSpinor, 1-parity, dagger, twist_a, twist_b, streams, true), 
-	      profile, QUDA_PROFILE_PACK_KERNEL);
-    }
+    PROFILE(face->pack(*inSpinor, 1-parity, dagger, streams, true, twist_a, twist_b), 
+	    profile, QUDA_PROFILE_PACK_KERNEL);
 
     // Record the end of the packing
     PROFILE(cudaEventRecord(packEnd[0], streams[0]), 
@@ -1505,7 +1783,7 @@ namespace quda {
       dslash = new WilsonDslashCuda<short4, short4>(out, (short4*)gauge0, (short4*)gauge1,
 						    gauge.Reconstruct(), in, x, k, dagger);
     }
-    dslashCuda(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
+    dslashCuda2(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
 
     delete dslash;
     unbindGaugeTex(gauge);
@@ -1567,7 +1845,7 @@ namespace quda {
 							    (float*)cloverNormP, in, x, a, dagger);
     }
 
-    dslashCuda(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
+    dslashCuda2(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
 
     delete dslash;
     unbindGaugeTex(gauge);
@@ -1631,7 +1909,7 @@ namespace quda {
 								(float*)cloverNormP, in, x, a, dagger);
     }
 
-    dslashCuda(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
+    dslashCuda2(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
 
     delete dslash;
     unbindGaugeTex(gauge);
@@ -1715,6 +1993,91 @@ namespace quda {
 #endif
   }
 
+  void twistedCloverDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, const FullClover *clover, const FullClover *cloverInv,
+			     const cudaColorSpinorField *in, const int parity, const int dagger, 
+			     const cudaColorSpinorField *x, const QudaTwistCloverDslashType type, const double &kappa, const double &mu, 
+			     const double &epsilon, const double &k,  const int *commOverride,
+			     TimeProfile &profile)
+  {
+    inSpinor = (cudaColorSpinorField*)in; // EVIL
+    inClover = (FullClover*) clover; // EVIL
+    inCloverInv = (FullClover*) cloverInv; // EVIL
+  #ifdef GPU_TWISTED_CLOVER_DIRAC
+    int Npad = (in->Ncolor()*in->Nspin()*2)/in->FieldOrder(); // SPINOR_HOP in old code
+  
+    int ghost_threads[4] = {0};
+    int bulk_threads = ((in->TwistFlavor() == QUDA_TWIST_PLUS) || (in->TwistFlavor() == QUDA_TWIST_MINUS)) ? in->Volume() : in->Volume() / 2;
+  
+    for(int i=0;i<4;i++){
+      dslashParam.ghostDim[i] = commDimPartitioned(i); // determines whether to use regular or ghost indexing at boundary
+      dslashParam.ghostOffset[i] = Npad*(in->GhostOffset(i) + in->Stride());
+      dslashParam.ghostNormOffset[i] = in->GhostNormOffset(i) + in->Stride();
+      dslashParam.commDim[i] = (!commOverride[i]) ? 0 : commDimPartitioned(i); // switch off comms if override = 0
+      ghost_threads[i] = ((in->TwistFlavor() == QUDA_TWIST_PLUS) || (in->TwistFlavor() == QUDA_TWIST_MINUS)) ? in->GhostFace()[i] : in->GhostFace()[i] / 2;
+    }
+
+#ifdef MULTI_GPU
+    if(type == QUDA_DEG_CLOVER_TWIST_INV_DSLASH){
+        setTwistPack(true);
+        twist_a = kappa; 
+        twist_b = mu;
+    }
+#endif
+
+    void *gauge0, *gauge1;
+    bindGaugeTex(gauge, parity, &gauge0, &gauge1);
+
+    void *cloverP, *cloverNormP, *cloverInvP, *cloverInvNormP;
+    QudaPrecision clover_prec = bindTwistedCloverTex(*clover, *cloverInv, parity, &cloverP, &cloverNormP, &cloverInvP, &cloverInvNormP);
+
+    if (in->Precision() != clover_prec)
+      errorQuda("Mixing clover and spinor precision not supported");
+
+    if (in->Precision() != gauge.Precision())
+        errorQuda("Mixing gauge and spinor precision not supported");
+
+    DslashCuda *dslash = 0;
+    size_t regSize = sizeof(float);
+
+    if (in->Precision() == QUDA_DOUBLE_PRECISION) {
+#if (__COMPUTE_CAPABILITY__ >= 130)
+      dslash = new TwistedCloverDslashCuda<double2,double2,double2>(out, (double2*)gauge0,(double2*)gauge1, gauge.Reconstruct(), (double2*)cloverP, (float*)cloverNormP,
+						     (double2*)cloverInvP, (float*)cloverInvNormP, in, x, type, kappa, mu, epsilon, k, dagger);
+
+      regSize = sizeof(double);
+#else
+      errorQuda("Double precision not supported on this GPU");
+#endif
+    } else if (in->Precision() == QUDA_SINGLE_PRECISION) {
+      dslash = new TwistedCloverDslashCuda<float4,float4,float4>(out, (float4*)gauge0,(float4*)gauge1, gauge.Reconstruct(), (float4*)cloverP, (float*)cloverNormP,
+						   (float4*)cloverInvP, (float*)cloverInvNormP, in, x, type, kappa, mu, epsilon, k, dagger);
+
+    } else if (in->Precision() == QUDA_HALF_PRECISION) {
+      dslash = new TwistedCloverDslashCuda<short4,short4,short4>(out, (short4*)gauge0,(short4*)gauge1, gauge.Reconstruct(), (short4*)cloverP, (float*)cloverNormP,
+						   (short4*)cloverInvP, (float*)cloverInvNormP, in, x, type, kappa, mu, epsilon, k, dagger);
+    }
+
+    dslashCuda(*dslash, regSize, parity, dagger, bulk_threads, ghost_threads, profile);
+
+    delete dslash;
+
+#ifdef MULTI_GPU
+    if(type == QUDA_DEG_CLOVER_TWIST_INV_DSLASH){
+        setTwistPack(false);
+        twist_a = 0.0; 
+        twist_b = 0.0;
+    }
+#endif
+
+    unbindGaugeTex(gauge);
+    unbindTwistedCloverTex(*clover);
+
+    checkCudaError();
+#else
+    errorQuda("Twisted clover dslash has not been built");
+#endif
+  }
+
   void domainWallDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, 
 			    const cudaColorSpinorField *in, const int parity, const int dagger, 
 			    const cudaColorSpinorField *x, const double &m_f, const double &k2, 
@@ -1775,10 +2138,68 @@ namespace quda {
 #endif
   }
 
-  void staggeredDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &fatGauge, 
-			   const cudaGaugeField &longGauge, const cudaColorSpinorField *in,
-			   const int parity, const int dagger, const cudaColorSpinorField *x,
+  void staggeredDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, 
+			   const cudaColorSpinorField *in, const int parity, 
+			   const int dagger, const cudaColorSpinorField *x,
 			   const double &k, const int *commOverride, TimeProfile &profile)
+  {
+    inSpinor = (cudaColorSpinorField*)in; // EVIL
+
+#ifdef GPU_STAGGERED_DIRAC
+
+    int Npad = (in->Ncolor()*in->Nspin()*2)/in->FieldOrder(); // SPINOR_HOP in old code
+
+    dslashParam.parity = parity;
+    for(int i=0;i<4;i++){
+      dslashParam.ghostDim[i] = commDimPartitioned(i); // determines whether to use regular or ghost indexing at boundary
+      dslashParam.ghostOffset[i] = Npad*(in->GhostOffset(i) + in->Stride());
+      dslashParam.ghostNormOffset[i] = in->GhostNormOffset(i) + in->Stride();
+      dslashParam.commDim[i] = (!commOverride[i]) ? 0 : commDimPartitioned(i); // switch off comms if override = 0
+    }
+    void *gauge0, *gauge1;
+    bindFatGaugeTex(gauge, parity, &gauge0, &gauge1);
+
+    if (in->Precision() != gauge.Precision()) {
+      errorQuda("Mixing precisions gauge=%d and spinor=%d not supported",
+		gauge.Precision(), in->Precision());
+    }
+    
+    DslashCuda *dslash = 0;
+    size_t regSize = sizeof(float);
+
+    if (in->Precision() == QUDA_DOUBLE_PRECISION) {
+#if (__COMPUTE_CAPABILITY__ >= 130)
+      dslash = new StaggeredDslashCuda<double2, double2, double2, double>
+	(out, (double2*)gauge0, (double2*)gauge1, 0, 0, 0, 0, gauge.Reconstruct(), in, x, k, dagger);
+      regSize = sizeof(double);
+#else
+      errorQuda("Double precision not supported on this GPU");
+#endif
+    } else if (in->Precision() == QUDA_SINGLE_PRECISION) {
+      dslash = new StaggeredDslashCuda<float2, float2, float4, float>
+	(out, (float2*)gauge0, (float2*)gauge1, 0, 0, 0, 0, gauge.Reconstruct(), in, x, k, dagger);
+    } else if (in->Precision() == QUDA_HALF_PRECISION) {	
+      dslash = new StaggeredDslashCuda<short2, short2, short4, short>
+	(out, (short2*)gauge0, (short2*)gauge1, 0, 0, 0, 0, gauge.Reconstruct(), in, x, k, dagger);
+    }
+
+    dslashCuda2(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
+
+    delete dslash;
+    unbindFatGaugeTex(gauge);
+
+    checkCudaError();
+  
+#else
+    errorQuda("Staggered dslash has not been built");
+#endif  // GPU_STAGGERED_DIRAC
+  }
+
+  void
+  improvedStaggeredDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &fatGauge, 
+			      const cudaGaugeField &longGauge, const cudaColorSpinorField *in,
+			      const int parity, const int dagger, const cudaColorSpinorField *x,
+			      const double &k, const int *commOverride, TimeProfile &profile)
   {
     inSpinor = (cudaColorSpinorField*)in; // EVIL
 
@@ -1809,7 +2230,6 @@ namespace quda {
     void *longPhase0 = (char*)longGauge0 + longGauge.PhaseOffset();
     void *longPhase1 = (char*)longGauge1 + longGauge.PhaseOffset();   
 
-
     if (in->Precision() != fatGauge.Precision() || in->Precision() != longGauge.Precision()){
       errorQuda("Mixing gauge and spinor precision not supported"
 		"(precision=%d, fatlinkGauge.precision=%d, longGauge.precision=%d",
@@ -1821,31 +2241,34 @@ namespace quda {
 
     if (in->Precision() == QUDA_DOUBLE_PRECISION) {
 #if (__COMPUTE_CAPABILITY__ >= 130)
-      dslash = new StaggeredDslashCuda<double2, double2, double2, double>(out, (double2*)fatGauge0, (double2*)fatGauge1,
-								  (double2*)longGauge0, (double2*)longGauge1,
-                                                                  (double*)longPhase0, (double*)longPhase1, 
-								  longGauge.Reconstruct(), in, x, k, dagger);
+      dslash = new StaggeredDslashCuda<double2, double2, double2, double>
+	(out, (double2*)fatGauge0, (double2*)fatGauge1,
+	 (double2*)longGauge0, (double2*)longGauge1,
+	 (double*)longPhase0, (double*)longPhase1, 
+	 longGauge.Reconstruct(), in, x, k, dagger);
       regSize = sizeof(double);
 #else
       errorQuda("Double precision not supported on this GPU");
 #endif
     } else if (in->Precision() == QUDA_SINGLE_PRECISION) {
-      dslash = new StaggeredDslashCuda<float2, float2, float4, float>(out, (float2*)fatGauge0, (float2*)fatGauge1,
-							       (float4*)longGauge0, (float4*)longGauge1, 
-                                                               (float*)longPhase0, (float*)longPhase1,
-							       longGauge.Reconstruct(), in, x, k, dagger);
+      dslash = new StaggeredDslashCuda<float2, float2, float4, float>
+	(out, (float2*)fatGauge0, (float2*)fatGauge1,
+	 (float4*)longGauge0, (float4*)longGauge1, 
+	 (float*)longPhase0, (float*)longPhase1,
+	 longGauge.Reconstruct(), in, x, k, dagger);
     } else if (in->Precision() == QUDA_HALF_PRECISION) {	
-      dslash = new StaggeredDslashCuda<short2, short2, short4, short>(out, (short2*)fatGauge0, (short2*)fatGauge1,
-							       (short4*)longGauge0, (short4*)longGauge1, 
-                                                               (short*)longPhase0, (short*)longPhase1,
-							       longGauge.Reconstruct(), in, x, k, dagger);
+      dslash = new StaggeredDslashCuda<short2, short2, short4, short>
+	(out, (short2*)fatGauge0, (short2*)fatGauge1,
+	 (short4*)longGauge0, (short4*)longGauge1, 
+	 (short*)longPhase0, (short*)longPhase1,
+	 longGauge.Reconstruct(), in, x, k, dagger);
     }
 
-    dslashCuda(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
+    dslashCuda2(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
 
     delete dslash;
-    unbindGaugeTex(fatGauge);
-    unbindGaugeTex(longGauge);
+    unbindFatGaugeTex(fatGauge);
+    unbindLongGaugeTex(longGauge);
 
     checkCudaError();
   
@@ -1853,7 +2276,6 @@ namespace quda {
     errorQuda("Staggered dslash has not been built");
 #endif  // GPU_STAGGERED_DIRAC
   }
-
 
   template <typename sFloat, typename cFloat>
   class CloverCuda : public Tunable {
@@ -2096,12 +2518,161 @@ namespace quda {
 #endif // GPU_TWISTED_MASS_DIRAC
   }
 
+#include "dslash_core/tmc_gamma_core.h"
+
+  template <typename cFloat, typename sFloat>
+  class TwistCloverGamma5Cuda : public Tunable {
+
+  private:
+    const cFloat *clover;
+    const float *cNorm;
+    const cFloat *cloverInv;
+    const float *cNrm2;
+    QudaTwistGamma5Type twist;
+    cudaColorSpinorField *out;
+    const cudaColorSpinorField *in;
+    double a;
+    double b;
+    double c;
+
+    unsigned int sharedBytesPerThread() const { return 0; }
+    unsigned int sharedBytesPerBlock(const TuneParam &param) const { return 0; }
+    bool tuneGridDim() const { return false; } // Don't tune the grid dimensions.
+    unsigned int minThreads() const { return dslashConstants.VolumeCB(); }
+
+    char *saveOut, *saveOutNorm;
+
+  public:
+    TwistCloverGamma5Cuda(cudaColorSpinorField *out, const cudaColorSpinorField *in,
+		    double kappa, double mu, double epsilon, const int dagger, QudaTwistGamma5Type tw,
+		    cFloat *clov, const float *cN, cFloat *clovInv, const float *cN2) :
+      out(out), in(in)
+    {
+      bindSpinorTex<sFloat>(in);
+      twist = tw;
+      clover = clov;
+      cNorm = cN;
+      cloverInv = clovInv;
+      cNrm2 = cN2;
+
+      if((in->TwistFlavor() == QUDA_TWIST_PLUS) || (in->TwistFlavor() == QUDA_TWIST_MINUS))
+//        setTwistParam(a, b, kappa, mu, dagger, tw);
+	  a = 2.*kappa*mu;
+      else{//twist doublet
+        errorQuda("ERROR: Non-degenerated twisted-mass not supported in this regularization\n");
+      } 
+    }
+    virtual ~TwistCloverGamma5Cuda() {
+      unbindSpinorTex<sFloat>(in);    
+    }
+
+   TuneKey tuneKey() const {
+     std::stringstream vol, aux;
+     vol << dslashConstants.x[0] << "x";
+     vol << dslashConstants.x[1] << "x";
+     vol << dslashConstants.x[2] << "x";
+     vol << dslashConstants.x[3];    
+     aux << "TwistFlavor" << in->TwistFlavor();
+     return TuneKey(vol.str(), typeid(*this).name(), aux.str());
+   }  
+
+  void apply(const cudaStream_t &stream)
+  {
+//A.S.: should this be GPU_TWISTED_CLOVER_DIRAC instead?
+#if (defined GPU_TWISTED_CLOVER_DIRAC)
+    TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
+    dim3 gridDim( (dslashParam.threads+tp.block.x-1) / tp.block.x, 1, 1);
+    if((in->TwistFlavor() == QUDA_TWIST_PLUS) || (in->TwistFlavor() == QUDA_TWIST_MINUS)) {	//Idea for the kernel, two spinor inputs (IN and clover applied IN), on output (Clover applied IN + ig5IN)
+      if (twist == QUDA_TWIST_GAMMA5_DIRECT)
+        twistCloverGamma5Kernel<<<gridDim, tp.block, tp.shared_bytes, stream>>> 
+	  ((sFloat*)out->V(), (float*)out->Norm(), a, 
+	   (sFloat*)in->V(), (float*)in->Norm(), dslashParam,
+	   clover, cNorm, cloverInv, cNrm2);
+      else if (twist == QUDA_TWIST_GAMMA5_INVERSE)
+        twistCloverGamma5InvKernel<<<gridDim, tp.block, tp.shared_bytes, stream>>> 
+	  ((sFloat*)out->V(), (float*)out->Norm(), a, 
+	   (sFloat*)in->V(), (float*)in->Norm(), dslashParam,
+	   clover, cNorm, cloverInv, cNrm2);
+    } else {
+        errorQuda("ERROR: Non-degenerated twisted-mass not supported in this regularization\n");
+    }
+#endif
+  }
+
+  void preTune() {
+    saveOut = new char[out->Bytes()];
+    cudaMemcpy(saveOut, out->V(), out->Bytes(), cudaMemcpyDeviceToHost);
+    if (typeid(sFloat) == typeid(short4)) {
+      saveOutNorm = new char[out->NormBytes()];
+      cudaMemcpy(saveOutNorm, out->Norm(), out->NormBytes(), cudaMemcpyDeviceToHost);
+    }
+  }
+
+  void postTune() {
+    cudaMemcpy(out->V(), saveOut, out->Bytes(), cudaMemcpyHostToDevice);
+    delete[] saveOut;
+    if (typeid(sFloat) == typeid(short4)) {
+      cudaMemcpy(out->Norm(), saveOutNorm, out->NormBytes(), cudaMemcpyHostToDevice);
+      delete[] saveOutNorm;
+    }
+  }
+
+ std::string paramString(const TuneParam &param) const {
+    std::stringstream ps;
+    ps << "block=(" << param.block.x << "," << param.block.y << "," << param.block.z << "), ";
+    ps << "shared=" << param.shared_bytes;
+    return ps.str();
+  }
+
+  long long flops() const { return 24ll * dslashConstants.VolumeCB(); }	//TODO FIX THIS NUMBER!!!
+  long long bytes() const { return in->Bytes() + in->NormBytes() + out->Bytes() + out->NormBytes(); }
+ };
+
+  void twistCloverGamma5Cuda(cudaColorSpinorField *out, const cudaColorSpinorField *in, const int dagger, const double &kappa, const double &mu,
+			     const double &epsilon, const QudaTwistGamma5Type twist, FullClover clov, FullClover clovInv, const int parity)
+  {
+    if(in->TwistFlavor() == QUDA_TWIST_PLUS || in->TwistFlavor() == QUDA_TWIST_MINUS)
+      dslashParam.threads = in->Volume();
+    else //twist doublet    
+      dslashParam.threads = in->Volume() / 2;
+
+#ifdef GPU_TWISTED_CLOVER_DIRAC
+    Tunable *tmClovGamma5 = 0;
+
+    void *clover, *cNorm, *cloverInv, *cNorm2;
+    QudaPrecision clover_prec = bindTwistedCloverTex(clov, clovInv, parity, &clover, &cNorm, &cloverInv, &cNorm2);
+
+    if (in->Precision() != clover_prec)
+      errorQuda("ERROR: Clover precision and spinor precision do not match\n");
+
+    if (in->Precision() == QUDA_DOUBLE_PRECISION) {
+#if (__COMPUTE_CAPABILITY__ >= 130)
+      tmClovGamma5 = new TwistCloverGamma5Cuda<double2,double2>(out, in, kappa, mu, epsilon, dagger, twist, (double2 *) clover, (float *) cNorm, (double2 *) cloverInv, (float *) cNorm2);
+#else
+      errorQuda("Double precision not supported on this GPU");
+#endif
+    } else if (in->Precision() == QUDA_SINGLE_PRECISION) {
+      tmClovGamma5 = new TwistCloverGamma5Cuda<float4,float4>(out, in, kappa, mu, epsilon, dagger, twist, (float4 *) clover, (float *) cNorm, (float4 *) cloverInv, (float *) cNorm2);
+    } else if (in->Precision() == QUDA_HALF_PRECISION) {
+      tmClovGamma5 = new TwistCloverGamma5Cuda<short4,short4>(out, in, kappa, mu, epsilon, dagger, twist, (short4 *) clover, (float *) cNorm, (short4 *) cloverInv, (float *) cNorm2);
+    }
+
+    tmClovGamma5->apply(streams[Nstream-1]);
+    checkCudaError();
+
+    delete tmClovGamma5;
+    unbindTwistedCloverTex(clov);
+#else
+    errorQuda("Twisted clover dslash has not been built");
+#endif // GPU_TWISTED_MASS_DIRAC
+  }
+
 } // namespace quda
 
 #include "misc_helpers.cu"
 
 
-#if defined(GPU_FATLINK) || defined(GPU_GAUGE_FORCE) || defined(GPU_FERMION_FORCE) || defined(GPU_HISQ_FORCE) || defined(GPU_UNITARIZE)
+#if defined(GPU_FATLINK) || defined(GPU_GAUGE_FORCE) || defined(GPU_FERMION_FORCE) // || defined(GPU_UNITARIZE)
 #include <force_common.h>
 #endif
 
@@ -2117,12 +2688,5 @@ namespace quda {
 #include "fermion_force_quda.cu"
 #endif
 
-#ifdef GPU_UNITARIZE
-#include "unitarize_links_quda.cu"
-#endif
 
-#ifdef GPU_HISQ_FORCE
-#include "hisq_paths_force_quda.cu"
-#include "unitarize_force_quda.cu"
-#endif
 
