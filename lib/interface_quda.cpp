@@ -680,7 +680,7 @@ void loadCloverQuda(void *h_clover, void *h_clovinv, QudaInvertParam *inv_param)
     profileClover.Start(QUDA_PROFILE_H2D);
     if (inv_param->dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
       cloverPrecise->copy(*in, false);
-      cloverInvPrecise->copy(*inInv, true);
+      cloverInvPrecise->copy(*inInv, false);
     } else
       cloverPrecise->copy(*in, h_clovinv ? true : false);
 
