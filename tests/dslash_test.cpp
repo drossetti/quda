@@ -63,6 +63,8 @@ extern QudaDagType dagger;
 extern int niter;
 extern char latfile[];
 
+extern double newMu;
+
 /*	EMPIEZAN MIERDAS DE ALEX	*/
 
 void	reOrder	(double *array1, double *array2, const int arrayOffset)
@@ -152,7 +154,7 @@ void init(int argc, char **argv) {
   gauge_param.gauge_fix = QUDA_GAUGE_FIXED_NO;
 
   if (dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
-    inv_param.mu = 0.5;
+    inv_param.mu = newMu;
     inv_param.epsilon = 0.0; 
     inv_param.twist_flavor = QUDA_TWIST_MINUS;
 //!    inv_param.twist_flavor = QUDA_TWIST_NONDEG_DOUBLET;
@@ -378,7 +380,7 @@ void init(int argc, char **argv) {
   loadGaugeQuda(hostGauge, &gauge_param);
 
   if (dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
- //   loadCloverQuda(NULL, NULL, &inv_param);
+ //   loadCloverQuda(hostClover, hostCloverInv, &inv_param);
     loadCloverQuda(NULL, NULL, &inv_param);
   }
 
