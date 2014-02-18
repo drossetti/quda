@@ -37,7 +37,7 @@ QudaInvertParam inv_param;
 cpuColorSpinorField *spinor, *spinorOut, *spinorRef, *spinorTmp;
 cudaColorSpinorField *cudaSpinor, *cudaSpinorOut, *tmp1=0, *tmp2=0;
 
-void *hostGauge[4], *hostClover, *hostCloverInv;
+void *hostGauge[4], *hostClover = NULL, *hostCloverInv = NULL;
 
 Dirac *dirac;
 
@@ -224,16 +224,18 @@ void init(int argc, char **argv) {
   }
 
   inv_param.dslash_type = dslash_type;
+  size_t cSize = (inv_param.clover_cpu_prec == QUDA_DOUBLE_PRECISION) ? sizeof(double) : sizeof(float);
 
   if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
-    inv_param.clover_coeff = 0.2;//0.000000000000000000000000001;
+    inv_param.clover_coeff = 0.100000000000000000000000001;
     inv_param.clover_cpu_prec = cpu_prec;
     inv_param.clover_cuda_prec = cuda_prec;
     inv_param.clover_cuda_prec_sloppy = inv_param.clover_cuda_prec;
-    inv_param.clover_order = QUDA_FLOAT2_CLOVER_ORDER;
+    inv_param.clover_order = QUDA_PACKED_CLOVER_ORDER;
     //if (test_type > 0) {
-      hostClover = malloc(V*cloverSiteSize*inv_param.clover_cpu_prec);
-      hostCloverInv = malloc(V*cloverSiteSize*inv_param.clover_cpu_prec);
+/*      hostClover = malloc(V*cloverSiteSize*cSize);
+      if (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
+        hostCloverInv = malloc(V*cloverSiteSize*cSize);*/
 //      hostCloverInv = hostClover; // fake it
       /*} else {
       hostClover = NULL;
@@ -246,15 +248,13 @@ void init(int argc, char **argv) {
   setVerbosity(QUDA_VERBOSE);
 
   // construct input fields
-  for (int dir = 0; dir < 4; dir++) hostGauge[dir] = malloc(V*gaugeSiteSize*gauge_param.cpu_prec);
+  size_t gSize = (gauge_param.cpu_prec == QUDA_DOUBLE_PRECISION) ? sizeof(double) : sizeof(float);
+  for (int dir = 0; dir < 4; dir++) hostGauge[dir] = malloc(V*gaugeSiteSize*gSize);
 
   ColorSpinorParam csParam;
   
   csParam.nColor = 3;
   csParam.nSpin = 4;
-  if ((dslash_type == QUDA_TWISTED_MASS_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
-    csParam.twistFlavor = inv_param.twist_flavor;
-  }
   csParam.nDim = 4;
   for (int d=0; d<4; d++) csParam.x[d] = gauge_param.X[d];
   if (dslash_type == QUDA_DOMAIN_WALL_DSLASH) {
@@ -301,13 +301,12 @@ void init(int argc, char **argv) {
 		printf	("Fatal Error; Couldn't read gauge conf %s\n", latfile);
 		exit	(1);
 	}
-  } else { // else generate a random SU(3) field*/
+  } else { // else generate a random SU(3) field
     construct_gauge_field(hostGauge, 0, gauge_param.cpu_prec, &gauge_param);
 }
 
   inv_param.kappa = 1.0;
-//  spinor->Source(QUDA_RANDOM_SOURCE);
-
+/*
   FILE *Caca = fopen("SpinorTm.In", "r+");
 
   int		Cx,Cy,Cz,Ct,Cidx,colIdx,diracIdx;
@@ -349,39 +348,39 @@ void init(int argc, char **argv) {
   }	while(!feof(Caca));
 
   fclose(Caca);
-
-//  spinor->Source(QUDA_POINT_SOURCE);
+*/
+  spinor->Source(QUDA_POINT_SOURCE);
 //  spinor->Source(QUDA_RANDOM_SOURCE);
 
 /*	FIN MIERDAS DE ALEX	*/
-
+/*
   if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
     double norm = 0.0; // clover components are random numbers in the range (-norm, norm)
     double diag = 1.0; // constant added to the diagonal
 
     if (dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
-	diag = 2.0; // constant added to the diagonal
-        construct_clover_field(hostClover, norm, diag, inv_param.clover_cpu_prec);
-	diag = 0.5; // constant added to the diagonal
-        construct_clover_field(hostCloverInv, norm, diag, inv_param.clover_cpu_prec);
+	diag = 1.0; // constant added to the diagonal
+        construct_clover_field((double *)hostClover, norm, diag, inv_param.clover_cpu_prec);
+	diag = 1.0; // constant added to the diagonal
+        construct_clover_field((double *)hostCloverInv, norm, diag, inv_param.clover_cpu_prec);
      } else {
-      if (test_type == 2 || test_type == 4) {
-        construct_clover_field(hostClover, norm, diag, inv_param.clover_cpu_prec);
-      } else {
-        construct_clover_field(hostCloverInv, norm, diag, inv_param.clover_cpu_prec);
-      }
-    }
+        construct_clover_field((double *)hostClover, norm, diag, inv_param.clover_cpu_prec);
+     }
   }
   printfQuda("done.\n"); fflush(stdout);
- 
+*/
   initQuda(device);
 
   printfQuda("Sending gauge field to GPU\n");
   loadGaugeQuda(hostGauge, &gauge_param);
 
   if (dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
- //   loadCloverQuda(hostClover, hostCloverInv, &inv_param);
-    loadCloverQuda(NULL, NULL, &inv_param);
+/*    if (dslash_type == QUDA_CLOVER_WILSON_DSLASH) {
+        loadCloverQuda(hostClover, NULL, &inv_param);
+    } else {
+    loadCloverQuda(hostClover, hostCloverInv, &inv_param);
+    }*/
+      loadCloverQuda(NULL, NULL, &inv_param);
   }
 
   if (!transfer) {
@@ -449,10 +448,12 @@ void end() {
   delete spinorTmp;
 
   for (int dir = 0; dir < 4; dir++) free(hostGauge[dir]);
-  if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
+
+/*  if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
     if (hostClover != hostCloverInv && hostClover) free(hostClover);
-    free(hostCloverInv);
-  }
+    if (hostCloverInv != NULL)
+      free(hostCloverInv);
+  }*/
   endQuda();
 
 }

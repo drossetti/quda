@@ -35,8 +35,7 @@ extern "C"
 #define MPI_READCONF
 #endif
 
-//extern "C" { char* qcd_getParamComma(char token[],char* params,int len); };
-char* qcd_getParamComma(char token[],char* params,int len)
+char* getParamComma(char token[],char* params,int len)
 {
    int i,token_len=strlen(token);
 
@@ -1116,8 +1115,8 @@ static void constructCloverField(Float *res, double norm, double diag) {
       res[i*72 + j] = c*rand() - norm;
     }
     for (int j = 0; j< 6; j++) {
-      res[i*72 + j] += diag;//*((j%2)*1.5 + 0.5);	//MIERDA ALEX
-      res[i*72 + j+36] += diag;//*((j%2)*1.5 + 0.5);
+      res[i*72 + j] += diag;
+      res[i*72 + j+36] += diag;
     }
   }
 }
@@ -2100,7 +2099,7 @@ double stopwatchReadSeconds() {
 
 	/*	Alex	*/
 
-void qcd_swap_8(double *Rd, int N)
+void swap_8(double *Rd, int N)
 {
    register char *i,*j,*k;
    char swap;
@@ -2122,7 +2121,7 @@ void qcd_swap_8(double *Rd, int N)
 }
 
 
-void qcd_swap_4(float *Rd, int N)
+void swap_4(float *Rd, int N)
 {
   register char *i,*j,*k;
   char swap;
@@ -2139,7 +2138,7 @@ void qcd_swap_4(float *Rd, int N)
   }
 }
 
-int qcd_isBigEndian()
+int isBigEndian()
 {
    union{
      char C[4];
@@ -2152,7 +2151,7 @@ int qcd_isBigEndian()
    return -1;
 }
 
-char* qcd_getParam(char token[],char* params,int len)
+char* getParam(char token[],char* params,int len)
 {
    int i,token_len=strlen(token);
 
@@ -2238,12 +2237,12 @@ read gauge fileld config stored in binary file
 				limeReaderReadData((void *)lime_data,&lime_data_size, limereader);
 
 				strcpy	(tmpVar, "kappa =");
-				sscanf(qcd_getParamComma(tmpVar,lime_data, lime_data_size),"%lf",&dDummy);    
+				sscanf(getParamComma(tmpVar,lime_data, lime_data_size),"%lf",&dDummy);    
 				printfQuda("Kappa:    \t%lf\n", dDummy);
 				inv_param->kappa	= dDummy;
 
 				strcpy	(tmpVar, "mu =");
-				sscanf(qcd_getParamComma(tmpVar,lime_data, lime_data_size),"%lf",&dDummy);    
+				sscanf(getParamComma(tmpVar,lime_data, lime_data_size),"%lf",&dDummy);    
 				printfQuda("Mu:       \t%lf\n", dDummy);
 
 				if      (overrideMu)
@@ -2264,26 +2263,26 @@ read gauge fileld config stored in binary file
 				limeReaderReadData((void *)lime_data,&lime_data_size, limereader);
 
 				strcpy	(tmpVar, "<precision>");
-				sscanf(qcd_getParam(tmpVar,lime_data, lime_data_size),"%i",&isDouble);    
+				sscanf(getParam(tmpVar,lime_data, lime_data_size),"%i",&isDouble);    
 				printfQuda("Precision:\t%i bit\n",isDouble);
 
 				strcpy	(tmpVar, "<lx>");
-				sscanf(qcd_getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
+				sscanf(getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
 				param->X[0]	 = iDummy/gridSize[0];
 				ln[0]		 = iDummy;
 
 				strcpy	(tmpVar, "<ly>");
-				sscanf(qcd_getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
+				sscanf(getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
 				param->X[1]	 = iDummy/gridSize[1];
 				ln[1]		 = iDummy;
 
 				strcpy	(tmpVar, "<lz>");
-				sscanf(qcd_getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
+				sscanf(getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
 				param->X[2]	 = iDummy/gridSize[2];
 				ln[2]		 = iDummy;
 
 				strcpy	(tmpVar, "<lt>");
-				sscanf(qcd_getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
+				sscanf(getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
 				param->X[3]	 = iDummy/gridSize[3];
 				ln[3]		 = iDummy;
 
@@ -2374,7 +2373,7 @@ read gauge fileld config stored in binary file
 
 	if	(ftmp == NULL)
 	{
-		fprintf(stderr,"Error in qcd_getGaugeLime! Out of memory, couldn't alloc %u bytes\n", (unsigned int) (chunksize*nvh*2));
+		fprintf(stderr,"Error reading conf! Out of memory, couldn't alloc %u bytes\n", (unsigned int) (chunksize*nvh*2));
 		return	1;
 	}
 	else
@@ -2389,8 +2388,8 @@ read gauge fileld config stored in binary file
 		printfQuda	("If some results are wrong, try increasing the number of MPI processes.\n");
 	}
 
-	if	(!qcd_isBigEndian())
-		qcd_swap_8	((double*) ftmp,2*4*3*3*nvh*2);
+	if	(!isBigEndian())
+		swap_8	((double*) ftmp,2*4*3*3*nvh*2);
 #else
 	ftmp	 = (double*)malloc(lvol*72*sizeof(double));
 
@@ -2410,8 +2409,8 @@ read gauge fileld config stored in binary file
 
 	fclose	(fid);
 
-	if	(!qcd_isBigEndian())      
-        	qcd_swap_8	((double*) ftmp,72*lvol);
+	if	(!isBigEndian())      
+        	swap_8	((double*) ftmp,72*lvol);
 #endif
 
 	// reconstruct gauge field

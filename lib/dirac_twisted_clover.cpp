@@ -195,13 +195,13 @@ namespace quda {
     FullClover cI(cloverInv, false);
 
     if (in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS){
-      double a = 2.0 * kappa * in.TwistFlavor() * mu;  //for invert twist (not daggered)
+      double a = -2.0 * kappa * in.TwistFlavor() * mu;  //for invert twist (not daggered)
       double b = 1.;// / (1.0 + a*a);                     //for invert twist 
       if (!dagger || matpcType == QUDA_MATPC_EVEN_EVEN_ASYMMETRIC || matpcType == QUDA_MATPC_ODD_ODD_ASYMMETRIC) {
 	twistedCloverDslashCuda(&out, gauge, &cs, &cI, &in, parity, dagger, 0, QUDA_DEG_DSLASH_CLOVER_TWIST_INV, a, b, 0.0, 0.0, commDim, profile);
 	flops += 1392ll*in.Volume();
-      } else { 
-	twistedCloverDslashCuda(&out, gauge, &cs, &cI, &in, parity, dagger, 0, QUDA_DEG_CLOVER_TWIST_INV_DSLASH, a, b, 0.0, 0.0, commDim, profile);	
+      } else {
+	twistedCloverDslashCuda(&out, gauge, &cs, &cI, &in, parity, dagger, 0, QUDA_DEG_CLOVER_TWIST_INV_DSLASH, -a, b, 0.0, 0.0, commDim, profile);	
         flops += 1392ll*in.Volume();
       }
     } else {//TWIST doublet :
@@ -227,7 +227,7 @@ namespace quda {
     FullClover cI(cloverInv, false);
 
     if(in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS){
-      double a = 2.0 * kappa * in.TwistFlavor() * mu;  //for invert twist
+      double a = -2.0 * kappa * in.TwistFlavor() * mu;  //for invert twist
 //      double b = k / (1.0 + a*a);                     //for invert twist	NO HABRÍA QUE APLICAR CLOVER_TWIST_INV???
       double b = k;                     //for invert twist	NO HABRÍA QUE APLICAR CLOVER_TWIST_INV???
       if (!dagger) {
@@ -253,13 +253,27 @@ namespace quda {
 
     if(in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS){
       if (matpcType == QUDA_MATPC_EVEN_EVEN) {
-	  Dslash(*tmp1, in, QUDA_ODD_PARITY);
+/*	  TwistCloverInv(out, in, QUDA_ODD_PARITY);
+	  TwistCloverInv(out, in, QUDA_EVEN_PARITY);
+	  Dslash(*tmp1, out, QUDA_ODD_PARITY);
 	  DslashXpay(out, *tmp1, QUDA_EVEN_PARITY, in, kappa2); 
+*/
 
-//	  Dslash(out, in, QUDA_ODD_PARITY);
-//	tmp1->zero();
-//	  DslashXpay(out, in, QUDA_EVEN_PARITY, in, kappa2); 
+//	  TwistCloverInv(out, in, QUDA_EVEN_PARITY);
+//	  Dslash(*tmp1, out, QUDA_ODD_PARITY);
+//	  DslashXpay(out, *tmp1, QUDA_EVEN_PARITY, in, kappa2); 
+//	  Dslash(*tmp1, in, QUDA_ODD_PARITY);
+//	  DslashXpay(out, *tmp1, QUDA_EVEN_PARITY, in, kappa2); 
 
+	  if (dagger) {
+	    TwistCloverInv(*tmp1, in, QUDA_EVEN_PARITY);
+	    Dslash(out, *tmp1, QUDA_ODD_PARITY);
+	    TwistCloverInv(*tmp1, out, QUDA_ODD_PARITY);
+	    DslashXpay(out, *tmp1, QUDA_EVEN_PARITY, in, kappa2);//TEST 
+	  } else {
+	    Dslash(*tmp1, in, QUDA_ODD_PARITY);
+	    DslashXpay(out, *tmp1, QUDA_EVEN_PARITY, in, kappa2); 
+	  }
       } else if (matpcType == QUDA_MATPC_ODD_ODD) {
 	  Dslash(*tmp1, in, QUDA_EVEN_PARITY);
 	  DslashXpay(out, *tmp1, QUDA_ODD_PARITY, in, kappa2); 
