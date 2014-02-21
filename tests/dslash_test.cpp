@@ -21,6 +21,8 @@
 
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
+//#define	TESTTMLQCD
+
 using namespace quda;
 
 const QudaParity parity = QUDA_EVEN_PARITY; // even or odd?
@@ -227,7 +229,7 @@ void init(int argc, char **argv) {
   size_t cSize = (inv_param.clover_cpu_prec == QUDA_DOUBLE_PRECISION) ? sizeof(double) : sizeof(float);
 
   if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
-    inv_param.clover_coeff = 0.100000000000000000000000001;
+    inv_param.clover_coeff = 0.01000000000000000000000000001;
     inv_param.clover_cpu_prec = cpu_prec;
     inv_param.clover_cuda_prec = cuda_prec;
     inv_param.clover_cuda_prec_sloppy = inv_param.clover_cuda_prec;
@@ -304,9 +306,8 @@ void init(int argc, char **argv) {
   } else { // else generate a random SU(3) field
     construct_gauge_field(hostGauge, 0, gauge_param.cpu_prec, &gauge_param);
 }
+  inv_param.clover_coeff *= inv_param.kappa;
 
-  inv_param.kappa = 1.0;
-/*
   FILE *Caca = fopen("SpinorTm.In", "r+");
 
   int		Cx,Cy,Cz,Ct,Cidx,colIdx,diracIdx;
@@ -348,8 +349,8 @@ void init(int argc, char **argv) {
   }	while(!feof(Caca));
 
   fclose(Caca);
-*/
-  spinor->Source(QUDA_POINT_SOURCE);
+
+//  spinor->Source(QUDA_POINT_SOURCE);
 //  spinor->Source(QUDA_RANDOM_SOURCE);
 
 /*	FIN MIERDAS DE ALEX	*/
@@ -1003,6 +1004,45 @@ int main(int argc, char **argv)
   dumpContract(spinor, "In", 1.);
   dumpContract(spinorOut, "Out", factor*factor);
   dumpVolume(spinorOut, "Out", factor*factor);
+#ifdef	TESTTMLQCD
+  printfQuda("Integrity check, comparing with tmLQCD package...\n");
+
+  FILE *Caca1 = fopen("SpinorTm.Out", "r+");
+  FILE *Caca2 = fopen("Spinor.Out.0", "r+");
+
+  int		C1x,C1y,C1z,C1t,c1olIdx,d1iracIdx;
+  int		C2x,C2y,C2z,C2t,c2olIdx,d2iracIdx;
+  double	re1P, im1P;
+  double	re2P, im2P;
+
+  int	myRank;
+  myRank	= comm_rank();
+
+  do
+  {
+	fscanf(Caca1, "%d %d %d %d %d %d %le %le\n", &C1x, &C1y, &C1z, &C1t, &c1olIdx, &d1iracIdx, &re1P, &im1P);
+
+	if ((C1t >= tdim*(myRank+1)) || (C1t < tdim*myRank))
+		continue;
+
+	fscanf(Caca2, "%d %d %d %d %d %d %le %le\n", &C2x, &C2y, &C2z, &C2t, &c2olIdx, &d2iracIdx, &re2P, &im2P);
+
+	if	((C1t != C2t)||(C1x != C2x)||(C1y != C2y)||(C1z != C2z)||(c1olIdx != c2olIdx)||(d1iracIdx != d2iracIdx))
+	{
+		printfQuda	("Error: Files don't match\n");
+		printfQuda	("Offending point:\ntmLQCD: %03d %03d %03d %03d %d %d\tQUDA: %03d %03d %03d %03d %d %d\n",C1x,C1y,C1z,C1t,c1olIdx,d1iracIdx,C2x,C2y,C2z,C2t,c2olIdx,d2iracIdx);
+		break;
+	}
+
+	if	((fabs((re1P - re2P)/re2P) > 2E-6)||(fabs((im1P - im2P)/im2P) > 2E-6))
+		printf	("Mismatch: %03d %03d %03d %03d %d %d\nQUDA: %le %le\ntmLQCD %le %le\n",C1x,C1y,C1z,C1t,c1olIdx,d1iracIdx,re2P,im2P,re1P,im1P);
+
+  }	while(!feof(Caca1));
+
+  fclose(Caca1);
+  fclose(Caca2);
+#endif
+  printfQuda("Done.\n");
 
   end();
 

@@ -1993,15 +1993,15 @@ namespace quda {
 #endif
   }
 
-  void twistedCloverDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, const FullClover *clover, const FullClover *cloverInv,
+  void twistedCloverDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, FullClover *clover, FullClover *cloverInv,
 			     const cudaColorSpinorField *in, const int parity, const int dagger, 
 			     const cudaColorSpinorField *x, const QudaTwistCloverDslashType type, const double &kappa, const double &mu, 
 			     const double &epsilon, const double &k,  const int *commOverride,
 			     TimeProfile &profile)
   {
     inSpinor = (cudaColorSpinorField*)in; // EVIL
-    inClover = (FullClover*) clover; // EVIL
-    inCloverInv = (FullClover*) cloverInv; // EVIL
+    inClover = (FullClover*) clover;
+    inCloverInv = (FullClover*) cloverInv;
   #ifdef GPU_TWISTED_CLOVER_DIRAC
     int Npad = (in->Ncolor()*in->Nspin()*2)/in->FieldOrder(); // SPINOR_HOP in old code
   
@@ -2057,7 +2057,8 @@ namespace quda {
 						   (short4*)cloverInvP, (float*)cloverInvNormP, in, x, type, kappa, mu, epsilon, k, dagger);
     }
 
-    dslashCuda(*dslash, regSize, parity, dagger, bulk_threads, ghost_threads, profile);
+//    dslashCuda(*dslash, regSize, parity, dagger, bulk_threads, ghost_threads, profile);
+    dslashCuda2(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
 
     delete dslash;
 
@@ -2629,18 +2630,18 @@ namespace quda {
  };
 
   void twistCloverGamma5Cuda(cudaColorSpinorField *out, const cudaColorSpinorField *in, const int dagger, const double &kappa, const double &mu,
-			     const double &epsilon, const QudaTwistGamma5Type twist, FullClover clov, FullClover clovInv, const int parity)
+			     const double &epsilon, const QudaTwistGamma5Type twist, FullClover *clov, FullClover *clovInv, const int parity)
   {
     if(in->TwistFlavor() == QUDA_TWIST_PLUS || in->TwistFlavor() == QUDA_TWIST_MINUS)
       dslashParam.threads = in->Volume();
     else //twist doublet    
-      dslashParam.threads = in->Volume() / 2;
+      errorQuda("Twisted doublet not supported in twisted clover dslash");
 
 #ifdef GPU_TWISTED_CLOVER_DIRAC
     Tunable *tmClovGamma5 = 0;
 
     void *clover, *cNorm, *cloverInv, *cNorm2;
-    QudaPrecision clover_prec = bindTwistedCloverTex(clov, clovInv, parity, &clover, &cNorm, &cloverInv, &cNorm2);
+    QudaPrecision clover_prec = bindTwistedCloverTex(*clov, *clovInv, parity, &clover, &cNorm, &cloverInv, &cNorm2);
 
     if (in->Precision() != clover_prec)
       errorQuda("ERROR: Clover precision and spinor precision do not match\n");
@@ -2661,7 +2662,7 @@ namespace quda {
     checkCudaError();
 
     delete tmClovGamma5;
-    unbindTwistedCloverTex(clov);
+    unbindTwistedCloverTex(*clov);
 #else
     errorQuda("Twisted clover dslash has not been built");
 #endif // GPU_TWISTED_MASS_DIRAC

@@ -27,6 +27,8 @@
 // In a typical application, quda.h is the only QUDA header required.
 #include <quda.h>
 
+//#define TESTTMLQCD
+
 // Wilson, clover-improved Wilson, twisted mass, and domain wall are supported.
 extern QudaDslashType dslash_type;
 extern bool tune;
@@ -47,6 +49,8 @@ extern int multishift; // whether to test multi-shift or standard solver
 extern char latfile[];
 
 extern void usage(char** );
+
+extern double newMu;
 
 void
 display_test_info()
@@ -263,7 +267,7 @@ int main(int argc, char **argv)
   inv_param.kappa = 1.0 / (2.0 * (1 + 3/gauge_param.anisotropy + mass));
 
   if (dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
-    inv_param.mu = 0.0;
+    inv_param.mu = newMu;
 //    inv_param.epsilon = 0.1385;
 //    inv_param.twist_flavor = QUDA_TWIST_NONDEG_DOUBLET;
     inv_param.twist_flavor = QUDA_TWIST_MINUS;
@@ -289,7 +293,7 @@ int main(int argc, char **argv)
     inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN;
     inv_param.solution_type = multishift ? QUDA_MATPCDAG_MATPC_SOLUTION : QUDA_MATPC_SOLUTION;
   }
-    inv_param.solution_type = QUDA_MATPC_SOLUTION;
+    inv_param.solution_type = QUDA_MAT_SOLUTION;
 
   inv_param.dagger = QUDA_DAG_NO;
   inv_param.mass_normalization = QUDA_KAPPA_NORMALIZATION;
@@ -306,7 +310,7 @@ int main(int argc, char **argv)
   inv_param.pipeline = 0;
 
   inv_param.gcrNkrylov = 10;
-  inv_param.tol = 1e-7;
+  inv_param.tol = 1e-8;
 #if __COMPUTE_CAPABILITY__ >= 200
   // require both L2 relative and heavy quark residual to determine convergence
   inv_param.residual_type = static_cast<QudaResidualType>(QUDA_L2_RELATIVE_RESIDUAL | QUDA_HEAVY_QUARK_RESIDUAL);
@@ -368,7 +372,7 @@ int main(int argc, char **argv)
     inv_param.clover_cuda_prec = cuda_prec;
     inv_param.clover_cuda_prec_sloppy = cuda_prec_sloppy;
     inv_param.clover_cuda_prec_precondition = cuda_prec_sloppy;
-    inv_param.clover_order = QUDA_FLOAT2_CLOVER_ORDER;
+    inv_param.clover_order = QUDA_PACKED_CLOVER_ORDER;
   }
 
   inv_param.verbosity = QUDA_VERBOSE;
@@ -536,7 +540,9 @@ int main(int argc, char **argv)
   loadGaugeQuda((void*)gauge, &gauge_param);
 
   // load the clover term, if desired
-  inv_param.clover_coeff = 0.0000000001;
+  inv_param.kappa = 0.17;
+  inv_param.clover_coeff = 0.01;
+  inv_param.clover_coeff *= inv_param.kappa;
 //  if (dslash_type == QUDA_CLOVER_WILSON_DSLASH) loadCloverQuda(clover, clover_inv, &inv_param);
   if (dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) loadCloverQuda(NULL, NULL, &inv_param);
 
@@ -630,7 +636,7 @@ int main(int argc, char **argv)
 
     } else if(inv_param.solution_type == QUDA_MATPC_SOLUTION) {
 
-      if (dslash_type == QUDA_TWISTED_MASS_DSLASH) {
+      if (dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
 	if (inv_param.twist_flavor != QUDA_TWIST_MINUS && inv_param.twist_flavor != QUDA_TWIST_PLUS)
 	  errorQuda("Twisted mass solution type not supported");
         tm_matpc(spinorCheck, gauge, spinorOut, inv_param.kappa, inv_param.mu, inv_param.twist_flavor, 
@@ -695,10 +701,46 @@ int main(int argc, char **argv)
 	       inv_param.tol, inv_param.true_res, l2r, inv_param.tol_hq, inv_param.true_res_hq);
 
     if	(cuda_prec == QUDA_DOUBLE_PRECISION)
-      dumpSpinor<double>(spinorOut, "Out", 2.*inv_param.kappa);
+      dumpSpinor<double>(spinorOut, "Out", .5/inv_param.kappa);
     else if (cuda_prec == QUDA_SINGLE_PRECISION)
-      dumpSpinor<float>	(spinorOut, "Out", 2.*inv_param.kappa);
+      dumpSpinor<float>	(spinorOut, "Out", .5/inv_param.kappa);
   }
+
+#ifdef	TESTTMLQCD
+  printfQuda("Integrity check, comparing with tmLQCD package...\n");
+
+  FILE *Caca1 = fopen("SpinorTm.In", "r+");
+  FILE *Caca2 = fopen("Spinor.Out.0", "r+");
+
+  int		C1x,C1y,C1z,C1t,c1olIdx,d1iracIdx;
+  int		C2x,C2y,C2z,C2t,c2olIdx,d2iracIdx;
+  double	re1P, im1P;
+  double	re2P, im2P;
+
+  do
+  {
+	fscanf(Caca1, "%d %d %d %d %d %d %le %le\n", &C1x, &C1y, &C1z, &C1t, &c1olIdx, &d1iracIdx, &re1P, &im1P);
+
+	if ((C1t >= tdim*(myRank+1)) || (C1t < tdim*myRank))
+		continue;
+
+	fscanf(Caca2, "%d %d %d %d %d %d %le %le\n", &C2x, &C2y, &C2z, &C2t, &c2olIdx, &d2iracIdx, &re2P, &im2P);
+
+	if	((C1t != C2t)||(C1x != C2x)||(C1y != C2y)||(C1z != C2z)||(c1olIdx != c2olIdx)||(d1iracIdx != d2iracIdx))
+	{
+		printfQuda	("Error: Files don't match\n");
+		printfQuda	("Offending point:\ntmLQCD: %03d %03d %03d %03d %d %d\tQUDA: %03d %03d %03d %03d %d %d\n",C1x,C1y,C1z,C1t,c1olIdx,d1iracIdx,C2x,C2y,C2z,C2t,c2olIdx,d2iracIdx);
+		break;
+	}
+
+	if	((fabs((re1P - re2P)/re2P) > 2E-6)||(fabs((im1P - im2P)/im2P) > 2E-6))
+		printf	("Mismatch: %03d %03d %03d %03d %d %d\nQUDA: %le %le\ntmLQCD %le %le\n",C1x,C1y,C1z,C1t,c1olIdx,d1iracIdx,re2P,im2P,re1P,im1P);
+
+  }	while(!feof(Caca1));
+
+  fclose(Caca1);
+  fclose(Caca2);
+#endif
 
   freeGaugeQuda();
   if (dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) freeCloverQuda();
