@@ -540,8 +540,8 @@ int main(int argc, char **argv)
   loadGaugeQuda((void*)gauge, &gauge_param);
 
   // load the clover term, if desired
-  inv_param.kappa = 0.17;
-  inv_param.clover_coeff = 0.01;
+//  inv_param.kappa = 0.17;
+  inv_param.clover_coeff = 0.1;
   inv_param.clover_coeff *= inv_param.kappa;
 //  if (dslash_type == QUDA_CLOVER_WILSON_DSLASH) loadCloverQuda(clover, clover_inv, &inv_param);
   if (dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) loadCloverQuda(NULL, NULL, &inv_param);

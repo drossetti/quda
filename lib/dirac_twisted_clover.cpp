@@ -272,8 +272,15 @@ namespace quda {
 	    DslashXpay(out, *tmp1, QUDA_EVEN_PARITY, in, kappa2); 
 	  }
       } else if (matpcType == QUDA_MATPC_ODD_ODD) {
-	  Dslash(*tmp1, in, QUDA_EVEN_PARITY);
-	  DslashXpay(out, *tmp1, QUDA_ODD_PARITY, in, kappa2); 
+	  if (dagger) {
+	    TwistCloverInv(*tmp1, in, QUDA_ODD_PARITY);
+	    Dslash(out, *tmp1, QUDA_EVEN_PARITY);
+	    TwistCloverInv(*tmp1, out, QUDA_EVEN_PARITY);
+	    DslashXpay(out, *tmp1, QUDA_ODD_PARITY, in, kappa2); 
+	  } else {
+	    Dslash(*tmp1, in, QUDA_EVEN_PARITY);
+	    DslashXpay(out, *tmp1, QUDA_ODD_PARITY, in, kappa2); 
+	  }
       } else {//asymmetric preconditioning 
         double a = 2.0 * kappa * in.TwistFlavor() * mu;
         if (matpcType == QUDA_MATPC_EVEN_EVEN_ASYMMETRIC) {
