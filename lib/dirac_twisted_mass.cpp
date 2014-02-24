@@ -255,7 +255,7 @@ namespace quda {
     if(in.TwistFlavor() == QUDA_TWIST_PLUS || in.TwistFlavor() == QUDA_TWIST_MINUS){
       if (matpcType == QUDA_MATPC_EVEN_EVEN) {
 	  Dslash(*tmp1, in, QUDA_ODD_PARITY);
-	  DslashXpay(out, *tmp1, QUDA_EVEN_PARITY, in, kappa2);
+	  DslashXpay(out, *tmp1, QUDA_EVEN_PARITY, in, kappa2); 
       } else if (matpcType == QUDA_MATPC_ODD_ODD) {
 	  Dslash(*tmp1, in, QUDA_EVEN_PARITY);
 	  DslashXpay(out, *tmp1, QUDA_ODD_PARITY, in, kappa2); 

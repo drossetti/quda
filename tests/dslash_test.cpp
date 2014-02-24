@@ -152,7 +152,6 @@ void init(int argc, char **argv) {
   gauge_param.reconstruct = link_recon;
   gauge_param.reconstruct_sloppy = link_recon;
   gauge_param.cuda_prec_sloppy = cuda_prec;
-//  gauge_param.cuda_prec_precondition = cuda_prec;
   gauge_param.gauge_fix = QUDA_GAUGE_FIXED_NO;
 
   if (dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) {
@@ -229,7 +228,7 @@ void init(int argc, char **argv) {
   size_t cSize = (inv_param.clover_cpu_prec == QUDA_DOUBLE_PRECISION) ? sizeof(double) : sizeof(float);
 
   if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
-    inv_param.clover_coeff = 0.01000000000000000000000000001;
+    inv_param.clover_coeff = 0.10000000000000000000000000001;
     inv_param.clover_cpu_prec = cpu_prec;
     inv_param.clover_cuda_prec = cuda_prec;
     inv_param.clover_cuda_prec_sloppy = inv_param.clover_cuda_prec;
@@ -413,7 +412,7 @@ void init(int argc, char **argv) {
     csParam.siteSubset = QUDA_PARITY_SITE_SUBSET;
     tmp2 = new cudaColorSpinorField(csParam);
 
-    printfQuda("Sending spinor field to GPU %p %p\n", cudaSpinor, spinor);
+    printfQuda("Sending spinor field to GPU\n");
     *cudaSpinor = *spinor;
     
     double cpu_norm = norm2(*spinor);
@@ -449,7 +448,6 @@ void end() {
   delete spinorTmp;
 
   for (int dir = 0; dir < 4; dir++) free(hostGauge[dir]);
-
 /*  if ((dslash_type == QUDA_CLOVER_WILSON_DSLASH) || (dslash_type == QUDA_TWISTED_CLOVER_DSLASH)) {
     if (hostClover != hostCloverInv && hostClover) free(hostClover);
     if (hostCloverInv != NULL)
@@ -462,7 +460,6 @@ void end() {
 // execute kernel
 double dslashCUDA(int niter) {
 
-	printfQuda("Prolog\n");
   cudaEvent_t start, end;
   cudaEventCreate(&start);
   cudaEventCreate(&end);
@@ -951,7 +948,6 @@ int main(int argc, char **argv)
   
   int attempts = 1;
   dslashRef();
-    
   for (int i=0; i<attempts; i++) {
 
     if (tune) { // warm-up run

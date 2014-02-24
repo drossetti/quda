@@ -418,7 +418,6 @@ namespace quda {
 	  faceVolumeCB[i] = order.faceVolumeCB[i];
 	}
       }
-
       virtual ~FloatNOrder() { ; } 
 
       __device__ __host__ inline void load(RegType v[length], int x, int dir, int parity) const {

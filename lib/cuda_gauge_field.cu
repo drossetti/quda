@@ -341,8 +341,6 @@ namespace quda {
       fat_link_max = 1.0;
     }
 
-    //if (src.Order() == QUDA_TIFR_GAUGE_ORDER) fat_link_max = src.Scale();
-
     if (typeid(src) == typeid(cudaGaugeField)) {
       // copy field and ghost zone into this field
       copyGenericGauge(*this, src, QUDA_CUDA_FIELD_LOCATION, gauge, 

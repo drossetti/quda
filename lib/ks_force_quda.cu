@@ -247,9 +247,9 @@ namespace quda {
     struct KSLongLinkArg {
       int threads; 
       int X[4]; // grid dimensions
-//#ifdef MULTI_GPU
+#ifdef MULTI_GPU
       int border[4];
-//#endif
+#endif
       double coeff;
       Result res;
       Oprod oprod;
