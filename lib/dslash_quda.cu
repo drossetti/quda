@@ -1513,8 +1513,13 @@ namespace quda {
 	{ pack = true; break; }
 
     // Initialize pack from source spinor
-    PROFILE(inSpinor->pack(dslash.Nface()/2, 1-parity, dagger, streams, twist_a, twist_b),
-	    profile, QUDA_PROFILE_PACK_KERNEL);
+    if (inCloverInv == NULL) {
+      PROFILE(inSpinor->pack(dslash.Nface()/2, 1-parity, dagger, streams, twist_a, twist_b),
+	      profile, QUDA_PROFILE_PACK_KERNEL);
+    } else {
+      PROFILE(inSpinor->pack(*inClover, *inCloverInv, dslash.Nface()/2, 1-parity, dagger, streams, twist_a),
+	      profile, QUDA_PROFILE_PACK_KERNEL);
+    }
 
     if (pack) {
       // Record the end of the packing
@@ -1993,7 +1998,7 @@ namespace quda {
 #endif
   }
 
-  void twistedCloverDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, FullClover *clover, FullClover *cloverInv,
+  void twistedCloverDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, const FullClover *clover, const FullClover *cloverInv,
 			     const cudaColorSpinorField *in, const int parity, const int dagger, 
 			     const cudaColorSpinorField *x, const QudaTwistCloverDslashType type, const double &kappa, const double &mu, 
 			     const double &epsilon, const double &k,  const int *commOverride,
@@ -2015,7 +2020,8 @@ namespace quda {
       dslashParam.commDim[i] = (!commOverride[i]) ? 0 : commDimPartitioned(i); // switch off comms if override = 0
       ghost_threads[i] = ((in->TwistFlavor() == QUDA_TWIST_PLUS) || (in->TwistFlavor() == QUDA_TWIST_MINUS)) ? in->GhostFace()[i] : in->GhostFace()[i] / 2;
     }
-
+    twist_a	= 2.*mu*kappa;
+/*
 #ifdef MULTI_GPU
     if(type == QUDA_DEG_CLOVER_TWIST_INV_DSLASH){
         setTwistPack(true);
@@ -2023,7 +2029,7 @@ namespace quda {
         twist_b = mu;
     }
 #endif
-
+*/
     void *gauge0, *gauge1;
     bindGaugeTex(gauge, parity, &gauge0, &gauge1);
 
@@ -2061,7 +2067,7 @@ namespace quda {
     dslashCuda2(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
 
     delete dslash;
-
+/*
 #ifdef MULTI_GPU
     if(type == QUDA_DEG_CLOVER_TWIST_INV_DSLASH){
         setTwistPack(false);
@@ -2069,7 +2075,7 @@ namespace quda {
         twist_b = 0.0;
     }
 #endif
-
+*/
     unbindGaugeTex(gauge);
     unbindTwistedCloverTex(*clover);
 
@@ -2630,7 +2636,7 @@ namespace quda {
  };
 
   void twistCloverGamma5Cuda(cudaColorSpinorField *out, const cudaColorSpinorField *in, const int dagger, const double &kappa, const double &mu,
-			     const double &epsilon, const QudaTwistGamma5Type twist, FullClover *clov, FullClover *clovInv, const int parity)
+			     const double &epsilon, const QudaTwistGamma5Type twist, const FullClover *clov, const FullClover *clovInv, const int parity)
   {
     if(in->TwistFlavor() == QUDA_TWIST_PLUS || in->TwistFlavor() == QUDA_TWIST_MINUS)
       dslashParam.threads = in->Volume();
