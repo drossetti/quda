@@ -74,7 +74,11 @@ namespace quda {
 			FullClover *cI = new FullClover(cloverInv, false);
 			double flavor_mu = in.TwistFlavor() * mu;
 			twistCloverGamma5Cuda(&out, &in, dagger, kappa, flavor_mu, 0.0, twistType, cs, cI, parity);
-			flops += 24ll*in.Volume();
+
+			if (twistType == QUDA_TWIST_GAMMA5_INVERSE)
+				flops += 1176ll*in.Volume();
+			else
+				flops += 648ll*in.Volume();
 
 			delete cs;
 			delete cI;
@@ -118,7 +122,7 @@ namespace quda {
       double a = 2.0 * kappa * in.TwistFlavor() * mu;//for direct twist (must be daggered separately)  
       twistedCloverDslashCuda(&out.Odd(), gauge, cs, cI, &in.Even(), QUDA_ODD_PARITY, dagger, &in.Odd(), QUDA_DEG_DSLASH_CLOVER_TWIST_XPAY, a, -kappa, 0.0, 0.0, commDim, profile);
       twistedCloverDslashCuda(&out.Even(), gauge, cs, cI, &in.Odd(), QUDA_EVEN_PARITY, dagger, &in.Even(), QUDA_DEG_DSLASH_CLOVER_TWIST_XPAY, a, -kappa, 0.0, 0.0, commDim, profile);
-      flops += (1320ll+72ll)*in.Volume();
+      flops += (1320ll+648ll)*in.Volume();
     } else {
       errorQuda("Non-deg twisted clover not implemented yet");
     }
@@ -204,10 +208,10 @@ namespace quda {
       double b = 1.;// / (1.0 + a*a);                     //for invert twist 
       if (!dagger || matpcType == QUDA_MATPC_EVEN_EVEN_ASYMMETRIC || matpcType == QUDA_MATPC_ODD_ODD_ASYMMETRIC) {
 	twistedCloverDslashCuda(&out, gauge, cs, cI, &in, parity, dagger, 0, QUDA_DEG_DSLASH_CLOVER_TWIST_INV, a, b, 0.0, 0.0, commDim, profile);
-	flops += 1392ll*in.Volume();
+	flops += 2496ll*in.Volume();
       } else {
 	twistedCloverDslashCuda(&out, gauge, cs, cI, &in, parity, dagger, 0, QUDA_DEG_CLOVER_TWIST_INV_DSLASH, a, b, 0.0, 0.0, commDim, profile);	
-        flops += 1392ll*in.Volume();
+        flops += 1320ll*in.Volume();
       }
     } else {//TWIST doublet :
         errorQuda("Non-degenrate DiracTwistedCloverPC is not implemented \n");
@@ -239,10 +243,10 @@ namespace quda {
       double b = k;                     //for invert twist	NO HABRÍA QUE APLICAR CLOVER_TWIST_INV???
       if (!dagger) {
         twistedCloverDslashCuda(&out, gauge, cs, cI, &in, parity, dagger, &x, QUDA_DEG_DSLASH_CLOVER_TWIST_INV, a, b, 0.0, 0.0, commDim, profile);
-        flops += 1416ll*in.Volume();
+        flops += 2520ll*in.Volume();
       } else { // tmp1 can alias in, but tmp2 can alias x so must not use this
         twistedCloverDslashCuda(&out, gauge, cs, cI, &in, parity, dagger, &x, QUDA_DEG_CLOVER_TWIST_INV_DSLASH, a, b, 0.0, 0.0, commDim, profile);
-        flops += 1416ll*in.Volume();
+        flops += 1344ll*in.Volume();
       }
     } else {//TWIST_DOUBLET:
         errorQuda("Non-degenrate DiracTwistedCloverPC is not implemented \n");
