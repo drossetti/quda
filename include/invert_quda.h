@@ -237,6 +237,25 @@ namespace quda {
     void operator()(cudaColorSpinorField &out, cudaColorSpinorField &in);
   };
 
+
+  class PreconCG : public Solver {
+    private: 
+      const DiracMatrix &mat;
+      const DiracMatrix &matSloppy;
+      const DiracMatrix &matPrecon;
+
+      Solver *K;
+      SolverParam Kparam; // parameters for preconditioner solve
+
+    public:
+      PreconCG(DiracMatrix &mat, DiracMatrix &matSloppy, DiracMatrix &matPrecon,
+               SolverParam &param, TimeProfile &profile);
+      virtual ~PreconCG();
+
+      void operator()(cudaColorSpinorField &out, cudaColorSpinorField &in);
+  };
+
+
   class BiCGstab : public Solver {
 
   private:
@@ -289,6 +308,23 @@ namespace quda {
     virtual ~MR();
 
     void operator()(cudaColorSpinorField &out, cudaColorSpinorField &in);
+  };
+
+  // Steepest descent solver used as a preconditioner 
+  class SD : public Solver {
+    private:
+      const DiracMatrix &mat;
+      cudaColorSpinorField *Ar;
+      cudaColorSpinorField *r;
+      cudaColorSpinorField *y;
+      bool init;
+    
+    public: 
+      SD(DiracMatrix &mat, SolverParam &param, TimeProfile &profile);
+      virtual ~SD();
+
+
+      void operator()(cudaColorSpinorField &out, cudaColorSpinorField &in);
   };
 
   // multigrid solver

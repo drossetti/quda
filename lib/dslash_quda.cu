@@ -67,7 +67,14 @@ namespace quda {
     int ghostDim[QUDA_MAX_DIM]; // Whether a ghost zone has been allocated for a given dimension
     int ghostOffset[QUDA_MAX_DIM+1];
     int ghostNormOffset[QUDA_MAX_DIM+1];
+    int X[4];
     KernelType kernel_type; //is it INTERIOR_KERNEL, EXTERIOR_KERNEL_X/Y/Z/T
+    int sp_stride; // spinor stride
+#ifdef GPU_STAGGERED_DIRAC
+    int gauge_stride;
+    int long_gauge_stride;
+    int fat_link_max;
+#endif 
 
 #ifdef USE_TEXTURE_OBJECTS
     cudaTextureObject_t inTex;
@@ -102,7 +109,7 @@ namespace quda {
   static cudaEvent_t dslashStart;
   static cudaEvent_t dslashEnd;
 
-  static FaceBuffer *face;
+  static FaceBuffer *face[2];
   static cudaColorSpinorField *inSpinor;
   static FullClover *inClover = NULL;
   static FullClover *inCloverInv = NULL;
@@ -192,10 +199,14 @@ namespace quda {
 #endif
 
 
-  void setFace(const FaceBuffer &Face) {
-    face = (FaceBuffer*)&Face; // nasty
+
+
+  void setFace(const FaceBuffer &Face1, const FaceBuffer &Face2) {
+    face[0] = (FaceBuffer*)&(Face1); 
+    face[1] = (FaceBuffer*)&(Face2); // nasty
   }
 
+  static int it = 0;
 
   void createDslashEvents()
   {
@@ -1375,9 +1386,18 @@ namespace quda {
     dslashParam.threads = volume;
 
 #ifdef MULTI_GPU
+    initDslashCommsPattern();
     // Record the start of the dslash
     PROFILE(cudaEventRecord(dslashStart, streams[Nstream-1]), 
 	    profile, QUDA_PROFILE_EVENT_RECORD);
+
+    for(int i=3; i>=0; i--){
+      if(!dslashParam.commDim[i]) continue;
+      for(int dir=1; dir>=0; dir--){
+	PROFILE(face[it]->recvStart(2*i+dir), profile, QUDA_PROFILE_COMMS_START);
+      } 
+    }
+
 
     bool pack = false;
     for (int i=3; i>=0; i--) 
@@ -1387,10 +1407,10 @@ namespace quda {
     // Initialize pack from source spinor
 
     if (inCloverInv == NULL) {
-      PROFILE(face->pack(*inSpinor, 1-parity, dagger, streams, twist_a, twist_b), 
+      PROFILE(face[it]->pack(*inSpinor, 1-parity, dagger, streams, twist_a, twist_b), 
 	      profile, QUDA_PROFILE_PACK_KERNEL);
     } else {
-      PROFILE(face->pack(*inSpinor, *inClover, *inCloverInv, 1-parity, dagger,
+      PROFILE(face[it]->pack(*inSpinor, *inClover, *inCloverInv, 1-parity, dagger,
 	      streams, twist_a, twist_b), profile, QUDA_PROFILE_PACK_KERNEL);
     }
 
@@ -1410,7 +1430,7 @@ namespace quda {
 		profile, QUDA_PROFILE_STREAM_WAIT_EVENT);
 
 	// Initialize host transfer from source spinor
-	PROFILE(face->gather(*inSpinor, dagger, 2*i+dir), profile, QUDA_PROFILE_GATHER);
+	PROFILE(face[it]->gather(*inSpinor, dagger, 2*i+dir), profile, QUDA_PROFILE_GATHER);
 
 	// Record the end of the gathering
 	PROFILE(cudaEventRecord(gatherEnd[2*i+dir], streams[2*i+dir]), 
@@ -1422,7 +1442,6 @@ namespace quda {
     PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
 
 #ifdef MULTI_GPU
-    initDslashCommsPattern();
 
     int completeSum = 0;
     while (completeSum < commDimTotal) {
@@ -1435,21 +1454,20 @@ namespace quda {
 	  if (!gatherCompleted[2*i+dir] && gatherCompleted[previousDir[2*i+dir]]) { 
 	    //CUresult event_test;
 	    //event_test = cuEventQuery(gatherEnd[2*i+dir]);
-	    //if (CUDA_SUCCESS == event_test) {
 	    PROFILE(cudaError_t event_test = cudaEventQuery(gatherEnd[2*i+dir]), 
 		    profile, QUDA_PROFILE_EVENT_QUERY);
 
 	    if (cudaSuccess == event_test) {
 	      gatherCompleted[2*i+dir] = 1;
 	      completeSum++;
-	      PROFILE(face->commsStart(2*i+dir), profile, QUDA_PROFILE_COMMS_START);
+	      PROFILE(face[it]->sendStart(2*i+dir), profile, QUDA_PROFILE_COMMS_START);
 	    }
 	  }
 	
 	  // Query if comms has finished
 	  if (!commsCompleted[2*i+dir] && commsCompleted[previousDir[2*i+dir]] &&
 	      gatherCompleted[2*i+dir]) {
-	    PROFILE(int comms_test = face->commsQuery(2*i+dir), 
+	    PROFILE(int comms_test = face[it]->commsQuery(2*i+dir), 
 		    profile, QUDA_PROFILE_COMMS_QUERY);
 	    if (comms_test) { 
 	      commsCompleted[2*i+dir] = 1;
@@ -1457,7 +1475,7 @@ namespace quda {
 	    
 	      // Scatter into the end zone
 	      // Both directions use the same stream
-	      PROFILE(face->scatter(*inSpinor, dagger, 2*i+dir), 
+	      PROFILE(face[it]->scatter(*inSpinor, dagger, 2*i+dir), 
 		      profile, QUDA_PROFILE_SCATTER);
 	    }
 	  }
@@ -1486,6 +1504,7 @@ namespace quda {
       }
     
     }
+    it = (it^1);
 #endif // MULTI_GPU
 
     profile.Stop(QUDA_PROFILE_TOTAL);
@@ -1500,13 +1519,19 @@ namespace quda {
     dslashParam.threads = volume;
 
 #ifdef MULTI_GPU
-
     // Record the start of the dslash if doing communication in T and not kernel packing
     if (dslashParam.commDim[3] && !(getKernelPackT() || getTwistPack())) {
       PROFILE(cudaEventRecord(dslashStart, streams[Nstream-1]), 
 	      profile, QUDA_PROFILE_EVENT_RECORD);
     }
-
+	
+    initDslashCommsPattern();
+    for(int i=3; i>=0; i--){
+      if(!dslashParam.commDim[i]) continue;
+      for(int dir=1; dir>=0; dir--){
+        PROFILE(inSpinor->recvStart(dslash.Nface()/2, 2*i+dir, dagger), profile, QUDA_PROFILE_COMMS_START);
+      }
+    }
     bool pack = false;
     for (int i=3; i>=0; i--) 
       if (dslashParam.commDim[i] && (i!=3 || getKernelPackT() || getTwistPack())) 
@@ -1552,7 +1577,6 @@ namespace quda {
     PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
 
 #ifdef MULTI_GPU
-    initDslashCommsPattern();
 
 #ifdef GPU_COMMS
     bool pack_event = false;
@@ -1567,7 +1591,7 @@ namespace quda {
       }
 
       for (int dir=1; dir>=0; dir--) {	
-	PROFILE(inSpinor->commsStart(dslash.Nface()/2, 2*i+dir, dagger), profile, QUDA_PROFILE_COMMS_START);
+	PROFILE(inSpinor->sendStart(dslash.Nface()/2, 2*i+dir, dagger), profile, QUDA_PROFILE_COMMS_START);
 	inSpinor->commsQuery(dslash.Nface()/2, 2*i+dir, dagger); // do a comms query to ensure MPI has begun
       }
     }
@@ -1589,7 +1613,7 @@ namespace quda {
 	    if (cudaSuccess == event_test) {
 	      gatherCompleted[2*i+dir] = 1;
 	      completeSum++;
-	      PROFILE(inSpinor->commsStart(dslash.Nface()/2, 2*i+dir, dagger), profile, QUDA_PROFILE_COMMS_START);
+	      PROFILE(inSpinor->sendStart(dslash.Nface()/2, 2*i+dir, dagger), profile, QUDA_PROFILE_COMMS_START);
 	    }
 	  }
 #endif
@@ -1638,8 +1662,8 @@ namespace quda {
       }
     
     }
+    it = (it^1);
 #endif // MULTI_GPU
-
     profile.Stop(QUDA_PROFILE_TOTAL);
   }
 
@@ -1656,6 +1680,15 @@ namespace quda {
     dslashParam.threads = volume;
 
 #ifdef MULTI_GPU
+    initDslashCommsPattern();
+    for(int i=3; i>=0; i--){
+      if(!dslashParam.commDim[i]) continue;
+      for(int dir=1; dir>=0; dir--){
+	PROFILE(face[it]->recvStart(2*i+dir), profile, QUDA_PROFILE_COMMS_START);    
+      }
+    }
+
+
     setKernelPackT(true);
 
     // Record the end of the packing
@@ -1666,7 +1699,7 @@ namespace quda {
 	    profile, QUDA_PROFILE_STREAM_WAIT_EVENT);
 
     // Initialize pack from source spinor
-    PROFILE(face->pack(*inSpinor, 1-parity, dagger, streams, true, twist_a, twist_b), 
+    PROFILE(face[it]->pack(*inSpinor, 1-parity, dagger, streams, true, twist_a, twist_b), 
 	    profile, QUDA_PROFILE_PACK_KERNEL);
 
     // Record the end of the packing
@@ -1688,11 +1721,10 @@ namespace quda {
     for (int i=3; i>=0; i--) {
       if (!dslashParam.commDim[i]) continue;
       for (int dir=1; dir>=0; dir--) {
-	PROFILE(face->commsStart(2*i+dir), profile, QUDA_PROFILE_COMMS_START);    
+	PROFILE(face[it]->sendStart(2*i+dir), profile, QUDA_PROFILE_COMMS_START);    
       }
     }
 
-    initDslashCommsPattern();
 
     int completeSum = 0;
     commDimTotal /= 2; // pipe is shorter for zero-variant
@@ -1706,7 +1738,7 @@ namespace quda {
 	
 	  // Query if comms have finished
 	  if (!commsCompleted[2*i+dir] && commsCompleted[previousDir[2*i+dir]]) {
-	    PROFILE(int comms_test = face->commsQuery(2*i+dir), 
+	    PROFILE(int comms_test = face[it]->commsQuery(2*i+dir), 
 		    profile, QUDA_PROFILE_COMMS_QUERY);
 	    if (comms_test) { 
 	      commsCompleted[2*i+dir] = 1;
@@ -1714,7 +1746,7 @@ namespace quda {
 	    
 	      // Scatter into the end zone
 	      // Both directions use the same stream
-	      PROFILE(face->scatter(*inSpinor, dagger, 2*i+dir), 
+	      PROFILE(face[it]->scatter(*inSpinor, dagger, 2*i+dir), 
 		      profile, QUDA_PROFILE_SCATTER);
 	    }
 	  }
@@ -1743,6 +1775,7 @@ namespace quda {
       }
     
     }
+    it = (it^1);
 #endif // MULTI_GPU
 
     profile.Stop(QUDA_PROFILE_TOTAL);
@@ -2156,13 +2189,22 @@ namespace quda {
 
     int Npad = (in->Ncolor()*in->Nspin()*2)/in->FieldOrder(); // SPINOR_HOP in old code
 
+  
     dslashParam.parity = parity;
+    dslashParam.sp_stride = in->Stride();
+    dslashParam.gauge_stride = gauge.Stride();
+    dslashParam.fat_link_max = gauge.LinkMax(); // May need to use this in the preconditioning step 
+                                                // in the solver for the improved staggered action
+
+
     for(int i=0;i<4;i++){
+      dslashParam.X[i] = in->X()[i];
       dslashParam.ghostDim[i] = commDimPartitioned(i); // determines whether to use regular or ghost indexing at boundary
       dslashParam.ghostOffset[i] = Npad*(in->GhostOffset(i) + in->Stride());
       dslashParam.ghostNormOffset[i] = in->GhostNormOffset(i) + in->Stride();
       dslashParam.commDim[i] = (!commOverride[i]) ? 0 : commDimPartitioned(i); // switch off comms if override = 0
     }
+    dslashParam.X[0] *= 2; // because color spinor fields are defined on a half lattice
     void *gauge0, *gauge1;
     bindFatGaugeTex(gauge, parity, &gauge0, &gauge1);
 
@@ -2222,14 +2264,21 @@ namespace quda {
 
     int Npad = (in->Ncolor()*in->Nspin()*2)/in->FieldOrder(); // SPINOR_HOP in old code
 
+    dslashParam.sp_stride = in->Stride();
     dslashParam.parity = parity;
-
+    dslashParam.gauge_stride = fatGauge.Stride();
+    dslashParam.long_gauge_stride = longGauge.Stride();
+    dslashParam.fat_link_max = fatGauge.LinkMax();
+  
     for(int i=0;i<4;i++){
+      dslashParam.X[i] = in->X()[i];
       dslashParam.ghostDim[i] = commDimPartitioned(i); // determines whether to use regular or ghost indexing at boundary
       dslashParam.ghostOffset[i] = Npad*(in->GhostOffset(i) + in->Stride());
       dslashParam.ghostNormOffset[i] = in->GhostNormOffset(i) + in->Stride();
       dslashParam.commDim[i] = (!commOverride[i]) ? 0 : commDimPartitioned(i); // switch off comms if override = 0
     }
+    dslashParam.X[0] *= 2;
+
     void *fatGauge0, *fatGauge1;
     void* longGauge0, *longGauge1;
     bindFatGaugeTex(fatGauge, parity, &fatGauge0, &fatGauge1);

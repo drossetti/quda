@@ -666,6 +666,7 @@ namespace quda {
   }
 
 
+
   void cudaColorSpinorField::unpackGhost(const void* ghost_spinor, const int nFace, 
 					 const int dim, const QudaDirection dir, 
 					 const int dagger, cudaStream_t* stream) 
@@ -692,8 +693,67 @@ namespace quda {
       const void *src = static_cast<const char*>(ghost_spinor)+nFace*Nint*ghostFace[dim]*precision; 
       cudaMemcpyAsync(dst, src, normlen*sizeof(float), cudaMemcpyHostToDevice, *stream);
     }
+  }
+
+
+
+
+   // pack the ghost zone into a contiguous buffer for communications
+  void cudaColorSpinorField::packGhostExtended(const int nFace, const int R[], const QudaParity parity,
+                                       const int dim, const QudaDirection dir,
+                                       const int dagger, cudaStream_t *stream,
+                                       void *buffer)
+  {
+    int face_num;
+    if(dir == QUDA_BACKWARDS){
+      face_num = 0;
+    }else if(dir == QUDA_FORWARDS){
+      face_num = 1;
+    }else{
+      face_num = 2;
+    }
+#ifdef MULTI_GPU
+    void *packBuffer = buffer ? buffer : ghostFaceBuffer;
+    packFaceExtended(packBuffer, *this, nFace, R, dagger, parity, dim, face_num, *stream);
+#else
+    errorQuda("packGhostExtended not built on single-GPU build");
+#endif
 
   }
+
+
+  
+
+  // copy data from host buffer into boundary region of device field
+  void cudaColorSpinorField::unpackGhostExtended(const void* ghost_spinor, const int nFace, const QudaParity parity,
+                                                 const int dim, const QudaDirection dir, 
+                                                 const int dagger, cudaStream_t* stream)
+  {
+
+     
+     
+    // First call the regular unpackGhost routine to copy data into the `usual' ghost-zone region 
+    // of the data array 
+    unpackGhost(ghost_spinor, nFace, dim, dir, dagger, stream);
+
+    // Next step is to copy data from the ghost zone back to the interior region
+    int Nint = (nColor * nSpin * 2) / (nSpin == 4 ? 2 : 1); // (spin proj.) degrees of freedom
+
+    int len = nFace*ghostFace[dim]*Nint;
+    int offset = length + ghostOffset[dim]*nColor*nSpin*2;
+    offset += (dir == QUDA_BACKWARDS) ? 0 : len;
+
+#ifdef MULTI_GPU
+    const int face_num = 2;
+    const bool unpack = true;
+    const int R[4] = {0,0,0,0};
+    packFaceExtended(ghostFaceBuffer, *this, nFace, R, dagger, parity, dim, face_num, *stream, unpack); 
+#else
+    errorQuda("unpackGhostExtended not built on single-GPU build");
+#endif
+  }
+
+
 
   cudaStream_t *stream;
 
@@ -941,18 +1001,71 @@ namespace quda {
     }
   }
 
-  void cudaColorSpinorField::gather(int nFace, int dagger, int dir) {
+
+  void cudaColorSpinorField::packExtended(const int nFace, const int R[], const int parity, 
+                                          const int dagger, const int dim,
+                                          cudaStream_t *stream_p, const bool zeroCopyPack){
+
+    allocateGhostBuffer(nFace); // allocate the ghost buffer if not yet allocated
+    createComms(nFace); // must call this first
+
+    stream = stream_p;
+ 
+    void *my_face_d = NULL;
+    if(zeroCopyPack){ 
+      cudaHostGetDevicePointer(&my_face_d, my_face, 0);
+      packGhostExtended(nFace, R, (QudaParity)parity, dim, QUDA_BOTH_DIRS, dagger, &stream[0], my_face_d);
+    }else{
+      packGhostExtended(nFace, R, (QudaParity)parity, dim, QUDA_BOTH_DIRS, dagger, &stream[Nstream-1], my_face_d);
+    }
+  }
+                                                      
+
+
+  void cudaColorSpinorField::gather(int nFace, int dagger, int dir, cudaStream_t* stream_p)
+  {
+    int dim = dir/2;
+
+    // If stream_p != 0, use pack_stream, else use the stream array
+    cudaStream_t *pack_stream = (stream_p) ? stream_p : stream+dir;
+
+    if(dir%2 == 0){
+      // backwards copy to host
+      sendGhost(my_back_face[dim], nFace, dim, QUDA_BACKWARDS, dagger, pack_stream);
+    } else {
+      // forwards copy to host
+      sendGhost(my_fwd_face[dim], nFace, dim, QUDA_FORWARDS, dagger, pack_stream);
+    }
+  }
+
+
+
+  void cudaColorSpinorField::recvStart(int nFace, int dir, int dagger) {
     int dim = dir/2;
     if(!commDimPartitioned(dim)) return;
 
-    if (dir%2==0) {
-      // backwards copy to host
-      sendGhost(my_back_face[dim], nFace, dim, QUDA_BACKWARDS, dagger, &stream[2*dim+0]); 
-    } else {
-      // forwards copy to host
-      sendGhost(my_fwd_face[dim], nFace, dim, QUDA_FORWARDS, dagger, &stream[2*dim+1]);
+    if (dir%2 == 0) { // sending backwards
+      // Prepost receive
+      comm_start(mh_recv_fwd[nFace-1][dim]);
+    } else { //sending forwards
+      // Prepost receive
+      comm_start(mh_recv_back[nFace-1][dim]);
     }
   }
+
+  void cudaColorSpinorField::sendStart(int nFace, int dir, int dagger) {
+    int dim = dir / 2;
+    if(!commDimPartitioned(dim)) return;
+
+    if (dir%2 == 0) { // sending backwards
+      comm_start(mh_send_back[nFace-1][2*dim+dagger]);
+    } else { //sending forwards
+      comm_start(mh_send_fwd[nFace-1][2*dim+dagger]);
+    }
+  }
+
+
+
 
   void cudaColorSpinorField::commsStart(int nFace, int dir, int dagger) {
     int dim = dir / 2;
@@ -997,6 +1110,21 @@ namespace quda {
       unpackGhost(from_back_face[dim], nFace, dim, QUDA_BACKWARDS, dagger, &stream[2*dim/*+1*/]);
     }
   }
+
+  
+  void cudaColorSpinorField::scatterExtended(int nFace, int parity, int dagger, int dir)
+  {
+    int dim = dir/2;
+    if(!commDimPartitioned(dim)) return;
+    if (dir%2==0) {// receive from forwards
+      unpackGhostExtended(from_fwd_face[dim], nFace, static_cast<QudaParity>(parity), dim, QUDA_FORWARDS, dagger, &stream[2*dim/*+0*/]);
+    } else { // receive from backwards
+      unpackGhostExtended(from_back_face[dim], nFace, static_cast<QudaParity>(parity),  dim, QUDA_BACKWARDS, dagger, &stream[2*dim/*+1*/]);
+    }
+  }
+  
+
+
 
   // Return the location of the field
   QudaFieldLocation cudaColorSpinorField::Location() const { return QUDA_CUDA_FIELD_LOCATION; }

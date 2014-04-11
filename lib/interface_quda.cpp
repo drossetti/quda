@@ -152,6 +152,9 @@ static TimeProfile profileHISQForce("computeHISQForceQuda");
 //!< Profiler for contractions
 static TimeProfile profileContract("contractQuda");
 
+//!<Profiler for computeHISQForceCompleteQuda
+static TimeProfile profileHISQForceComplete("computeHISQForceCompleteQuda");
+
 //!< Profiler for endQuda
 static TimeProfile profileEnd("endQuda");
 
@@ -1078,7 +1081,13 @@ namespace quda {
     for (int i=0; i<4; i++) {
       diracParam.commDim[i] = 0; // comms are always off
     }
-
+  
+    // In the preconditioned staggered CG allow a different dlsash type in the preconditioning
+    if(inv_param->inv_type == QUDA_PCG_INVERTER && inv_param->dslash_type == QUDA_ASQTAD_DSLASH
+       && inv_param->dslash_type_precondition == QUDA_STAGGERED_DSLASH) {
+       diracParam.type = pc ? QUDA_STAGGEREDPC_DIRAC : QUDA_STAGGERED_DIRAC;
+       diracParam.gauge = gaugeFatPrecondition;
+    }
   }
 
   void createDirac(Dirac *&d, Dirac *&dSloppy, Dirac *&dPre, QudaInvertParam &param, const bool pc_solve)
@@ -2693,6 +2702,11 @@ namespace quda {
       gParam.reconstruct = QUDA_RECONSTRUCT_NO;
       gParam.geometry = QUDA_SCALAR_GEOMETRY; // only require a scalar matrix field for the staple
       gParam.order = QUDA_FLOAT2_GAUGE_ORDER;
+#ifdef MULTI_GPU
+      if(method == QUDA_COMPUTE_FAT_EXTENDED_VOLUME) gParam.ghostExchange = QUDA_GHOST_EXCHANGE_NO;
+#else
+      gParam.ghostExchange = QUDA_GHOST_EXCHANGE_NO;
+#endif
       cudaStapleField  = new cudaGaugeField(gParam);
       cudaStapleField1 = new cudaGaugeField(gParam);
     }
@@ -3830,6 +3844,45 @@ void computeAsqtadForceQuda(void* const milc_momentum,
 #endif
 
 }
+
+void 
+computeHISQForceCompleteQuda(void* const milc_momentum,
+                             const double level2_coeff[6],
+                             const double fat7_coeff[6],
+                             void** quark_array,
+                             int num_terms,
+                             double** quark_coeff,
+                             const void* const w_link,
+                             const void* const v_link,
+                             const void* const u_link,
+                             const QudaGaugeParam* gParam)
+{
+
+  void* oprod[2];
+
+/*
+  computeStaggeredOprodQuda(void** oprod,
+    void** fermion,
+    int num_terms,
+    double** coeff,
+    QudaGaugeParam* gParam)
+
+  computeHISQForceQuda(milc_momentum,
+                       level2_coeff,
+                       fat7_coeff,
+                       staple_src,
+                       one_link_src,
+                       naik_src,
+                       w_link, 
+                       v_link,
+                       u_link,
+                       gParam);
+
+*/
+  return;
+}
+
+
 
 
   void
