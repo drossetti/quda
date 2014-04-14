@@ -342,7 +342,7 @@ namespace quda {
       } else if (matpcType == QUDA_MATPC_EVEN_EVEN_ASYMMETRIC) {
         // src = b_e + k D_eo A_oo^-1 b_o
         src = &(x.Odd());
-        TwistInv(*tmp1, b.Odd()); // safe even when *tmp1 = b.odd
+        TwistInv(*tmp1, b.Odd()); // safe even when *tmp1 = b.odd		TEST!!!!
         DiracWilson::DslashXpay(*src, *tmp1, QUDA_EVEN_PARITY, b.Even(), kappa);
         sol = &(x.Even());
       } else if (matpcType == QUDA_MATPC_ODD_ODD_ASYMMETRIC) {

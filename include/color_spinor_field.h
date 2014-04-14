@@ -381,8 +381,6 @@ namespace quda {
     void pack(FullClover &clov, FullClover &clovInv, int nFace, int parity, int dagger,
 	      cudaStream_t *stream_p, bool zeroCopyPack, double a=0);
 
-    void gather(int nFace, int dagger, int dir);
-
     void packExtended(const int nFace, const int R[], const int parity, const int dagger,
         const int dim,  cudaStream_t *stream_p, const bool zeroCopyPack=false);
 

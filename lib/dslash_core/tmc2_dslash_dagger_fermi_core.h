@@ -642,6 +642,7 @@ if (kernel_type == INTERIOR_KERNEL) {
 
 
 // declare C## here and use ASSN below instead of READ
+#ifndef CLOVER_TWIST_INV_DSLASH
 #ifdef CLOVER_DOUBLE
 double2 C0;
 double2 C1;
@@ -674,6 +675,7 @@ float4 C8;
 
 #if (DD_PREC==2)
 float K;
+#endif
 #endif
 
 #endif

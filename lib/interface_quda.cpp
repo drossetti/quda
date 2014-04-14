@@ -149,9 +149,6 @@ static TimeProfile profileAsqtadForce("computeAsqtadForceQuda");
 //!<Profiler for computeAsqtadForceQuda
 static TimeProfile profileHISQForce("computeHISQForceQuda");
 
-//!< Profiler for contractions
-static TimeProfile profileContract("contractQuda");
-
 //!<Profiler for computeHISQForceCompleteQuda
 static TimeProfile profileHISQForceComplete("computeHISQForceCompleteQuda");
 
@@ -3331,8 +3328,7 @@ void createCloverQuda(QudaInvertParam* invertParam)
   profileCloverCreate.Stop(QUDA_PROFILE_TOTAL);
 
   // FIXME always preserve the extended gauge
-//  extendedGaugeResident = cudaGaugeExtended;
-  delete cudaGaugeExtended;	//save memory
+  extendedGaugeResident = cudaGaugeExtended;
 
   return;
 }

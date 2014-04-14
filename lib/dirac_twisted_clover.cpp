@@ -112,7 +112,7 @@ namespace quda {
     }
     bool reset = newTmp(&tmp, in.Even());
 
-    setFace(face); // FIXME: temporary hack maintain C linkage for dslashCuda      
+    setFace(face1,face2); // FIXME: temporary hack maintain C linkage for dslashCuda      
     initConstants(in);
 
     FullClover *cs = new FullClover(clover);
@@ -197,7 +197,7 @@ namespace quda {
     if (in.TwistFlavor() == QUDA_TWIST_NO || in.TwistFlavor() == QUDA_TWIST_INVALID)
       errorQuda("Twist flavor not set %d\n", in.TwistFlavor());
 
-    setFace(face); // FIXME: temporary hack maintain C linkage for dslashCuda
+    setFace(face1,face2); // FIXME: temporary hack maintain C linkage for dslashCuda
     initConstants(in);
   
     FullClover *cs = new FullClover(clover);
@@ -231,7 +231,7 @@ namespace quda {
     if (in.TwistFlavor() == QUDA_TWIST_NO || in.TwistFlavor() == QUDA_TWIST_INVALID)
       errorQuda("Twist flavor not set %d\n", in.TwistFlavor());
 
-   setFace(face); // FIXME: temporary hack maintain C linkage for dslashCuda
+   setFace(face1,face2); // FIXME: temporary hack maintain C linkage for dslashCuda
    initConstants(in);  
   
     FullClover *cs = new FullClover(clover);

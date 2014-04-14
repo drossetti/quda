@@ -1506,41 +1506,41 @@ __global__ void packCloverTwistedFaceWilsonKernel(Float a, PackParam<FloatN> par
   // read spinor, spin-project, and write half spinor to face
   if (dim == 0) {
     if (face_num == 0) {
-      const int idx = indexFromFaceIndex<0,nFace,0>(face_idx,ghostFace[0],param.parity);
+      const int idx = indexFromFaceIndex<0,nFace,0>(face_idx,ghostFace[0],param.parity,param.X);
       packCloverTwistedFaceWilsonCore<0,dagger,0>(param.out[0], param.outNorm[0], param.in, 
           param.inNorm, a, idx, face_idx, ghostFace[0], param);
     } else {
-      const int idx = indexFromFaceIndex<0,nFace,1>(face_idx,ghostFace[0],param.parity);
+      const int idx = indexFromFaceIndex<0,nFace,1>(face_idx,ghostFace[0],param.parity,param.X);
       packCloverTwistedFaceWilsonCore<0,dagger,1>(param.out[1], param.outNorm[1], param.in, 
           param.inNorm, a, idx, face_idx, ghostFace[0], param);
     }
   } else if (dim == 1) {
     if (face_num == 0) {
-      const int idx = indexFromFaceIndex<1,nFace,0>(face_idx,ghostFace[1],param.parity);
+      const int idx = indexFromFaceIndex<1,nFace,0>(face_idx,ghostFace[1],param.parity,param.X);
       packCloverTwistedFaceWilsonCore<1, dagger,0>(param.out[2], param.outNorm[2], param.in, 
           param.inNorm, a, idx, face_idx, ghostFace[1], param);
     } else {
-      const int idx = indexFromFaceIndex<1,nFace,1>(face_idx,ghostFace[1],param.parity);
+      const int idx = indexFromFaceIndex<1,nFace,1>(face_idx,ghostFace[1],param.parity,param.X);
       packCloverTwistedFaceWilsonCore<1, dagger,1>(param.out[3], param.outNorm[3], param.in, 
           param.inNorm, a, idx, face_idx, ghostFace[1], param);
     }
   } else if (dim == 2) {
     if (face_num == 0) {
-      const int idx = indexFromFaceIndex<2,nFace,0>(face_idx,ghostFace[2],param.parity);
+      const int idx = indexFromFaceIndex<2,nFace,0>(face_idx,ghostFace[2],param.parity,param.X);
       packCloverTwistedFaceWilsonCore<2, dagger,0>(param.out[4], param.outNorm[4], param.in, 
           param.inNorm, a, idx, face_idx, ghostFace[2], param);
     } else {
-      const int idx = indexFromFaceIndex<2,nFace,1>(face_idx,ghostFace[2],param.parity);
+      const int idx = indexFromFaceIndex<2,nFace,1>(face_idx,ghostFace[2],param.parity,param.X);
       packCloverTwistedFaceWilsonCore<2, dagger,1>(param.out[5], param.outNorm[5], param.in, 
           param.inNorm, a, idx, face_idx, ghostFace[2], param);
     }
   } else {
     if (face_num == 0) {
-      const int idx = indexFromFaceIndex<3,nFace,0>(face_idx,ghostFace[3],param.parity);
+      const int idx = indexFromFaceIndex<3,nFace,0>(face_idx,ghostFace[3],param.parity,param.X);
       packCloverTwistedFaceWilsonCore<3, dagger,0>(param.out[6], param.outNorm[6], param.in, 
           param.inNorm, a,idx, face_idx, ghostFace[3], param);
     } else {
-      const int idx = indexFromFaceIndex<3,nFace,1>(face_idx,ghostFace[3],param.parity);
+      const int idx = indexFromFaceIndex<3,nFace,1>(face_idx,ghostFace[3],param.parity,param.X);
       packCloverTwistedFaceWilsonCore<3, dagger,1>(param.out[7], param.outNorm[7], param.in, 
           param.inNorm, a, idx, face_idx, ghostFace[3], param);
     }
