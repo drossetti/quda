@@ -56,6 +56,9 @@ BUILD_QIO = @BUILD_QIO@    # set to 'yes' to build QIO code for binary I/O
 
 USE_QDPJIT = @USE_QDPJIT@  # build QDP-JIT support?
 
+# GPU contractions of spinors
+BUILD_CONTRACT = @BUILD_CONTRACT@	# build code for bilinear contraction?
+
 FECC = @FECC@			# front-end CC
 FECXX = @FECXX@			# front-end CXX
 FEF90 = @FEF90@			# front-end F90
@@ -268,6 +271,17 @@ endif
 ifeq ($(strip $(DEVICE_PACK)), yes)
   NVCCOPT += -DDEVICE_PACK
   COPT += -DDEVICE_PACK
+endif
+
+ifeq ($(strip $(BUILD_CONTRACT)), yes)
+  LOOPVV_TEST=vvTrickLoops
+  LOOPVV_TUNE=tuneOneEndTrick
+  LOOPTD_TEST=tDilutionLoops
+  LPTDHP_TEST=tDilHPELoops
+  LOOPCV_TEST=loopsPlain
+  LOOPHP_TEST=loopsHPE
+  NVCCOPT += -DGPU_CONTRACT
+  COPT += -DGPU_CONTRACT
 endif
 
 ifeq ($(strip $(OS)), osx)
