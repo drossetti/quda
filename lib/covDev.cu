@@ -57,35 +57,75 @@ namespace quda
 			switch	(mu)
 			{
 				case	0:
-				covDevM012Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_NO)
+					covDevM018Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_12)
+					covDevM012Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_8)
+					covDevM08Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
 				break;
 
 				case	1:
-				covDevM112Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(),  dslashParam);
+				if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_NO)
+					covDevM118Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_12)
+					covDevM112Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_8)
+					covDevM18Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
 				break;
 
 				case	2:
-				covDevM212Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(),  dslashParam);
+				if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_NO)
+					covDevM218Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_12)
+					covDevM212Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_8)
+					covDevM28Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
 				break;
 
 				case	3:
-				covDevM312Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_NO)
+					covDevM318Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_12)
+					covDevM312Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_8)
+					covDevM38Kernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
 				break;
 
 				case	4:
-				covDevM012DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_NO)
+					covDevM018DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_12)
+					covDevM012DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_8)
+					covDevM08DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
 				break;
 
 				case	5:
-				covDevM112DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(),  dslashParam);
+				if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_NO)
+					covDevM118DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_12)
+					covDevM112DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_8)
+					covDevM18DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
 				break;
 
 				case	6:
-				covDevM212DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(),  dslashParam);
+				if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_NO)
+					covDevM218DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_12)
+					covDevM212DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_8)
+					covDevM28DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
 				break;
 
 				case	7:
-				covDevM312DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_NO)
+					covDevM318DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_12)
+					covDevM312DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_8)
+					covDevM38DaggerKernel<INTERIOR_KERNEL><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) in->V(), dslashParam);
 				break;
 			}
 		}
@@ -201,8 +241,8 @@ namespace quda
 
 			for	(int i=3; i<nDimComms; i++)
 			{
-				comm_start	(mh_from[i]);
 				comm_start	(mh_send[i]);
+				comm_start	(mh_from[i]);
 			}
 	
 			for	(int i=3; i<nDimComms; i++)
@@ -219,24 +259,40 @@ namespace quda
 
 			//Send buffers to GPU:
 			cudaMemcpy(ghostTBuffer, recv_t, Nint * tghostVolume * sizeof(Float), cudaMemcpyHostToDevice);
-	
+
 			//start execution
 			//define exec domain
 			dslashParam.kernel_type	 = EXTERIOR_KERNEL_T;
 			dslashParam.threads	 = tghostVolume;
-	
-			cudaBindTexture		(0, spinorTexDouble, (Float2*)ghostTBuffer, Nint*tghostVolume*sizeof(Float));
 
-			dim3	gridBlock(64, 1, 1);
+			if	(in->Precision() == QUDA_DOUBLE_PRECISION)
+				cudaBindTexture		(0, spinorTexDouble, (Float2*)ghostTBuffer, Nint*tghostVolume*sizeof(Float));
+			else if	(in->Precision() == QUDA_SINGLE_PRECISION)
+				cudaBindTexture		(0, spinorTexSingle, (Float2*)ghostTBuffer, Nint*tghostVolume*sizeof(Float));
+			else
+				errorQuda		("Half precision for covariant derivative not supported.");
+
+			dim3	gridBlock(32, 1, 1);
 			dim3	gridDim((dslashParam.threads+gridBlock.x-1) / gridBlock.x, 1, 1);	
 
 			switch	(mu)
 			{
 				case	3:
-				covDevM312Kernel<EXTERIOR_KERNEL_T><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) ghostTBuffer, dslashParam);
+				if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_NO)
+					covDevM318Kernel<EXTERIOR_KERNEL_T><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) ghostTBuffer, dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_12)
+					covDevM312Kernel<EXTERIOR_KERNEL_T><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) ghostTBuffer, dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_8)
+					covDevM38Kernel<EXTERIOR_KERNEL_T><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) ghostTBuffer, dslashParam);
 				break;
+
 				case	7:
-				covDevM312DaggerKernel<EXTERIOR_KERNEL_T><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) ghostTBuffer, dslashParam);
+				if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_NO)
+					covDevM318DaggerKernel<EXTERIOR_KERNEL_T><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) ghostTBuffer, dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_12)
+					covDevM312DaggerKernel<EXTERIOR_KERNEL_T><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) ghostTBuffer, dslashParam);
+				else if	(gauge.Reconstruct() == QUDA_RECONSTRUCT_8)
+					covDevM38DaggerKernel<EXTERIOR_KERNEL_T><<<gridDim, gridBlock, 0, streams[Nstream-1]>>>((Float2*) out->V(), (const Float2*) gauge0, (const Float2*) gauge1, (const Float2*) ghostTBuffer, dslashParam);
 				break;
 			}
 
@@ -245,7 +301,11 @@ namespace quda
 			cudaFreeHost(recv_t);
 		#endif
 
-		cudaUnbindTexture	(spinorTexDouble);
+		if	(in->Precision() == QUDA_DOUBLE_PRECISION)
+			cudaUnbindTexture	(spinorTexDouble);
+		else
+			cudaUnbindTexture	(spinorTexSingle);
+
 		unbindGaugeTex		(gauge);
 
 		cudaDeviceSynchronize	();

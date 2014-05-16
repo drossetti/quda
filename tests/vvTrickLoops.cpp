@@ -15,6 +15,8 @@
 
 #ifdef QMP_COMMS
 #include <qmp.h>
+#elif defined(MPI_COMMS)
+#include <mpi.h>
 #endif
 
 #include <gauge_qio.h>
@@ -23,7 +25,7 @@
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
 
-#define	TESTPOINT
+//#define	TESTPOINT
 //#define	RANDOM_CONF
 #define	CROSSCHECK
 
@@ -31,8 +33,6 @@
 #include <quda.h>
 #include <contractQuda.h>
 #include <cufft.h>
-
-#include <mpi.h>
 
 //#include <randCuda.h>
 
@@ -43,6 +43,7 @@ extern int			xdim;
 extern int			ydim;
 extern int			zdim;
 extern int			tdim;
+extern int			Lsdim;
 extern int			numberHP;
 extern int			nConf;
 extern int			numberLP;
@@ -52,6 +53,8 @@ extern QudaReconstructType	link_recon;
 extern QudaPrecision		prec;
 extern QudaReconstructType	link_recon_sloppy;
 extern QudaPrecision		prec_sloppy;
+extern QudaInverterType		inv_type;
+extern int			multishift;			// whether to test multi-shift or standard solver
 
 extern char			latfile[];
 
@@ -100,56 +103,21 @@ display_test_info()
 {
   printfQuda("running the following test:\n");
     
-  printfQuda("prec    sloppy_prec    link_recon  sloppy_link_recon S_dimension T_dimension\n");
-  printfQuda("%s   %s             %s            %s            %d/%d/%d          %d \n",
+  printfQuda("prec    sloppy_prec    link_recon  sloppy_link_recon S_dimension T_dimension Ls_dimension\n");
+  printfQuda("%s   %s             %s            %s            %d/%d/%d          %d         %d\n",
 	     get_prec_str(prec),get_prec_str(prec_sloppy),
 	     get_recon_str(link_recon), 
-	     get_recon_str(link_recon_sloppy),  xdim, ydim, zdim, tdim);     
+	     get_recon_str(link_recon_sloppy),  xdim, ydim, zdim, tdim, Lsdim);     
 
   printfQuda("Grid partition info:     X  Y  Z  T\n"); 
   printfQuda("                         %d  %d  %d  %d\n", 
-	     commDimPartitioned(0),
-	     commDimPartitioned(1),
-	     commDimPartitioned(2),
-	     commDimPartitioned(3)); 
+	     dimPartitioned(0),
+	     dimPartitioned(1),
+	     dimPartitioned(2),
+	     dimPartitioned(3)); 
   
   return ;
   
-}
-
-void printCosa (int pt, int j, void **gauge, int id)
-{
-	double temp1, temp2, temp3, temp4, temp5, temp6;
-
-	int k	 = pt*18;
-
-	temp1	 = ((double**) gauge)[j][k+0];
-	temp2	 = ((double**) gauge)[j][k+1];
-	temp3	 = ((double**) gauge)[j][k+2];
-	temp4	 = ((double**) gauge)[j][k+3];
-	temp5	 = ((double**) gauge)[j][k+4];
-	temp6	 = ((double**) gauge)[j][k+5];
-
-	printf	("Punto %d %d (%d)\n\n", pt, j, id);
-	printf	("id%d %+le +/- i %+le\t%+le +/- i %+le\t%+le +/- i %+le\n", id, temp1, temp2, temp3, temp4, temp5, temp6);
-
-	temp1	 = ((double**) gauge)[j][k+6];
-	temp2	 = ((double**) gauge)[j][k+7];
-	temp3	 = ((double**) gauge)[j][k+8];
-	temp4	 = ((double**) gauge)[j][k+9];
-	temp5	 = ((double**) gauge)[j][k+10];
-	temp6	 = ((double**) gauge)[j][k+11];
-
-	printf	("id%d %+le +/- i %+le\t%+le +/- i %+le\t%+le +/- i %+le\n", id, temp1, temp2, temp3, temp4, temp5, temp6);
-
-	temp1	 = ((double**) gauge)[j][k+12];
-	temp2	 = ((double**) gauge)[j][k+13];
-	temp3	 = ((double**) gauge)[j][k+14];
-	temp4	 = ((double**) gauge)[j][k+15];
-	temp5	 = ((double**) gauge)[j][k+16];
-	temp6	 = ((double**) gauge)[j][k+17];
-
-	printf	("id%d %+le +/- i %+le\t%+le +/- i %+le\t%+le +/- i %+le\n", id, temp1, temp2, temp3, temp4, temp5, temp6);
 }
 
 void	genRandomSource	(void *spinorIn, QudaInvertParam *inv_param, gsl_rng *rNum)
@@ -161,7 +129,6 @@ void	genRandomSource	(void *spinorIn, QudaInvertParam *inv_param, gsl_rng *rNum)
 			((float*) spinorIn)[i]		 = 0.;
 
 		if	(comm_rank() == 0)
-//			((float*) spinorIn)[7864338]		 = 1.;		//t-Component
 			((float*) spinorIn)[18]		 = 1.;		//t-Component
 	}
 	else if	(inv_param->cpu_prec == QUDA_DOUBLE_PRECISION)
@@ -170,17 +137,7 @@ void	genRandomSource	(void *spinorIn, QudaInvertParam *inv_param, gsl_rng *rNum)
 			((double*) spinorIn)[i]		 = 0.;
 
 		if	(comm_rank() == 0)
-//			((double*) spinorIn)[7864338]	 = 1.;
 			((double*) spinorIn)[18]	 = 1.;
-//			((double*) spinorIn)[0]	 = 1.;
-/*
-		for	(int i = 0; i<V; i++)
-			for	(int j = 0; j<12; j++)
-			{
-				((double*) spinorIn)[i*24+j*2]		 = i;//TODO BORRAR
-				((double*) spinorIn)[i*24+j*2+1]	 = j;//TODO BORRAR
-			}
-*/
 	}
 #else
 	if (inv_param->cpu_prec == QUDA_SINGLE_PRECISION) 
@@ -250,71 +207,6 @@ void	genRandomSource	(void *spinorIn, QudaInvertParam *inv_param, gsl_rng *rNum)
 		}
 	}
 #endif
-}
-
-int getFullLatIndex(int i, int oddBit, int commDir, int rank_id, int mpi_size){
-  /*
-    int boundaryCrossings = i/(Z[0]/2) + i/(Z[1]*Z[0]/2) + i/(Z[2]*Z[1]*Z[0]/2);
-    return 2*i + (boundaryCrossings + oddBit) % 2;
-  */
-//(default sizes):
-
-  int X1  = xdim;
-  int X2  = ydim;
-  int X3  = zdim;
-  int X4  = tdim;
-
-  int Y1 = X1, Y2 = X2, Y3 = X3, Y4 = X4;
-
-  switch(commDir){
-        case 0 : Y1 /= mpi_size;
-        break;
-        case 1 : Y2 /= mpi_size;
-        break;
-        case 2 : Y3 /= mpi_size;
-        break;
-        case 3 : Y4 /= mpi_size;
-  }
-
-  int Y1h = Y1/2;
-
-  int sid = i;
-  int za  = sid/Y1h;
-  int x1h = sid - za*Y1h;
-  int zb  = za/Y2;
-  int x2  = za - zb*Y2;
-  int zc  = zb/Y3; //zc<>x4
-  int x3  = zb - zc*Y3;
-  int xs  = zc/Y4;
-  int x4  = zc - xs*Y4;
-  int x1odd = (x2 + x3 + x4 + xs + oddBit) & 1;
-  int x1 = 2*x1h + x1odd;//for even dims is ok.
-
-  //do a shift in needed direction to get correct coordinate:
-  switch(commDir){
-        case 0 : x1 += rank_id*Y1;
-        break;
-        case 1 : x2 += rank_id*Y2;
-        break;
-        case 2 : x3 += rank_id*Y3;
-        break;
-        case 3 : x4 += rank_id*Y4;
-  }
-
-  int X = x1+x2*X1+x3*X1*X2+x4*X1*X2*X3+xs*X1*X2*X3*X4;
-
-  return X;//this number is unique for each mpirank
-}
-
-template <typename Float>
-void random(Float *v, const int length) {
-  const int mpi_rank = comm_rank();
-  const int mpi_size = comm_size();
-
-  for(int i = 0; i < length; i++) {
-    if(!(i % 24)) srand(getFullLatIndex(i / 24, 0, 3, mpi_rank, mpi_size));
-      v[i] = rand() / (double)RAND_MAX;
-  }
 }
 
 void	reOrder	(double *array1, double *array2, const int arrayOffset)
@@ -847,8 +739,9 @@ void	dumpData	(int nSols, const char *Pref, int **mom, void *cnRes_vv, void *cnR
 int	main	(int argc, char **argv)
 {
 	int	i, k;
-	double	precisionHP	 = 4e-10;
-	double	precisionLP	 = 2e-3;
+	double	precision	 = 4e-10;
+	int	iteraHP		 = 40000;
+	int	iteraLP		 = 15;
 
 	char	name[16];
 
@@ -857,7 +750,7 @@ int	main	(int argc, char **argv)
 
 //	curandStateMRG32k3a	*rngStat;
 
-	for (i =1;i < argc; i++)
+	for	(i =1;i < argc; i++)
 	{
 		if	(process_command_line_option(argc, argv, &i) == 0)
 			continue;
@@ -866,7 +759,14 @@ int	main	(int argc, char **argv)
 		usage	(argv);
 	}
 
-  	MPI_Init(&argc, &argv);
+	// initialize QMP or MPI
+#if defined(QMP_COMMS)
+	QMP_thread_level_t tl;
+	QMP_init_msg_passing(&argc, &argv, QMP_THREAD_SINGLE, &tl);
+#elif defined(MPI_COMMS)
+	MPI_Init(&argc, &argv);
+#endif
+
 	initCommsGridQuda(4, gridsize_from_cmdline, NULL, NULL);
 
 	maxSources	 = genDataArray (numberLP, dataLP, flag);
@@ -874,7 +774,7 @@ int	main	(int argc, char **argv)
 	printfQuda	("Will dump %d files in ", maxSources);
 
 	for	(i=0; i<maxSources; i++)
-		printf	("%d ", dataLP[i]);
+		printfQuda	("%d ", dataLP[i]);
 
 
 	printfQuda	("clusters.\n");
@@ -905,7 +805,7 @@ int	main	(int argc, char **argv)
 
 
 	dslash_type				 = QUDA_TWISTED_MASS_DSLASH;
-//	dslash_type				 = QUDA_WILSON_DSLASH;
+//	dslash_type				 = QUDA_TWISTED_CLOVER_DSLASH;
 
 	QudaPrecision cpu_prec			 = QUDA_DOUBLE_PRECISION;
 	QudaPrecision cuda_prec			 = prec;
@@ -938,29 +838,44 @@ int	main	(int argc, char **argv)
 	double mass = -2.;
 	inv_param.kappa = 1.0 / (2.0 * (1 + 3/gauge_param.anisotropy + mass));
 
-	if	(dslash_type == QUDA_TWISTED_MASS_DSLASH)
+	if	(dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
 	{
 		inv_param.mu = 0.003;
 		inv_param.twist_flavor = QUDA_TWIST_MINUS;
 	}
 
 	inv_param.solution_type		 = QUDA_MAT_SOLUTION;
-	inv_param.solve_type		 = QUDA_NORMEQ_PC_SOLVE;
+	inv_param.solve_type		 = QUDA_NORMOP_PC_SOLVE;
 //	inv_param.solve_type		 = QUDA_DIRECT_PC_SOLVE;
-	inv_param.matpc_type		 = QUDA_MATPC_EVEN_EVEN;
+	if	(inv_param.dslash_type == QUDA_TWISTED_MASS_DSLASH)
+		inv_param.matpc_type		 = QUDA_MATPC_EVEN_EVEN_ASYMMETRIC;
+	else
+		inv_param.matpc_type		 = QUDA_MATPC_EVEN_EVEN;
+
 	inv_param.dagger		 = QUDA_DAG_NO;
 //	inv_param.mass_normalization	 = QUDA_MASS_NORMALIZATION;
 	inv_param.mass_normalization	 = QUDA_KAPPA_NORMALIZATION;
+	inv_param.solver_normalization	 = QUDA_DEFAULT_NORMALIZATION;
 
 //	inv_param.inv_type		 = QUDA_BICGSTAB_INVERTER;
 	inv_param.inv_type		 = QUDA_CG_INVERTER;
 
 	inv_param.gcrNkrylov		 = 30;
-	inv_param.tol			 = precisionHP;
-	inv_param.maxiter		 = 40000;
+	inv_param.tol			 = precision;
+	inv_param.maxiter		 = iteraHP;
 	inv_param.reliable_delta	 = 1e-2; // ignored by multi-shift solver
 
-  // domain decomposition preconditioner parameters
+#if __COMPUTE_CAPABILITY__ >= 200
+	// require both L2 relative and heavy quark residual to determine convergence
+//	inv_param.residual_type = static_cast<QudaResidualType>(QUDA_L2_RELATIVE_RESIDUAL | QUDA_HEAVY_QUARK_RESIDUAL);
+	inv_param.residual_type = QUDA_L2_RELATIVE_RESIDUAL;
+	inv_param.tol_hq = precision;	// specify a tolerance for the residual for heavy quark residual
+#else
+	// Pre Fermi architecture only supports L2 relative residual norm
+	inv_param.residual_type = QUDA_L2_RELATIVE_RESIDUAL;
+#endif
+
+	// domain decomposition preconditioner parameters
 
 	inv_param.inv_type_precondition	 = QUDA_INVALID_INVERTER;
 	inv_param.schwarz_type		 = QUDA_ADDITIVE_SCHWARZ;
@@ -976,8 +891,8 @@ int	main	(int argc, char **argv)
 	inv_param.cuda_prec_sloppy	 = cuda_prec_sloppy;
 	inv_param.cuda_prec_precondition = QUDA_HALF_PRECISION;
 	inv_param.preserve_source	 = QUDA_PRESERVE_SOURCE_NO;
-//	inv_param.gamma_basis		 = QUDA_DEGRAND_ROSSI_GAMMA_BASIS;
-	inv_param.gamma_basis		 = QUDA_UKQCD_GAMMA_BASIS;
+	inv_param.gamma_basis		 = QUDA_DEGRAND_ROSSI_GAMMA_BASIS;
+//	inv_param.gamma_basis		 = QUDA_UKQCD_GAMMA_BASIS;
 	inv_param.dirac_order		 = QUDA_DIRAC_ORDER;
 
 	inv_param.tune			 = QUDA_TUNE_YES;
@@ -1004,6 +919,15 @@ int	main	(int argc, char **argv)
 //  inv_param.cl_pad = pad_size; 
 //  inv_param.sp_pad = pad_size; 
 #endif
+
+	if	(dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
+	{
+		inv_param.clover_cpu_prec		 = cpu_prec;
+		inv_param.clover_cuda_prec		 = cuda_prec;
+		inv_param.clover_cuda_prec_sloppy	 = cuda_prec_sloppy;
+		inv_param.clover_cuda_prec_precondition	 = QUDA_HALF_PRECISION;
+		inv_param.clover_order			 = QUDA_PACKED_CLOVER_ORDER;
+	}
 
 	inv_param.verbosity = QUDA_VERBOSE;
 
@@ -1032,22 +956,25 @@ int	main	(int argc, char **argv)
 
 //	totalMem	+= ((double) (V*gaugeSiteSize*gSize*4))/(1024.*1024.*1024.);
 
-#ifdef  RANDOM_CONF
-	construct_gauge_field(gauge, 1, gauge_param.cpu_prec, &gauge_param);
-#else
-	if	(read_custom_binary_gauge_field((double**)gauge, latfile, &gauge_param, &inv_param, gridsize_from_cmdline))
+	if	(strcmp(latfile,""))			// load in the command line supplied gauge field
 	{
-		printf	("Fatal Error; Couldn't read gauge conf %s\n", latfile);
-		exit	(1);
+		if	(read_custom_binary_gauge_field((double**)gauge, latfile, &gauge_param, &inv_param, gridsize_from_cmdline))
+		{
+			printf	("Fatal Error; Couldn't read gauge conf %s\n", latfile);
+			exit	(1);
+		}
 	}
-//	construct_gauge_field(gauge, 2, gauge_param.cpu_prec, &gauge_param);
-#endif
+	else
+	{						// else generate a random SU(3) field
+		construct_gauge_field(gauge, 1, gauge_param.cpu_prec, &gauge_param);
+		inv_param.kappa	 = 0.12;
+	}
 
 	comm_barrier	();
 
 	const int	Vol	 = xdim*ydim*zdim;
 
-  // initialize the QUDA library
+	// initialize the QUDA library
 	initQuda(device);
 
 	void	*cnRes_vv;
@@ -1094,9 +1021,13 @@ int	main	(int argc, char **argv)
 
 	cudaDeviceSynchronize();
 
-  // load the gauge field
+	//	load the gauge field
 	loadGaugeQuda	((void*)gauge, &gauge_param);
 
+	inv_param.clover_coeff = 1.57551;
+	inv_param.clover_coeff *= inv_param.kappa;
+
+	if (dslash_type == QUDA_CLOVER_WILSON_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH) loadCloverQuda(NULL, NULL, &inv_param);
 
 	void	*spinorIn	 = malloc(V*spinorSiteSize*sSize);
 	void	*spinorCheck	 = malloc(V*spinorSiteSize*sSize);
@@ -1166,12 +1097,15 @@ int	main	(int argc, char **argv)
 	printfQuda	("Allocated memory for random number generator\n");
 
 
-  // start the timer
+	// start the timer
 	double time0 = -((double)clock());
 
-  // perform the inversion
+	// perform the inversion
 
 	printfQuda	("Starting inversions\n");
+
+	inv_param.tol		= precision;
+	inv_param.tol_hq	= precision;
 
 	for	(i=0; i<numberHP; i++)
 	{
@@ -1194,7 +1128,7 @@ int	main	(int argc, char **argv)
 			fclose	(out);
 		#endif
 
-		inv_param.tol	 = precisionHP;
+		inv_param.maxiter	= iteraHP;
 		oneEndTrickCG	(spinorOut, spinorIn, &inv_param, cnRes_gv, cnRes_vv, cnD_gv, cnD_vv, cnC_gv, cnC_vv);
 
 		#ifdef	CROSSCHECK
@@ -1246,7 +1180,7 @@ int	main	(int argc, char **argv)
 
 		if	(numberLP > 0)
 		{
-			inv_param.tol	 = precisionLP;
+			inv_param.maxiter	= iteraLP;
 			oneEndTrickCG	(spinorOut, spinorIn, &inv_param, cnRes_gv, cnRes_vv, cnD_gv, cnD_vv, cnC_gv, cnC_vv);
 
 			doCudaFFT	(1, cnRes_vv, cnRes_gv, cnD_vv, cnD_gv, cnC_vv, cnC_gv, cuda_prec);
@@ -1283,12 +1217,12 @@ int	main	(int argc, char **argv)
 		}
 	}
 
+	inv_param.maxiter	= iteraLP;
+
 	for	(k=0; k<maxSources; k++)
 	{
 		if	((maxSources == 1) && (dataLP[k] == 0))
 			continue;
-
-		inv_param.tol		 = precisionLP;
 
 		for	(i=0; i<dataLP[k]; i++)
 		{
@@ -1369,7 +1303,7 @@ int	main	(int argc, char **argv)
 
 	if	(inv_param.solution_type == QUDA_MAT_SOLUTION)
 	{
-		if	(dslash_type == QUDA_TWISTED_MASS_DSLASH)
+		if	(dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
 			tm_mat	(spinorCheck, gauge, spinorOut, inv_param.kappa, inv_param.mu, inv_param.twist_flavor, 0, inv_param.cpu_prec, gauge_param);
 		else
 			wil_mat	(spinorCheck, gauge, spinorOut, inv_param.kappa, 0, inv_param.cpu_prec, gauge_param);
@@ -1379,7 +1313,7 @@ int	main	(int argc, char **argv)
 	}
 	else if	(inv_param.solution_type == QUDA_MATPC_SOLUTION)
 	{   
-		if	(dslash_type == QUDA_TWISTED_MASS_DSLASH)
+		if	(dslash_type == QUDA_TWISTED_MASS_DSLASH || dslash_type == QUDA_TWISTED_CLOVER_DSLASH)
 			tm_matpc	(spinorCheck, gauge, spinorOut, inv_param.kappa, inv_param.mu, inv_param.twist_flavor, inv_param.matpc_type, 0, inv_param.cpu_prec, gauge_param);
 		else
 			wil_matpc	(spinorCheck, gauge, spinorOut, inv_param.kappa, inv_param.matpc_type, 0, inv_param.cpu_prec, gauge_param);

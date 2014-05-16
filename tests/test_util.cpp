@@ -31,10 +31,26 @@ extern "C"
 	#include <lime.h>
 }
 
-#include <qcd.h>
+#ifdef MPI_COMMS
 #define MPI_READCONF
+#endif
 
-extern "C" { char* qcd_getParamComma(char token[],char* params,int len); };
+char* getParamComma(char token[],char* params,int len)
+{
+   int i,token_len=strlen(token);
+
+   for(i=0;i<len-token_len;i++)
+   {
+      if(memcmp(token,params+i,token_len)==0)
+      {
+         i+=token_len;
+         *(strchr(params+i,','))='\0';
+         break;
+      }
+   }
+   return params+i;
+}
+ 
 
 /*	End Alex	*/
 
@@ -57,7 +73,6 @@ int V5h;
 int mySpinorSiteSize;
 
 extern float fat_link_max;
-
 
 void initComms(int argc, char **argv, const int *commDims)
 {
@@ -408,7 +423,16 @@ int compare_floats(void *a, void *b, int len, double epsilon, QudaPrecision prec
   else return compareFloats((float*)a, (float*)b, len, epsilon);
 }
 
+int fullLatticeIndex(int dim[4], int index, int oddBit){
 
+  int za = index/(dim[0]>>1);
+  int zb = za/dim[1];
+  int x2 = za - zb*dim[1];
+  int x4 = zb/dim[2];
+  int x3 = zb - x4*dim[2];
+  
+  return  2*index + ((x2 + x3 + x4 + oddBit) & 1);
+}
 
 // given a "half index" i into either an even or odd half lattice (corresponding
 // to oddBit = {0, 1}), returns the corresponding full lattice index.
@@ -464,6 +488,23 @@ int neighborIndex(int i, int oddBit, int dx4, int dx3, int dx2, int dx1) {
   x1 = (x1+dx1+Z[0]) % Z[0];
   
   return (x4*(Z[2]*Z[1]*Z[0]) + x3*(Z[1]*Z[0]) + x2*(Z[0]) + x1) / 2;
+}
+
+
+int neighborIndex(int dim[4], int index, int oddBit, int dx[4]){
+
+  const int fullIndex = fullLatticeIndex(dim, index, oddBit);
+
+  int x[4];
+  x[3] = fullIndex/(dim[2]*dim[1]*dim[0]);
+  x[2] = (fullIndex/(dim[1]*dim[0])) % dim[2];
+  x[1] = (fullIndex/dim[0]) % dim[1];
+  x[0] = fullIndex % dim[0];
+
+  for(int dir=0; dir<4; ++dir)
+    x[dir] = (x[dir]+dx[dir]+dim[dir]) % dim[dir];
+
+  return (((x[3]*dim[2] + x[2])*dim[1] + x[1])*dim[0] + x[0])/2;
 }
 
 int
@@ -524,6 +565,30 @@ neighborIndexFullLattice(int i, int dx4, int dx3, int dx2, int dx1)
     
   return ret;
 }
+
+int
+neighborIndexFullLattice(int dim[4], int index, int dx[4])
+{
+  const int volume = dim[0]*dim[1]*dim[2]*dim[3];
+  const int halfVolume = volume/2;
+  int oddBit = 0;
+  int halfIndex = index;
+
+  if(index >= halfVolume){
+    oddBit = 1;
+    halfIndex = index - halfVolume;
+  }
+
+  int neighborHalfIndex = neighborIndex(dim, halfIndex, oddBit, dx);
+
+  int oddBitChanged = (dx[0]+dx[1]+dx[2]+dx[3])%2;
+  if(oddBitChanged){
+    oddBit = 1 - oddBit;
+  }
+
+  return neighborHalfIndex + oddBit*halfVolume;
+}
+
 
 
 int
@@ -971,8 +1036,9 @@ void construct_gauge_field(void **gauge, int type, QudaPrecision precision, Quda
 }
 
 void
-construct_fat_long_gauge_field(void **fatlink, void** longlink,  
-			       int type, QudaPrecision precision, QudaGaugeParam* param)
+construct_fat_long_gauge_field(void **fatlink, void** longlink, int type, 
+			       QudaPrecision precision, QudaGaugeParam* param,
+			       QudaDslashType dslash_type)
 {
   if (type == 0) {
     if (precision == QUDA_DOUBLE_PRECISION) {
@@ -995,6 +1061,47 @@ construct_fat_long_gauge_field(void **fatlink, void** longlink,
       constructGaugeField((float**)longlink, param);
     }
   }
+
+  if(param->reconstruct == QUDA_RECONSTRUCT_9 || 
+     param->reconstruct == QUDA_RECONSTRUCT_13){ // incorporate non-trivial phase into long links
+    const double cos_pi_3 = 0.5; // Cos(pi/3)
+    const double sin_pi_3 = sqrt(0.75); // Sin(pi/3)
+    for(int dir=0; dir<4; ++dir){
+      for(int i=0; i<V; ++i){
+        for(int j=0; j<gaugeSiteSize; j+=2){
+          if(precision == QUDA_DOUBLE_PRECISION){
+            const double real = ((double*)longlink[dir])[i*gaugeSiteSize + j];
+            const double imag = ((double*)longlink[dir])[i*gaugeSiteSize + j + 1];
+            ((double*)longlink[dir])[i*gaugeSiteSize + j] = real*cos_pi_3 - imag*sin_pi_3;
+            ((double*)longlink[dir])[i*gaugeSiteSize + j + 1] = real*sin_pi_3 + imag*cos_pi_3;
+          }else{
+            const float real = ((float*)longlink[dir])[i*gaugeSiteSize + j];
+            const float imag = ((float*)longlink[dir])[i*gaugeSiteSize + j + 1];
+            ((float*)longlink[dir])[i*gaugeSiteSize + j] = real*cos_pi_3 - imag*sin_pi_3;
+            ((float*)longlink[dir])[i*gaugeSiteSize + j + 1] = real*sin_pi_3 + imag*cos_pi_3;
+          }
+        } 
+      }
+    }
+  }
+
+  if (dslash_type == QUDA_STAGGERED_DSLASH) { // set all links to zero to emulate the 1-link operator
+    for(int dir=0; dir<4; ++dir){
+      for(int i=0; i<V; ++i){
+	for(int j=0; j<gaugeSiteSize; j+=2){
+	  if(precision == QUDA_DOUBLE_PRECISION){
+	    ((double*)longlink[dir])[i*gaugeSiteSize + j] = 0.0;
+	    ((double*)longlink[dir])[i*gaugeSiteSize + j + 1] = 0.0;
+	  }else{
+	    ((float*)longlink[dir])[i*gaugeSiteSize + j] = 0.0;
+	    ((float*)longlink[dir])[i*gaugeSiteSize + j + 1] = 0.0;
+	  }
+	} 
+      }
+    }
+  }
+
+
 }
 
 
@@ -1060,7 +1167,7 @@ static void checkGauge(Float **oldG, Float **newG, double epsilon) {
 
   printf("\nDeviation Failures = (X, Y, Z, T)\n");
   for (int f=0; f<fail_check; f++) {
-    printf("%e Failures = (%9d, %9d, %9d, %9d) = (%e, %e, %e, %e)\n", pow(10.0,-(f+1)), 
+    printf("%e Failures = (%9d, %9d, %9d, %9d) = (%6.5f, %6.5f, %6.5f, %6.5f)\n", pow(10.0,-(f+1)), 
 	   fail[0][f], fail[1][f], fail[2][f], fail[3][f],
 	   fail[0][f]/(double)(V*18), fail[1][f]/(double)(V*18), fail[2][f]/(double)(V*18), fail[3][f]/(double)(V*18));
   }
@@ -1374,7 +1481,7 @@ int compare_mom(Float *momA, Float *momB, int len) {
   for (int i=0; i<momSiteSize; i++) iter[i] = 0;
   
   for (int i=0; i<len; i++) {
-    for (int j=0; j<momSiteSize; j++) {
+    for (int j=0; j<momSiteSize-1; j++) {
       int is = i*momSiteSize+j;
       double diff = fabs(momA[is]-momB[is]);
       for (int f=0; f<fail_check; f++)
@@ -1394,7 +1501,7 @@ int compare_mom(Float *momA, Float *momB, int len) {
   for (int i=0; i<momSiteSize; i++) printfQuda("%d fails = %d\n", i, iter[i]);
   
   for (int f=0; f<fail_check; f++) {
-    printfQuda("%e Failures: %d / %d  = %e\n", pow(10.0,-(f+1)), fail[f], len*momSiteSize, fail[f] / (double)(len*6));
+    printfQuda("%e Failures: %d / %d  = %e\n", pow(10.0,-(f+1)), fail[f], len*9, fail[f]/(double)(len*9));
   }
   
   return accuracy_level;
@@ -1460,7 +1567,7 @@ int device = -1;
 int device = 0;
 #endif
 
-QudaReconstructType link_recon = QUDA_RECONSTRUCT_12;
+QudaReconstructType link_recon = QUDA_RECONSTRUCT_NO;
 QudaReconstructType link_recon_sloppy = QUDA_RECONSTRUCT_INVALID;
 QudaPrecision prec = QUDA_SINGLE_PRECISION;
 QudaPrecision  prec_sloppy = QUDA_INVALID_PRECISION;
@@ -1468,7 +1575,7 @@ int xdim = 24;
 int ydim = 24;
 int zdim = 24;
 int tdim = 24;
-int Lsdim = 16;
+int Lsdim = 1;
 QudaDagType dagger = QUDA_DAG_NO;
 int gridsize_from_cmdline[4] = {1,1,1,1};
 QudaDslashType dslash_type = QUDA_WILSON_DSLASH;
@@ -1476,6 +1583,8 @@ char latfile[256] = "";
 bool tune = true;
 int niter = 10;
 int test_type = 0;
+QudaInverterType inv_type;
+int multishift = 0;
 
 /*      Alex    */
 
@@ -1507,15 +1616,15 @@ void usage(char** argv )
 #endif
   printf("    --prec <double/single/half>               # Precision in GPU\n"); 
   printf("    --prec_sloppy <double/single/half>        # Sloppy precision in GPU\n"); 
-  printf("    --recon <8/12/18>                         # Link reconstruction type\n"); 
-  printf("    --recon_sloppy <8/12/18>                  # Sloppy link reconstruction type\n"); 
+  printf("    --recon <8/9/12/13/18>                    # Link reconstruction type\n"); 
+  printf("    --recon_sloppy <8/9/12/13/18>             # Sloppy link reconstruction type\n"); 
   printf("    --dagger                                  # Set the dagger to 1 (default 0)\n"); 
   printf("    --sdim <n>                                # Set space dimention(X/Y/Z) size\n"); 
   printf("    --xdim <n>                                # Set X dimension size(default 24)\n");     
   printf("    --ydim <n>                                # Set X dimension size(default 24)\n");     
   printf("    --zdim <n>                                # Set X dimension size(default 24)\n");     
   printf("    --tdim <n>                                # Set T dimension size(default 24)\n");  
-  printf("    --Lsdim <n>                                # Set Ls dimension size(default 16)\n");  
+  printf("    --Lsdim <n>                               # Set Ls dimension size(default 16)\n");  
   printf("    --xgridsize <n>                           # Set grid size in X dimension (default 1)\n");
   printf("    --ygridsize <n>                           # Set grid size in Y dimension (default 1)\n");
   printf("    --zgridsize <n>                           # Set grid size in Z dimension (default 1)\n");
@@ -1523,7 +1632,7 @@ void usage(char** argv )
   printf("    --partition <mask>                        # Set the communication topology (X=1, Y=2, Z=4, T=8, and combinations of these)\n");
   printf("    --kernel_pack_t                           # Set T dimension kernel packing to be true (default false)\n");
   printf("    --dslash_type <type>                      # Set the dslash type, the following values are valid\n"
-	 "                                                  wilson/clover/twisted_mass/asqtad/domain_wall\n");
+	 "                                                  wilson/clover/twisted_mass/twisted_clover/staggered/asqtad/domain_wall\n");
   printf("    --load-gauge file                         # Load gauge field \"file\" for the test (requires QIO)\n");
 
 	/*	Alex	*/
@@ -1537,6 +1646,8 @@ void usage(char** argv )
         /*      End     Alex    */
 
   printf("    --niter <n>                               # The number of iterations to perform (default 10)\n");
+  printf("    --inv_type <cg/bicgstab/gcr>              # The type of solver to use (default cg)\n");
+  printf("    --multishift <true/false>                 # Whether to do a multi-shift solver test or not (default false)\n");     
   printf("    --tune <true/false>                       # Whether to autotune or not (default true)\n");     
   printf("    --test                                    # Test method (different for each test)\n");
   printf("    --help                                    # Print out this message\n"); 
@@ -1757,6 +1868,25 @@ int process_command_line_option(int argc, char** argv, int* idx)
     goto out;
   }
 
+  if( strcmp(argv[i], "--multishift") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }	    
+
+    if (strcmp(argv[i+1], "true") == 0){
+      multishift = true;
+    }else if (strcmp(argv[i+1], "false") == 0){
+      multishift = false;
+    }else{
+      fprintf(stderr, "ERROR: invalid multishift boolean\n");	
+      exit(1);
+    }
+
+    i++;
+    ret = 0;
+    goto out;
+  }
+
   if( strcmp(argv[i], "--xgridsize") == 0){
     if (i+1 >= argc){ 
       usage(argv);
@@ -1823,6 +1953,16 @@ int process_command_line_option(int argc, char** argv, int* idx)
     goto out;
   }
   
+  if( strcmp(argv[i], "--inv_type") == 0){
+    if (i+1 >= argc){
+      usage(argv);
+    }     
+    inv_type =  get_solver_type(argv[i+1]);
+    i++;
+    ret = 0;
+    goto out;
+  }
+  
   if( strcmp(argv[i], "--load-gauge") == 0){
     if (i+1 >= argc){
       usage(argv);
@@ -1855,7 +1995,7 @@ int process_command_line_option(int argc, char** argv, int* idx)
       usage(argv);
     }
 	nConf		 = atoi(argv[i+1]);
-	sprintf	(latfile,"/home/avaquero/confs/Cosa/conf.%04d", nConf);
+	sprintf	(latfile,"/home/ucy54/ucy54993/projects/confs/Phys-Nf2/conf.%04d", nConf);
 //	sprintf		(latfile,"/lustre/avaquero/confs/B55.32/conf.%04d", nConf);
 //	sprintf	(latfile,"/lustre/avaquero/confs/D15.48/conf.%04d", nConf);
 //	sprintf	(latfile,"/home/avaquero/confs/conf.%04d", nConf);
@@ -1900,7 +2040,9 @@ int process_command_line_option(int argc, char** argv, int* idx)
     ret = 0;
     goto out;
   }
-	/*	End Alex	*/
+
+/*	End Alex	*/
+
 
   if( strcmp(argv[i], "--test") == 0){
     if (i+1 >= argc){
@@ -1955,10 +2097,9 @@ double stopwatchReadSeconds() {
   return ds + 0.000001*dus;
 }
 
-
 	/*	Alex	*/
 
-void qcd_swap_8(double *Rd, int N)
+void swap_8(double *Rd, int N)
 {
    register char *i,*j,*k;
    char swap;
@@ -1980,7 +2121,7 @@ void qcd_swap_8(double *Rd, int N)
 }
 
 
-void qcd_swap_4(float *Rd, int N)
+void swap_4(float *Rd, int N)
 {
   register char *i,*j,*k;
   char swap;
@@ -1997,7 +2138,7 @@ void qcd_swap_4(float *Rd, int N)
   }
 }
 
-int qcd_isBigEndian()
+int isBigEndian()
 {
    union{
      char C[4];
@@ -2010,7 +2151,7 @@ int qcd_isBigEndian()
    return -1;
 }
 
-char* qcd_getParam(char token[],char* params,int len)
+char* getParam(char token[],char* params,int len)
 {
    int i,token_len=strlen(token);
 
@@ -2059,8 +2200,8 @@ read gauge fileld config stored in binary file
 	MPI_File		mpifid;
 	MPI_Status		status;
 	int			sizes[5], lsizes[5], starts[5];
-	qcd_uint_8		i=0;
-	qcd_uint_2		chunksize;
+	unsigned long		i=0;
+	unsigned short		chunksize;
 	char			*ftmp=NULL;
 #else
 	double			*ftmp=NULL;
@@ -2096,12 +2237,12 @@ read gauge fileld config stored in binary file
 				limeReaderReadData((void *)lime_data,&lime_data_size, limereader);
 
 				strcpy	(tmpVar, "kappa =");
-				sscanf(qcd_getParamComma(tmpVar,lime_data, lime_data_size),"%lf",&dDummy);    
+				sscanf(getParamComma(tmpVar,lime_data, lime_data_size),"%lf",&dDummy);    
 				printfQuda("Kappa:    \t%lf\n", dDummy);
 				inv_param->kappa	= dDummy;
 
 				strcpy	(tmpVar, "mu =");
-				sscanf(qcd_getParamComma(tmpVar,lime_data, lime_data_size),"%lf",&dDummy);    
+				sscanf(getParamComma(tmpVar,lime_data, lime_data_size),"%lf",&dDummy);    
 				printfQuda("Mu:       \t%lf\n", dDummy);
 
 				if      (overrideMu)
@@ -2122,26 +2263,26 @@ read gauge fileld config stored in binary file
 				limeReaderReadData((void *)lime_data,&lime_data_size, limereader);
 
 				strcpy	(tmpVar, "<precision>");
-				sscanf(qcd_getParam(tmpVar,lime_data, lime_data_size),"%i",&isDouble);    
+				sscanf(getParam(tmpVar,lime_data, lime_data_size),"%i",&isDouble);    
 				printfQuda("Precision:\t%i bit\n",isDouble);
 
 				strcpy	(tmpVar, "<lx>");
-				sscanf(qcd_getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
+				sscanf(getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
 				param->X[0]	 = iDummy/gridSize[0];
 				ln[0]		 = iDummy;
 
 				strcpy	(tmpVar, "<ly>");
-				sscanf(qcd_getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
+				sscanf(getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
 				param->X[1]	 = iDummy/gridSize[1];
 				ln[1]		 = iDummy;
 
 				strcpy	(tmpVar, "<lz>");
-				sscanf(qcd_getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
+				sscanf(getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
 				param->X[2]	 = iDummy/gridSize[2];
 				ln[2]		 = iDummy;
 
 				strcpy	(tmpVar, "<lt>");
-				sscanf(qcd_getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
+				sscanf(getParam(tmpVar,lime_data, lime_data_size),"%i",&iDummy);
 				param->X[3]	 = iDummy/gridSize[3];
 				ln[3]		 = iDummy;
 
@@ -2162,7 +2303,9 @@ read gauge fileld config stored in binary file
 		limeDestroyReader(limereader);
 	}     
 
+#ifdef	MPI_READCONF
 	MPI_Bcast	(&error_occured, 1, MPI_INT, 0, MPI_COMM_WORLD);
+#endif
 
 	if(error_occured)
 		return	1;
@@ -2225,12 +2368,12 @@ read gauge fileld config stored in binary file
 
 	//load time-slice by time-slice:
 
-	chunksize	 = 4*3*3*sizeof(qcd_complex_16);
+	chunksize	 = 4*3*3*2*sizeof(double);
 	ftmp		 = (char*) malloc(((unsigned int) chunksize*nvh*2));
 
 	if	(ftmp == NULL)
 	{
-		fprintf(stderr,"Error in qcd_getGaugeLime! Out of memory, couldn't alloc %u bytes\n", (unsigned int) (chunksize*nvh*2));
+		fprintf(stderr,"Error reading conf! Out of memory, couldn't alloc %u bytes\n", (unsigned int) (chunksize*nvh*2));
 		return	1;
 	}
 	else
@@ -2245,8 +2388,8 @@ read gauge fileld config stored in binary file
 		printfQuda	("If some results are wrong, try increasing the number of MPI processes.\n");
 	}
 
-	if	(!qcd_isBigEndian())
-		qcd_swap_8	((double*) ftmp,2*4*3*3*nvh*2);
+	if	(!isBigEndian())
+		swap_8	((double*) ftmp,2*4*3*3*nvh*2);
 #else
 	ftmp	 = (double*)malloc(lvol*72*sizeof(double));
 
@@ -2255,7 +2398,7 @@ read gauge fileld config stored in binary file
 		fprintf	(stderr, "Error, could not alloc ftmp\n");
 		return	6;
 	}
- 
+
 	iread	 = fread	(ftmp, sizeof(double), 72*lvol, fid);
 
 	if	(iread != 72*lvol)
@@ -2266,8 +2409,8 @@ read gauge fileld config stored in binary file
 
 	fclose	(fid);
 
-	if	(!qcd_isBigEndian())      
-        	qcd_swap_8	((double*) ftmp,72*lvol);
+	if	(!isBigEndian())      
+        	swap_8	((double*) ftmp,72*lvol);
 #endif
 
 	// reconstruct gauge field

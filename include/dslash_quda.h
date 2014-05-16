@@ -9,12 +9,6 @@
 namespace quda {
 
   /**
-     @param tune Sets whether to tune the dslash kernels or not
-     @param verbose The verbosity level to use in the dslash tuning functions
-  */
-  void setDslashTuning(QudaTune tune, QudaVerbosity verbose);
-
-  /**
      @param pack Sets whether to use a kernel to pack the T dimension
    */
   void setKernelPackT(bool pack);
@@ -77,7 +71,13 @@ namespace quda {
 			    const double &m_f, const double &k, const int *commDim, TimeProfile &profile);
 
   // staggered Dslash    
-  void staggeredDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &fatGauge, const cudaGaugeField &longGauge,
+  void staggeredDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge,
+			   const cudaColorSpinorField *in, const int parity, const int dagger, 
+			   const cudaColorSpinorField *x, const double &k, 
+			   const int *commDim, TimeProfile &profile);
+
+  // improved staggered Dslash    
+  void improvedStaggeredDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &fatGauge, const cudaGaugeField &longGauge,
 			   const cudaColorSpinorField *in, const int parity, const int dagger, 
 			   const cudaColorSpinorField *x, const double &k, 
 			   const int *commDim, TimeProfile &profile);
@@ -87,15 +87,29 @@ namespace quda {
 			     const int parity, const int dagger, const cudaColorSpinorField *x, const QudaTwistDslashType type,
 			     const double &kappa, const double &mu, const double &epsilon, const double &k, const int *commDim, TimeProfile &profile);
 
+  // twisted clover Dslash  
+  void twistedCloverDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, const FullClover *clover, const FullClover *cloverInv, 
+			     const   cudaColorSpinorField *in, const int parity, const int dagger, const cudaColorSpinorField *x, const QudaTwistCloverDslashType type,
+			     const double &kappa, const double &mu, const double &epsilon, const double &k, const int *commDim, TimeProfile &profile);
+
   // solo twist term
   void twistGamma5Cuda(cudaColorSpinorField *out, const cudaColorSpinorField *in, const int dagger,     
                        const double &kappa, const double &mu, const double &epsilon, 
                        const QudaTwistGamma5Type);
 
+  // solo twist clover term
+  void twistCloverGamma5Cuda(cudaColorSpinorField *out, const cudaColorSpinorField *in, const int dagger, const double &kappa, const double &mu,
+			     const double &epsilon, const QudaTwistGamma5Type twist, const FullClover *clov, const FullClover *clovInv, const int parity);
   // face packing routines
-  void packFace(void *ghost_buf, cudaColorSpinorField &in, const int dagger, const int parity, const cudaStream_t &stream);
+  void packFace(void *ghost_buf, cudaColorSpinorField &in, const int nFace, const int dagger, 
+                const int parity, const int dim, const int face_num, const cudaStream_t &stream,
+                const double a=0.0, const double b=0.0);
 
-  void packTwistedFace(void *ghost_buf, cudaColorSpinorField &in, const int dagger, const int parity, double a, double b, const cudaStream_t &stream);
+  // face packing routines
+  void packFace(void *ghost_buf, cudaColorSpinorField &in, FullClover &clov, FullClover &clovInv,
+		const int nFace, const int dagger, const int parity, const int dim, const int face_num,
+		const cudaStream_t &stream, const double a=0.0);
+
 
 }
 

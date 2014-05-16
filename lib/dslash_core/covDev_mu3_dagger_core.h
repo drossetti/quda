@@ -1,6 +1,6 @@
 // *** CUDA DSLASH DAGGER ***
 
-#define DSLASH_SHARED_FLOATS_PER_THREAD 0
+//#define DSLASH_SHARED_FLOATS_PER_THREAD 0
 
 
 #if ((CUDA_VERSION >= 4010) && (__COMPUTE_CAPABILITY__ >= 200)) // NVVM compiler
@@ -11,6 +11,8 @@
 // input spinor
 #ifdef SPINOR_DOUBLE
 #define spinorFloat double
+#define WRITE_SPINOR_SHARED WRITE_SPINOR_SHARED_DOUBLE2
+#define READ_SPINOR_SHARED READ_SPINOR_SHARED_DOUBLE2
 #define i00_re I0.x
 #define i00_im I0.y
 #define i01_re I1.x
@@ -152,6 +154,12 @@ VOLATILE spinorFloat o31_im;
 VOLATILE spinorFloat o32_re;
 VOLATILE spinorFloat o32_im;
 
+#ifdef SPINOR_DOUBLE
+#define SHARED_STRIDE 16 // to avoid bank conflicts on Fermi
+#else
+#define SHARED_STRIDE 32 // to avoid bank conflicts on Fermi
+#endif
+
 #include "read_gauge.h"
 #include "io_spinor.h"
 
@@ -201,12 +209,20 @@ if (kernel_type == INTERIOR_KERNEL) {
 
 #ifdef MULTI_GPU
 } else { // exterior kernel
+/*
+  const int dim = static_cast<int>(kernel_type);
+  const int face_volume = (param.threads >> 1);           // volume of one face
+  const int face_num = (sid >= face_volume);
+
+  face_idx = sid - face_num*face_volume;               // index into the respective face
+*/
 
   const int dim = static_cast<int>(kernel_type);
   const int face_volume = param.threads;           // volume of one face
-  const int face_num = 0;
+  const int face_num = 0;		//Era 1
 
   face_idx = sid;               // index into the respective face
+
 
   // ghostOffset is scaled to include body (includes stride) and number of FloatN arrays (SPINOR_HOP)
   // face_idx not sid since faces are spin projected and share the same volume index (modulo UP/DOWN reading)

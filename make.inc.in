@@ -23,8 +23,9 @@ BUILD_WILSON_DIRAC = @BUILD_WILSON_DIRAC@			# build Wilson Dirac operators?
 BUILD_CLOVER_DIRAC = @BUILD_CLOVER_DIRAC@			# build clover Dirac operators?
 BUILD_DOMAIN_WALL_DIRAC = @BUILD_DOMAIN_WALL_DIRAC@			# build domain wall Dirac operators?
 BUILD_STAGGERED_DIRAC = @BUILD_STAGGERED_DIRAC@			# build staggered Dirac operators?
-BUILD_TWISTED_MASS_DIRAC = @BUILD_TWISTED_MASS_DIRAC@			# build twisted mass Dirac operators?
-BUILD_NDEG_TWISTED_MASS_DIRAC = @BUILD_NDEG_TWISTED_MASS_DIRAC@		# build non-degenerate twisted mass Dirac operators?
+BUILD_TWISTED_MASS_DIRAC = @BUILD_TWISTED_MASS_DIRAC@		# build twisted mass Dirac operators?
+BUILD_TWISTED_CLOVER_DIRAC = @BUILD_TWISTED_CLOVER_DIRAC@	# build twisted clover Dirac operators?
+BUILD_NDEG_TWISTED_MASS_DIRAC = @BUILD_NDEG_TWISTED_MASS_DIRAC@	# build non-degenerate twisted mass Dirac operators?
 BUILD_FATLINK = @BUILD_FATLINK@				# build code for computing asqtad fat links?
 BUILD_HISQLINK = @BUILD_HISQLINK@				# build code for computing hisq fat links?
 BUILD_GAUGE_FORCE = @BUILD_GAUGE_FORCE@				# build code for (1-loop Symanzik) gauge force?
@@ -38,6 +39,15 @@ BUILD_MPI = @BUILD_MPI@              # set to 'yes' to build the MPI multi-GPU c
 
 # GPUdirect options
 GPU_DIRECT = @GPU_DIRECT@            # set to 'yes' to allow GPU and NIC to shared pinned buffers
+GPU_COMMS = @GPU_COMMS@            # set to 'yes' to allow GPU and NIC to shared pinned buffers
+
+# Interface options
+BUILD_QDP_INTERFACE = @BUILD_QDP_INTERFACE@                     # build qdp interface
+BUILD_MILC_INTERFACE = @BUILD_MILC_INTERFACE@                   # build milc interface
+BUILD_CPS_INTERFACE = @BUILD_CPS_INTERFACE@                     # build cps interface
+BUILD_QDPJIT_INTERFACE = @BUILD_QDPJIT_INTERFACE@               # build qdpjit interface
+BUILD_BQCD_INTERFACE = @BUILD_BQCD_INTERFACE@                   # build bqcd interface
+BUILD_TIFR_INTERFACE = @BUILD_TIFR_INTERFACE@                   # build tifr interface
 
 # Packing option
 DEVICE_PACK = @DEVICE_PACK@	     # set to 'yes' to enable packing and unpacking on the device
@@ -80,7 +90,7 @@ NVCCOPT += -D__COMPUTE_CAPABILITY__=$(COMP_CAP)
 
 TESLA_ARCH = $(shell [ $(COMP_CAP) -lt 200 ] && echo true)
 ifneq ($(TESLA_ARCH),true)
-  NVCCOPT += -ftz=true -prec-div=false -prec-sqrt=false
+  NVCCOPT += -ftz=true -prec-div=false -prec-sqrt=false -w
 endif
 
 ifeq ($(strip $(BUILD_MULTI_GPU)), yes)
@@ -151,6 +161,11 @@ ifeq ($(strip $(BUILD_NDEG_TWISTED_MASS_DIRAC)), yes)
   COPT += -DGPU_NDEG_TWISTED_MASS_DIRAC -DGPU_TWISTED_MASS_DIRAC -DGPU_WILSON_DIRAC
 endif
 
+ifeq ($(strip $(BUILD_TWISTED_CLOVER_DIRAC)), yes)
+  NVCCOPT += -DGPU_TWISTED_CLOVER_DIRAC -DGPU_TWISTED_MASS_DIRAC -DGPU_WILSON_DIRAC
+  COPT += -DGPU_TWISTED_CLOVER_DIRAC -DGPU_TWISTED_MASS_DIRAC -DGPU_WILSON_DIRAC
+endif
+
 ifeq ($(strip $(BUILD_FATLINK)), yes)
   NVCCOPT += -DGPU_FATLINK
   FATLINK_TEST=llfat_test
@@ -187,16 +202,6 @@ ifeq ($(strip $(BUILD_HISQ_FORCE)), yes)
   HISQ_UNITARIZE_FORCE_TEST=hisq_unitarize_force_test
 endif
 
-ifeq ($(strip $(BUILD_CONTRACT)), yes)
-  LOOPVV_TEST=vvTrickLoops
-  LOOPTD_TEST=tDilutionLoops
-  LPTDHP_TEST=tDilHPELoops
-  LOOPCV_TEST=loopsPlain
-  LOOPHP_TEST=loopsHPE
-  NVCCOPT += -DGPU_CONTRACT
-  COPT += -DGPU_CONTRACT
-endif
-
 ifeq ($(strip $(HOST_DEBUG)), yes)
   NVCCOPT += -g -DHOST_DEBUG
   COPT += -g -fno-inline -DHOST_DEBUG
@@ -223,6 +228,41 @@ endif
 ifeq ($(strip $(GPU_DIRECT)), yes)
   NVCCOPT += -DGPU_DIRECT
   COPT += -DGPU_DIRECT
+endif
+
+ifeq ($(strip $(GPU_COMMS)), yes)
+  NVCCOPT += -DGPU_COMMS
+  COPT += -DGPU_COMMS
+endif
+
+ifeq ($(strip $(BUILD_QDP_INTERFACE)), yes)
+  NVCCOPT += -DBUILD_QDP_INTERFACE
+  COPT += -DBUILD_QDP_INTERFACE
+endif
+
+ifeq ($(strip $(BUILD_MILC_INTERFACE)), yes)
+  NVCCOPT += -DBUILD_MILC_INTERFACE
+  COPT += -DBUILD_MILC_INTERFACE
+endif
+
+ifeq ($(strip $(BUILD_CPS_INTERFACE)), yes)
+  NVCCOPT += -DBUILD_CPS_INTERFACE
+  COPT += -DBUILD_CPS_INTERFACE
+endif
+
+ifeq ($(strip $(BUILD_QDPJIT_INTERFACE)), yes)
+  NVCCOPT += -DBUILD_QDPJIT_INTERFACE
+  COPT += -DBUILD_QDPJIT_INTERFACE
+endif
+
+ifeq ($(strip $(BUILD_BQCD_INTERFACE)), yes)
+  NVCCOPT += -DBUILD_BQCD_INTERFACE
+  COPT += -DBUILD_BQCD_INTERFACE
+endif
+
+ifeq ($(strip $(BUILD_TIFR_INTERFACE)), yes)
+  NVCCOPT += -DBUILD_TIFR_INTERFACE
+  COPT += -DBUILD_TIFR_INTERFACE
 endif
 
 ifeq ($(strip $(DEVICE_PACK)), yes)
