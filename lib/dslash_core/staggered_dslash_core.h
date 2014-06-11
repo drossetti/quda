@@ -363,10 +363,6 @@ VOLATILE spinorFloat *s = ss_data + SHARED_FLOATS_PER_THREAD*SHARED_STRIDE*(thre
     x0odd = (y[1] + y[2] + y[3] + param.parity) & 1;
     y[0] = 2*x0h + x0odd;
     full_idx = 2*half_idx + x0odd;
-  }else{
-    coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, kernel_type, X);
-    full_idx = ((y[3]*X[2] +y[2])*X[1] +y[1])*X[0]+y[0];
-    half_idx = full_idx>>1;
   }
 
 
@@ -385,7 +381,13 @@ int sign = 1;
 
 {
   //direction: +X
-
+#ifdef MULTI_GPU
+  if(kernel_type == EXTERIOR_KERNEL_X){
+    coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, kernel_type, X);
+    full_idx = ((y[3]*X[2] +y[2])*X[1] +y[1])*X[0]+y[0];
+    half_idx = full_idx>>1;
+  }
+#endif
 
 #if ((DD_RECON == 12 || DD_RECON == 8) && DD_IMPROVED==1)
   int sign = (y[3]%2 == 1) ? -1 : 1;
@@ -560,12 +562,33 @@ int sign = 1;
   }
 #endif
 
+#ifdef MULTI_GPU
+  if(kernel_type == EXTERIOR_KERNEL_X){
+#ifdef DSLASH_AXPY
+    o00_re = -o00_re;
+    o00_im = -o00_im;
+    o01_re = -o01_re;
+    o01_im = -o01_im;
+    o02_re = -o02_re;
+    o02_im = -o02_im;
+#endif
+    READ_AND_SUM_SPINOR(INTERTEX, half_idx);
+    WRITE_SPINOR(out, half_idx, param.sp_stride);
+  }
+#endif
 }
 
 
 
 {
   //direction: +Y
+#ifdef MULTI_GPU
+  if(kernel_type == EXTERIOR_KERNEL_Y){
+    coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, kernel_type, X);
+    full_idx = ((y[3]*X[2] +y[2])*X[1] +y[1])*X[0]+y[0];
+    half_idx = full_idx>>1;
+  }
+#endif
 #if ((DD_RECON == 12 || DD_RECON == 8) && DD_IMPROVED==1)
   int sign = ((y[3]+y[0])%2 == 1) ? -1 : 1;
 #endif
@@ -736,10 +759,32 @@ int sign = 1;
     o02_im -= B2_im;  
   }    
 #endif
+
+#ifdef MULTI_GPU
+  if(kernel_type == EXTERIOR_KERNEL_Y){
+#ifdef DSLASH_AXPY
+    o00_re = -o00_re;
+    o00_im = -o00_im;
+    o01_re = -o01_re;
+    o01_im = -o01_im;
+    o02_re = -o02_re;
+    o02_im = -o02_im;
+#endif
+    READ_AND_SUM_SPINOR(INTERTEX, half_idx);
+    WRITE_SPINOR(out, half_idx, param.sp_stride);
+  }
+#endif
 }
 
 {
   //direction: +Z
+#ifdef MULTI_GPU
+  if(kernel_type == EXTERIOR_KERNEL_Z){
+    coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, kernel_type, X);
+    full_idx = ((y[3]*X[2] +y[2])*X[1] +y[1])*X[0]+y[0];
+    half_idx = full_idx>>1;
+  }
+#endif
 
 #if ((DD_RECON == 12 || DD_RECON == 8) && DD_IMPROVED==1)
   int sign = ((y[3]+y[0]+y[1])%2 == 1) ? -1 : 1;
@@ -913,10 +958,34 @@ int sign = 1;
     o02_im -= B2_im;    
   }
 #endif
+
+
+#ifdef MULTI_GPU
+  if(kernel_type == EXTERIOR_KERNEL_Z){
+#ifdef DSLASH_AXPY
+    o00_re = -o00_re;
+    o00_im = -o00_im;
+    o01_re = -o01_re;
+    o01_im = -o01_im;
+    o02_re = -o02_re;
+    o02_im = -o02_im;
+#endif
+   READ_AND_SUM_SPINOR(INTERTEX, half_idx);
+   WRITE_SPINOR(out, half_idx, param.sp_stride);
+}
+#endif
+
 }
 
 {
   //direction: +T
+#ifdef MULTI_GPU
+  if(kernel_type == EXTERIOR_KERNEL_T){
+    coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, kernel_type, X);
+    full_idx = ((y[3]*X[2] +y[2])*X[1] +y[1])*X[0]+y[0];
+    half_idx = full_idx>>1;
+  }
+#endif
 #if ((DD_RECON == 12 || DD_RECON == 8) && DD_IMPROVED==1)
   int sign = (y[3] >= (X4-3)) ? -1 : 1;
 #endif
@@ -1087,6 +1156,21 @@ int sign = 1;
     o02_im -= B2_im;
   }        
 #endif
+
+#ifdef MULTI_GPU
+ if(kernel_type == EXTERIOR_KERNEL_T){
+#ifdef DSLASH_AXPY
+   o00_re = -o00_re;
+   o00_im = -o00_im;
+   o01_re = -o01_re;
+   o01_im = -o01_im;
+   o02_re = -o02_re;
+   o02_im = -o02_im;
+#endif
+   READ_AND_SUM_SPINOR(INTERTEX, half_idx);
+   WRITE_SPINOR(out, half_idx, param.sp_stride);
+ }
+#endif
 }
 
 
@@ -1102,9 +1186,10 @@ int sign = 1;
 
 #endif
 
-#ifdef DSLASH_AXPY
 #ifdef MULTI_GPU
 if (kernel_type == INTERIOR_KERNEL){
+#endif
+#ifdef DSLASH_AXPY
   READ_ACCUM(ACCUMTEX, half_idx);
   o00_re = -o00_re + a*accum0.x;
   o00_im = -o00_im + a*accum0.y;
@@ -1112,35 +1197,14 @@ if (kernel_type == INTERIOR_KERNEL){
   o01_im = -o01_im + a*accum1.y;
   o02_re = -o02_re + a*accum2.x;
   o02_im = -o02_im + a*accum2.y;
-}else{
-  o00_re = -o00_re;
-  o00_im = -o00_im;
-  o01_re = -o01_re;
-  o01_im = -o01_im;
-  o02_re = -o02_re;
-  o02_im = -o02_im;
-}
-#else
-READ_ACCUM(ACCUMTEX, half_idx);
-o00_re = -o00_re + a*accum0.x;
-o00_im = -o00_im + a*accum0.y;
-o01_re = -o01_re + a*accum1.x;
-o01_im = -o01_im + a*accum1.y;
-o02_re = -o02_re + a*accum2.x;
-o02_im = -o02_im + a*accum2.y;
-#endif //MULTI_GPU
 #endif // DSLASH_AXPY
-
+  // write spinor field back to device memory
+  WRITE_SPINOR(out, half_idx, param.sp_stride);
 #ifdef MULTI_GPU
-//if (kernel_type == EXTERIOR_KERNEL_T){
-if (kernel_type != INTERIOR_KERNEL){
-  READ_AND_SUM_SPINOR(INTERTEX, half_idx);
 }
 #endif
 
 
-// write spinor field back to device memory
-WRITE_SPINOR(out, half_idx, param.sp_stride);
 
 
 // undefine to prevent warning when precision is changed
