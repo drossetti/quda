@@ -332,8 +332,9 @@ VOLATILE spinorFloat *s = ss_data + SHARED_FLOATS_PER_THREAD*SHARED_STRIDE*(thre
 #endif
 #endif
 
-  int sid = blockIdx.x*blockDim.x + threadIdx.x;
-  if(sid >= param.threads) return;
+  int idx = blockIdx.x*blockDim.x + threadIdx.x;
+  if(idx >= param.threads) return;
+ 
 
 
   const int X1X0 = X[1]*X[0];
@@ -348,22 +349,24 @@ VOLATILE spinorFloat *s = ss_data + SHARED_FLOATS_PER_THREAD*SHARED_STRIDE*(thre
   int y[4];
   int x0odd;
   int full_idx;
+  int half_idx;
 
   if(kernel_type == INTERIOR_KERNEL){
     //data order: X4 X3 X2 X1h
-    za = sid/(X[0]>>1);
-    x0h = sid - za*(X[0]>>1);
+    half_idx = idx;
+    za = half_idx/(X[0]>>1);
+    x0h = half_idx - za*(X[0]>>1);
     zb = za / X[1];
     y[1] = za - zb*X[1];
     y[3] = zb / X[2];
     y[2] = zb - y[3]*X[2];
     x0odd = (y[1] + y[2] + y[3] + param.parity) & 1;
     y[0] = 2*x0h + x0odd;
-    full_idx = 2*sid + x0odd;
+    full_idx = 2*half_idx + x0odd;
   }else{
-    coordsFromFaceIndexStaggered<NFACE,2>(y, sid, param.parity, kernel_type, X);
+    coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, kernel_type, X);
     full_idx = ((y[3]*X[2] +y[2])*X[1] +y[1])*X[0]+y[0];
-    sid = full_idx>>1;
+    half_idx = full_idx>>1;
   }
 
 
@@ -388,7 +391,7 @@ int sign = 1;
   int sign = (y[3]%2 == 1) ? -1 : 1;
 #endif
 
-  int ga_idx = sid;
+  int ga_idx = half_idx;
 
 #ifdef MULTI_GPU
   if ( (kernel_type == INTERIOR_KERNEL && ( (!param.ghostDim[0]) || y[0] < (X[0]-1)) )|| (kernel_type == EXTERIOR_KERNEL_X && y[0] >= (X[0]-1) ))
@@ -425,7 +428,7 @@ int sign = 1;
 
 #if (DD_IMPROVED==1)
 #ifdef MULTI_GPU
-  if ( (kernel_type == INTERIOR_KERNEL && ( (!param.ghostDim[0]) || y[0] < (X[0]-3)) )|| (kernel_type == EXTERIOR_KERNEL_X && y[0] >= (X[0]-3)))
+  if ( (kernel_type == INTERIOR_KERNEL && ( (!param.ghostDim[0]) || y[0] < (X[0]-3)) ) || (kernel_type == EXTERIOR_KERNEL_X && y[0] >= (X[0]-3)))
 #endif
   {
     int sp_idx_3rd_nbr = ((y[0] >= (X[0]-3)) ? full_idx-(X[0]-3) : full_idx+3) >> 1;
@@ -567,7 +570,7 @@ int sign = 1;
   int sign = ((y[3]+y[0])%2 == 1) ? -1 : 1;
 #endif
 
-  int ga_idx = sid;
+  int ga_idx = half_idx;
 
 #ifdef MULTI_GPU
   int space_con = ((y[3]*X[2]+y[2])*X[0]+y[0])/2;
@@ -742,7 +745,7 @@ int sign = 1;
   int sign = ((y[3]+y[0]+y[1])%2 == 1) ? -1 : 1;
 #endif
 
-  int ga_idx = sid;
+  int ga_idx = half_idx;
 
 #ifdef MULTI_GPU
   int space_con = ((y[3]*X[1]+y[1])*X[0]+y[0])/2;
@@ -918,7 +921,7 @@ int sign = 1;
   int sign = (y[3] >= (X4-3)) ? -1 : 1;
 #endif
 
-  int ga_idx = sid;
+  int ga_idx = half_idx;
 
 #ifdef MULTI_GPU
   int space_con = (y[2]*X1X0+y[1]*X[0]+y[0])/2;
@@ -1102,7 +1105,7 @@ int sign = 1;
 #ifdef DSLASH_AXPY
 #ifdef MULTI_GPU
 if (kernel_type == INTERIOR_KERNEL){
-  READ_ACCUM(ACCUMTEX);
+  READ_ACCUM(ACCUMTEX, half_idx);
   o00_re = -o00_re + a*accum0.x;
   o00_im = -o00_im + a*accum0.y;
   o01_re = -o01_re + a*accum1.x;
@@ -1118,7 +1121,7 @@ if (kernel_type == INTERIOR_KERNEL){
   o02_im = -o02_im;
 }
 #else
-READ_ACCUM(ACCUMTEX);
+READ_ACCUM(ACCUMTEX, half_idx);
 o00_re = -o00_re + a*accum0.x;
 o00_im = -o00_im + a*accum0.y;
 o01_re = -o01_re + a*accum1.x;
@@ -1131,13 +1134,13 @@ o02_im = -o02_im + a*accum2.y;
 #ifdef MULTI_GPU
 //if (kernel_type == EXTERIOR_KERNEL_T){
 if (kernel_type != INTERIOR_KERNEL){
-  READ_AND_SUM_SPINOR(INTERTEX);
+  READ_AND_SUM_SPINOR(INTERTEX, half_idx);
 }
 #endif
 
 
 // write spinor field back to device memory
-WRITE_SPINOR(out, param.sp_stride);
+WRITE_SPINOR(out, half_idx, param.sp_stride);
 
 
 // undefine to prevent warning when precision is changed

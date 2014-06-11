@@ -51,6 +51,7 @@
 #include <inline_ptx.h>
 
 enum KernelType {
+  EXTERIOR_KERNEL = 6,
   INTERIOR_KERNEL = 5,
   EXTERIOR_KERNEL_X = 0,
   EXTERIOR_KERNEL_Y = 1,
