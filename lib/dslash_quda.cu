@@ -1864,7 +1864,6 @@ namespace quda {
         interiorParam.profile  = &profile; 
 
         cudaGetDevice(&(interiorParam.current_device)); // get the current device number
-//        PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
         if(pthread_create(&interiorThread, NULL, launchInteriorKernel, &interiorParam)){
           errorQuda("pthread_create failed");
         }
@@ -1883,7 +1882,6 @@ namespace quda {
           if (dslashParam.commDim[i] && (i!=3 || getKernelPackT() || getTwistPack())) 
           { pack = true; break; }
 
-   //     if(pthread_join(interiorThread, NULL)) errorQuda("pthread_join failed");
 #ifdef PTHREADS
         if (pack){
           PROFILE(cudaStreamWaitEvent(streams[packIndex], dslashStart, 0), 
@@ -1936,7 +1934,6 @@ namespace quda {
 
 #ifdef PTHREADS
         if(pthread_join(receiveThread, NULL)) errorQuda("pthread_join failed");
-  //      if(pthread_join(interiorThread, NULL)) errorQuda("pthread_join failed");
 #endif
 #ifdef GPU_COMMS
         bool pack_event = false;
