@@ -382,7 +382,7 @@ int sign = 1;
 {
   //direction: +X
 #ifdef MULTI_GPU
-  if(kernel_type == EXTERIOR_KERNEL_X){
+  if(kernel_type == EXTERIOR_KERNEL_X && (idx < param.exteriorVolume[0])){
     coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, kernel_type, X);
     full_idx = ((y[3]*X[2] +y[2])*X[1] +y[1])*X[0]+y[0];
     half_idx = full_idx>>1;
@@ -408,7 +408,7 @@ int sign = 1;
     int norm_idx1 = nbr_idx1;
 #endif	    
 #ifdef MULTI_GPU
-    if ( (kernel_type == EXTERIOR_KERNEL_X)){
+    if ( (kernel_type == EXTERIOR_KERNEL_X) && (idx < param.exteriorVolume[0])){
       int space_con = ((y[3]*X[2]+y[2])*X[1]+y[1])/2;	
       if (y[0] >= (X[0]-1)){
         nbr_idx1 = param.ghostOffset[0] + 3*NFACE*ghostFace[0] +(y[0]-(X[0]-1))*ghostFace[0]+ space_con;
@@ -444,7 +444,7 @@ int sign = 1;
     int norm_idx3 = nbr_idx3;
 #endif	 
 #ifdef MULTI_GPU
-    if ( (kernel_type == EXTERIOR_KERNEL_X)){
+    if ( (kernel_type == EXTERIOR_KERNEL_X) && (idx < param.exteriorVolume[0])){
       int space_con = ((y[3]*X[2]+y[2])*X[1] + y[1])/2;		
       if (y[0]  >= (X[0]-3)){
         nbr_idx3 = param.ghostOffset[0] + 3*NFACE*ghostFace[0] +(y[0]-(X[0]-3))*ghostFace[0]+ space_con;
@@ -500,7 +500,7 @@ int sign = 1;
     int norm_idx1 = nbr_idx1;
 #endif	 
 #ifdef MULTI_GPU
-    if (kernel_type == EXTERIOR_KERNEL_X){
+    if ((kernel_type == EXTERIOR_KERNEL_X) && (idx < param.exteriorVolume[0])){
       if (y[0] - 1 < 0){
         nbr_idx1 = param.ghostOffset[0] + (y[0]+NFACE-1)*ghostFace[0]+ space_con;
         stride1 = NFACE*ghostFace[0];
@@ -567,7 +567,7 @@ int sign = 1;
 #endif
 
 #ifdef MULTI_GPU
-  if(kernel_type == EXTERIOR_KERNEL_X){
+  if(kernel_type == EXTERIOR_KERNEL_X && (idx < param.exteriorVolume[0])){
 #ifdef DSLASH_AXPY
     o00_re = -o00_re;
     o00_im = -o00_im;
@@ -575,6 +575,14 @@ int sign = 1;
     o01_im = -o01_im;
     o02_re = -o02_re;
     o02_im = -o02_im;
+#endif
+#if (DD_DAG == 1)
+    o00_re = - o00_re;
+    o00_im = - o00_im;
+    o01_re = - o01_re;
+    o01_im = - o01_im;
+    o02_re = - o02_re;
+    o02_im = - o02_im;
 #endif
     READ_AND_SUM_SPINOR(INTERTEX, half_idx);
     WRITE_SPINOR(out, half_idx, param.sp_stride);
@@ -587,7 +595,7 @@ int sign = 1;
 {
   //direction: +Y
 #ifdef MULTI_GPU
-  if(kernel_type == EXTERIOR_KERNEL_Y){
+  if((kernel_type == EXTERIOR_KERNEL_Y) && (idx < param.exteriorVolume[1])){
     coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, kernel_type, X);
     full_idx = ((y[3]*X[2] +y[2])*X[1] +y[1])*X[0]+y[0];
     half_idx = full_idx>>1;
@@ -613,7 +621,7 @@ int sign = 1;
     int norm_idx1 = nbr_idx1;
 #endif	 
 #ifdef MULTI_GPU
-    if (kernel_type == EXTERIOR_KERNEL_Y){	    
+    if ((kernel_type == EXTERIOR_KERNEL_Y) && (idx < param.exteriorVolume[1])){	    
       if (y[1] >= (X[1]-1)){
         nbr_idx1 = param.ghostOffset[1] + 3*NFACE*ghostFace[1] +(y[1]-(X[1]-1))*ghostFace[1]+ space_con;
         stride1 = NFACE*ghostFace[1];
@@ -649,7 +657,7 @@ int sign = 1;
     int norm_idx3 = nbr_idx3;
 #endif	 
 #ifdef MULTI_GPU
-    if (kernel_type == EXTERIOR_KERNEL_Y){
+    if ((kernel_type == EXTERIOR_KERNEL_Y) && (idx < param.exteriorVolume[1])){
       if (y[1]>= (X[1]-3)){
         nbr_idx3 = param.ghostOffset[1] + 3*NFACE*ghostFace[1] +(y[1]-(X[1]-3))*ghostFace[1]+ space_con;
         stride3 = NFACE*ghostFace[1];
@@ -702,7 +710,7 @@ int sign = 1;
     int norm_idx1 = nbr_idx1;
 #endif	 
 #ifdef MULTI_GPU
-    if (kernel_type == EXTERIOR_KERNEL_Y){
+    if ((kernel_type == EXTERIOR_KERNEL_Y) && (idx < param.exteriorVolume[1])){
       if (y[1] - 1 < 0){
         nbr_idx1 = param.ghostOffset[1] + (y[1]+NFACE-1)*ghostFace[1]+ space_con;
         stride1 = NFACE*ghostFace[1];
@@ -744,7 +752,7 @@ int sign = 1;
     int norm_idx3 = nbr_idx3;
 #endif	 
 #ifdef MULTI_GPU
-    if (kernel_type == EXTERIOR_KERNEL_Y){
+    if ((kernel_type == EXTERIOR_KERNEL_Y) && (idx < param.exteriorVolume[1])){
       if (y[1] - 3 < 0){
         nbr_idx3 = param.ghostOffset[1] + y[1]*ghostFace[1]+ space_con;
         stride3 = NFACE*ghostFace[1];
@@ -769,7 +777,7 @@ int sign = 1;
 #endif
 
 #ifdef MULTI_GPU
-  if(kernel_type == EXTERIOR_KERNEL_Y){
+  if(kernel_type == EXTERIOR_KERNEL_Y && (idx < param.exteriorVolume[1])){
 #ifdef DSLASH_AXPY
     o00_re = -o00_re;
     o00_im = -o00_im;
@@ -777,6 +785,14 @@ int sign = 1;
     o01_im = -o01_im;
     o02_re = -o02_re;
     o02_im = -o02_im;
+#endif
+#if (DD_DAG == 1)
+    o00_re = - o00_re;
+    o00_im = - o00_im;
+    o01_re = - o01_re;
+    o01_im = - o01_im;
+    o02_re = - o02_re;
+    o02_im = - o02_im;
 #endif
     READ_AND_SUM_SPINOR(INTERTEX, half_idx);
     WRITE_SPINOR(out, half_idx, param.sp_stride);
@@ -787,7 +803,7 @@ int sign = 1;
 {
   //direction: +Z
 #ifdef MULTI_GPU
-  if(kernel_type == EXTERIOR_KERNEL_Z){
+  if((kernel_type == EXTERIOR_KERNEL_Z) && (idx < param.exteriorVolume[2])){
     coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, kernel_type, X);
     full_idx = ((y[3]*X[2] +y[2])*X[1] +y[1])*X[0]+y[0];
     half_idx = full_idx>>1;
@@ -814,7 +830,7 @@ int sign = 1;
     int norm_idx1 = nbr_idx1;
 #endif	 
 #ifdef MULTI_GPU
-    if (kernel_type == EXTERIOR_KERNEL_Z){	
+    if ((kernel_type == EXTERIOR_KERNEL_Z) && (idx < param.exteriorVolume[2])){	
       if (y[2] >= (X[2]-1)){
         nbr_idx1 = param.ghostOffset[2] + 3*NFACE*ghostFace[2] +(y[2]-(X[2]-1))*ghostFace[2]+ space_con;
         stride1 = NFACE*ghostFace[2];	    
@@ -850,7 +866,7 @@ int sign = 1;
     int norm_idx3 = nbr_idx3;
 #endif	 
 #ifdef MULTI_GPU
-    if (kernel_type == EXTERIOR_KERNEL_Z){
+    if ((kernel_type == EXTERIOR_KERNEL_Z) && (idx < param.exteriorVolume[2])){
       if (y[2] >= (X[2]-3)){
         nbr_idx3 = param.ghostOffset[2] + 3*NFACE*ghostFace[2] +(y[2]-(X[2]-3))*ghostFace[2]+ space_con;
         stride3 = NFACE*ghostFace[2];
@@ -905,7 +921,7 @@ int sign = 1;
     int norm_idx1 = nbr_idx1;
 #endif	 
 #ifdef MULTI_GPU
-    if (kernel_type == EXTERIOR_KERNEL_Z){
+    if ((kernel_type == EXTERIOR_KERNEL_Z) && (idx < param.exteriorVolume[2])){
       if (y[2] - 1 < 0){
         nbr_idx1 = param.ghostOffset[2] + (y[2]+NFACE-1)*ghostFace[2]+ space_con;
         stride1 = NFACE*ghostFace[2];
@@ -947,7 +963,7 @@ int sign = 1;
     int norm_idx3 = nbr_idx3;
 #endif	 
 #ifdef MULTI_GPU
-    if (kernel_type == EXTERIOR_KERNEL_Z){
+    if ((kernel_type == EXTERIOR_KERNEL_Z) && (idx < param.exteriorVolume[2])){
       if (y[2] - 3 < 0){
         nbr_idx3 = param.ghostOffset[2] + y[2]*ghostFace[2]+ space_con;
         stride3 = NFACE*ghostFace[2];
@@ -973,7 +989,7 @@ int sign = 1;
 
 
 #ifdef MULTI_GPU
-  if(kernel_type == EXTERIOR_KERNEL_Z){
+  if(kernel_type == EXTERIOR_KERNEL_Z && (idx < param.exteriorVolume[2])){
 #ifdef DSLASH_AXPY
     o00_re = -o00_re;
     o00_im = -o00_im;
@@ -981,6 +997,14 @@ int sign = 1;
     o01_im = -o01_im;
     o02_re = -o02_re;
     o02_im = -o02_im;
+#endif
+#if (DD_DAG == 1)
+    o00_re = - o00_re;
+    o00_im = - o00_im;
+    o01_re = - o01_re;
+    o01_im = - o01_im;
+    o02_re = - o02_re;
+    o02_im = - o02_im;
 #endif
    READ_AND_SUM_SPINOR(INTERTEX, half_idx);
    WRITE_SPINOR(out, half_idx, param.sp_stride);
@@ -992,7 +1016,7 @@ int sign = 1;
 {
   //direction: +T
 #ifdef MULTI_GPU
-  if(kernel_type == EXTERIOR_KERNEL_T){
+  if((kernel_type == EXTERIOR_KERNEL_T) && (idx < param.exteriorVolume[3])){
     coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, kernel_type, X);
     full_idx = ((y[3]*X[2] +y[2])*X[1] +y[1])*X[0]+y[0];
     half_idx = full_idx>>1;
@@ -1018,7 +1042,7 @@ int sign = 1;
     int norm_idx1 = nbr_idx1;
 #endif
 #ifdef MULTI_GPU
-    if (kernel_type == EXTERIOR_KERNEL_T){      
+    if ((kernel_type == EXTERIOR_KERNEL_T) && (idx < param.exteriorVolume[3])){      
       if (y[3] >= (X[3]-1)){
         nbr_idx1 = param.ghostOffset[3] + 3*NFACE*ghostFace[3] +(y[3]-(X[3]-1))*ghostFace[3]+ space_con;
         stride1 = NFACE*ghostFace[3];
@@ -1055,7 +1079,7 @@ int sign = 1;
     int norm_idx3 = nbr_idx3;
 #endif
 #ifdef MULTI_GPU
-    if (kernel_type == EXTERIOR_KERNEL_T){
+    if ((kernel_type == EXTERIOR_KERNEL_T) && (idx < param.exteriorVolume[3])){
       if (y[3]  >= (X[3]-3)){
         nbr_idx3 = param.ghostOffset[3] + 3*NFACE*ghostFace[3] +(y[3]-(X[3]-3))*ghostFace[3]+ space_con;
         stride3 = NFACE*ghostFace[3];
@@ -1103,7 +1127,7 @@ int sign = 1;
     int norm_idx1 = nbr_idx1;
 #endif
 #ifdef MULTI_GPU
-    if (kernel_type == EXTERIOR_KERNEL_T){
+    if ((kernel_type == EXTERIOR_KERNEL_T) && (idx < param.exteriorVolume[3])){
       if ( (y[3] - 1) < 0){
         fat_idx = half_volume + space_con;
       }
@@ -1143,7 +1167,7 @@ int sign = 1;
     int norm_idx3 = nbr_idx3;
 #endif	    
 #ifdef MULTI_GPU
-    if (kernel_type == EXTERIOR_KERNEL_T){
+    if ((kernel_type == EXTERIOR_KERNEL_T) && (idx < param.exteriorVolume[3])){
       if ( (y[3] - 3) < 0){
         long_idx = half_volume + y[3]*ghostFace[3]+ space_con;
       }	
@@ -1174,7 +1198,7 @@ int sign = 1;
 #endif
 
 #ifdef MULTI_GPU
- if(kernel_type == EXTERIOR_KERNEL_T){
+ if(kernel_type == EXTERIOR_KERNEL_T && (idx < param.exteriorVolume[3])){
 #ifdef DSLASH_AXPY
    o00_re = -o00_re;
    o00_im = -o00_im;
@@ -1183,15 +1207,23 @@ int sign = 1;
    o02_re = -o02_re;
    o02_im = -o02_im;
 #endif
+#if (DD_DAG == 1)
+  o00_re = - o00_re;
+  o00_im = - o00_im;
+  o01_re = - o01_re;
+  o01_im = - o01_im;
+  o02_re = - o02_re;
+  o02_im = - o02_im;
+#endif
    READ_AND_SUM_SPINOR(INTERTEX, half_idx);
    WRITE_SPINOR(out, half_idx, param.sp_stride);
  }
 #endif
 }
 
-
+// Need to look at this!
 #if (DD_DAG == 1)
-{
+if(kernel_type == INTERIOR_KERNEL){
   o00_re = - o00_re;
   o00_im = - o00_im;
   o01_re = - o01_re;
@@ -1199,7 +1231,6 @@ int sign = 1;
   o02_re = - o02_re;
   o02_im = - o02_im;
 }
-
 #endif
 
 #ifdef MULTI_GPU

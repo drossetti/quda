@@ -1963,6 +1963,9 @@ namespace quda {
           for (int i=3; i>=0; i--) {
             if (!dslashParam.commDim[i]) continue;
 
+             // temporary          
+            for(int i=0; i<QUDA_MAX_DIM; ++i) dslashParam.exteriorVolume[i] = 0;
+
             for (int dir=1; dir>=0; dir--) {
 
 #ifndef GPU_COMMS
@@ -2018,7 +2021,9 @@ namespace quda {
 #endif
 
               dslashParam.kernel_type = static_cast<KernelType>(i);
+              //dslashParam.kernel_type = EXTERIOR_KERNEL;
               dslashParam.threads = dslash.Nface()*faceVolumeCB[i]; // updating 2 or 6 faces
+
               dslashParam.exteriorVolume[i] = dslash.Nface()*faceVolumeCB[i];
 
               // all faces use this stream
