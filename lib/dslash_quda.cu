@@ -357,17 +357,8 @@ namespace quda {
     case INTERIOR_KERNEL:							\
                                                                                 MORE_GENERIC_STAGGERED_DSLASH(FUNC, DAG, X, INTERIOR_KERNEL,   gridDim, blockDim, shared, stream, param, __VA_ARGS__) \
     break;								\
-    case EXTERIOR_KERNEL_X:						\
-                                                                        MORE_GENERIC_STAGGERED_DSLASH(FUNC, DAG, X, EXTERIOR_KERNEL_X, gridDim, blockDim, shared, stream, param, __VA_ARGS__) \
-    break;								\
-    case EXTERIOR_KERNEL_Y:						\
-                                                                        MORE_GENERIC_STAGGERED_DSLASH(FUNC, DAG, X, EXTERIOR_KERNEL_Y, gridDim, blockDim, shared, stream, param, __VA_ARGS__) \
-    break;								\
-    case EXTERIOR_KERNEL_Z:						\
-                                                                        MORE_GENERIC_STAGGERED_DSLASH(FUNC, DAG, X, EXTERIOR_KERNEL_Z, gridDim, blockDim, shared, stream, param, __VA_ARGS__) \
-    break;								\
-    case EXTERIOR_KERNEL_T:						\
-                                                                        MORE_GENERIC_STAGGERED_DSLASH(FUNC, DAG, X, EXTERIOR_KERNEL_T, gridDim, blockDim, shared, stream, param, __VA_ARGS__) \
+    case EXTERIOR_KERNEL:						\
+                                                                        MORE_GENERIC_STAGGERED_DSLASH(FUNC, DAG, X, EXTERIOR_KERNEL, gridDim, blockDim, shared, stream, param, __VA_ARGS__) \
     break;								\
   }
 
@@ -1957,6 +1948,8 @@ namespace quda {
           }
         }
 #endif
+
+       dslashParam.kernel_type = EXTERIOR_KERNEL;
        dslashParam.threads = 0;
        for(int i=0; i<4; ++i){
          if(!dslashParam.commDim[i]) continue;
@@ -2026,8 +2019,7 @@ namespace quda {
                   profile, QUDA_PROFILE_STREAM_WAIT_EVENT);
 #endif
 
-              dslashParam.kernel_type = static_cast<KernelType>(i);
-              //dslashParam.kernel_type = EXTERIOR_KERNEL;
+              //dslashParam.kernel_type = static_cast<KernelType>(i);
 
 
               // all faces use this stream

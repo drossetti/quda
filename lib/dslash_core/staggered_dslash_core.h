@@ -383,7 +383,7 @@ int sign = 1;
   //direction: +X
 #ifdef MULTI_GPU
   if(kernel_type != INTERIOR_KERNEL && (idx < param.exteriorVolume[0])){
-    coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, kernel_type, X);
+    coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, EXTERIOR_KERNEL_X, X);
     full_idx = ((y[3]*X[2] +y[2])*X[1] +y[1])*X[0]+y[0];
     half_idx = full_idx>>1;
   }
@@ -596,7 +596,7 @@ int sign = 1;
   //direction: +Y
 #ifdef MULTI_GPU
   if((kernel_type != INTERIOR_KERNEL) && (idx < param.exteriorVolume[1])){
-    coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, kernel_type, X);
+    coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, EXTERIOR_KERNEL_Y, X);
     full_idx = ((y[3]*X[2] +y[2])*X[1] +y[1])*X[0]+y[0];
     half_idx = full_idx>>1;
   }
@@ -804,7 +804,7 @@ int sign = 1;
   //direction: +Z
 #ifdef MULTI_GPU
   if((kernel_type != INTERIOR_KERNEL) && (idx < param.exteriorVolume[2])){
-    coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, kernel_type, X);
+    coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, EXTERIOR_KERNEL_Z, X);
     full_idx = ((y[3]*X[2] +y[2])*X[1] +y[1])*X[0]+y[0];
     half_idx = full_idx>>1;
   }
@@ -1017,7 +1017,7 @@ int sign = 1;
   //direction: +T
 #ifdef MULTI_GPU
   if((kernel_type != INTERIOR_KERNEL) && (idx < param.exteriorVolume[3])){
-    coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, kernel_type, X);
+    coordsFromFaceIndexStaggered<NFACE,2>(y, half_idx, param.parity, EXTERIOR_KERNEL_T, X);
     full_idx = ((y[3]*X[2] +y[2])*X[1] +y[1])*X[0]+y[0];
     half_idx = full_idx>>1;
   }
