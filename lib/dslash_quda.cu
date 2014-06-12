@@ -1957,6 +1957,13 @@ namespace quda {
           }
         }
 #endif
+       dslashParam.threads = 0;
+       for(int i=0; i<4; ++i){
+         if(!dslashParam.commDim[i]) continue;
+         dslashParam.exteriorVolume[i] = dslash.Nface()*faceVolumeCB[i];
+         dslashParam.threads = std::max(dslashParam.threads,dslashParam.exteriorVolume[i]);
+        }
+
         bool interiorLaunched = false;
         int completeSum = 0;
         while (completeSum < commDimTotal) {
@@ -1964,7 +1971,6 @@ namespace quda {
             if (!dslashParam.commDim[i]) continue;
 
              // temporary          
-            for(int i=0; i<QUDA_MAX_DIM; ++i) dslashParam.exteriorVolume[i] = 0;
 
             for (int dir=1; dir>=0; dir--) {
 
@@ -2022,9 +2028,7 @@ namespace quda {
 
               dslashParam.kernel_type = static_cast<KernelType>(i);
               //dslashParam.kernel_type = EXTERIOR_KERNEL;
-              dslashParam.threads = dslash.Nface()*faceVolumeCB[i]; // updating 2 or 6 faces
 
-              dslashParam.exteriorVolume[i] = dslash.Nface()*faceVolumeCB[i];
 
               // all faces use this stream
               PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
