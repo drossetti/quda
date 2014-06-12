@@ -76,6 +76,9 @@ namespace quda {
     int long_gauge_stride;
     float fat_link_max;
 #endif 
+#ifdef MULTI_GPU
+    int exteriorVolume[QUDA_MAX_DIM];
+#endif
 
 #ifdef USE_TEXTURE_OBJECTS
     cudaTextureObject_t inTex;
@@ -1829,6 +1832,7 @@ namespace quda {
         dslashParam.kernel_type = INTERIOR_KERNEL;
         dslashParam.threads = volume;
 
+        for(int i=0; i<QUDA_MAX_DIM; ++i) dslashParam.exteriorVolume[i] = 0;
 
 #ifdef MULTI_GPU
         // Record the start of the dslash if doing communication in T and not kernel packing
@@ -2015,6 +2019,8 @@ namespace quda {
 
               dslashParam.kernel_type = static_cast<KernelType>(i);
               dslashParam.threads = dslash.Nface()*faceVolumeCB[i]; // updating 2 or 6 faces
+              dslashParam.exteriorVolume[i] = dslash.Nface()*faceVolumeCB[i];
+
               // all faces use this stream
               PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
 
