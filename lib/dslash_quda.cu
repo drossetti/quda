@@ -1949,21 +1949,10 @@ namespace quda {
         }
 #endif
 
-       dslashParam.kernel_type = EXTERIOR_KERNEL;
-       dslashParam.threads = 0;
-       for(int i=0; i<4; ++i){
-         if(!dslashParam.commDim[i]) continue;
-         dslashParam.exteriorVolume[i] = dslash.Nface()*faceVolumeCB[i];
-         dslashParam.threads = std::max(dslashParam.threads,dslashParam.exteriorVolume[i]);
-        }
-
-        bool interiorLaunched = false;
         int completeSum = 0;
         while (completeSum < commDimTotal) {
           for (int i=3; i>=0; i--) {
             if (!dslashParam.commDim[i]) continue;
-
-             // temporary          
 
             for (int dir=1; dir>=0; dir--) {
 
@@ -1996,41 +1985,30 @@ namespace quda {
                   PROFILE(inSpinor->scatter(dslash.Nface()/2, dagger, 2*i+dir), 
                       profile, QUDA_PROFILE_SCATTER);
 #endif
+
                 }
               }
 
             } // dir=0,1
-
-            // enqueue the boundary dslash kernel as soon as the scatters have been enqueued
-            if (!dslashCompleted[2*i] && commsCompleted[2*i] && commsCompleted[2*i+1] ) {
-              // Record the end of the scattering
-#ifndef GPU_COMMS
-              PROFILE(cudaEventRecord(scatterEnd[2*i], streams[2*i]), 
-                  profile, QUDA_PROFILE_EVENT_RECORD);
-#ifdef PTHREADS  
-              if(!interiorLaunched){
-                if(pthread_join(interiorThread, NULL)) errorQuda("pthread_join failed");
-                interiorLaunched = true;
-              }
-#endif
-
-              // wait for scattering to finish and then launch dslash
-              PROFILE(cudaStreamWaitEvent(streams[Nstream-1], scatterEnd[2*i], 0), 
-                  profile, QUDA_PROFILE_STREAM_WAIT_EVENT);
-#endif
-
-              //dslashParam.kernel_type = static_cast<KernelType>(i);
-
-
-              // all faces use this stream
-              PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
-
-              dslashCompleted[2*i] = 1;
-            }
-
+                  
           }
-
         }
+
+#ifdef PTHREADS
+       if(pthread_join(interiorThread, NULL)) errorQuda("pthread_join failed");
+#endif
+
+        
+       dslashParam.kernel_type = EXTERIOR_KERNEL;
+       dslashParam.threads = 0;
+       for(int i=0; i<4; ++i){
+         if(!dslashParam.commDim[i]) continue;
+         dslashParam.exteriorVolume[i] = dslash.Nface()*faceVolumeCB[i];
+         dslashParam.threads = std::max(dslashParam.threads,dslashParam.exteriorVolume[i]);
+        }
+        cudaDeviceSynchronize(); // wait for all streams to complete before issuing the exterior dslash
+        PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
+    
         it = (it^1);
 #endif // MULTI_GPU
         profile.Stop(QUDA_PROFILE_TOTAL);
