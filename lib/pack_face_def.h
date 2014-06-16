@@ -316,7 +316,11 @@ static inline __device__ int indexFromFaceIndexExtendedStaggered(int face_idx, c
 }
 
 
-template<int nLayers, int Dir> 
+
+
+
+
+  template<int nLayers, int Dir> 
 static inline __device__ void coordsFromFaceIndexStaggered(int x[], int idx, const int parity, const enum KernelType dim, const int X[])
 {
   int za, x1h, x0h, zb;
@@ -331,7 +335,7 @@ static inline __device__ void coordsFromFaceIndexStaggered(int x[], int idx, con
       if(Dir == 2){
         x[0] += ((x[0] >= nLayers) ? (X[0] - 2*nLayers) : 0);
       }else if(Dir == 1){
-       x[0] += (X[0] - nLayers);
+        x[0] += (X[0] - nLayers);
       }
       x[1] = 2*x1h + ((x[0] + x[2] + x[3] + parity) & 1);
       break;
@@ -379,6 +383,57 @@ static inline __device__ void coordsFromFaceIndexStaggered(int x[], int idx, con
       break; 
   }
   return;
+}
+
+
+static inline __device__ bool inBoundary(const int dim, const int offset, const int coord[], const int X[]){
+  if(offset > 0){
+    if(coord[dim] >= (X[dim] - offset)) return true;
+  }else{
+    if((coord[dim] + offset) < 0) return true;
+  }
+  return false;
+}
+
+static inline __device__ bool isActive(const int threadDim, int offsetDim, int offset, const int y[],  const int partitioned[], const int X[])
+{
+
+  // Threads with threadDim = t can handle t,z,y,x offsets
+  // Threads with threadDim = z can handle z,y,x offsets
+  // Threads with threadDim = y can handle y,x offsets
+  // Threads with threadDim = x can handle x offsets 
+  if(!partitioned[offsetDim]) return false;
+
+  if(threadDim < offsetDim) return false;
+
+
+
+  switch(threadDim){
+    case 3: // threadDim = T
+      break;
+
+    case 2: // threadDim = Z
+      if(!partitioned[3]) break;
+      if(partitioned[3] && inBoundary(3, offset, y, X)) return false;
+      break;
+
+    case 1: // threadDim = Y
+      if((!partitioned[3]) && (!partitioned[2])) break;
+      if(partitioned[3] && inBoundary(3, offset, y, X)) return false;
+      if(partitioned[2] && inBoundary(2, offset, y, X)) return false;
+      break;
+
+    case 0: // threadDim = X
+      if((!partitioned[3]) && (!partitioned[2]) && (!partitioned[1])) break;
+      if(partitioned[3] && inBoundary(3, offset, y, X)) return false;
+      if(partitioned[2] && inBoundary(2, offset, y, X)) return false;
+      if(partitioned[1] && inBoundary(1, offset, y, X)) return false;
+      break;
+
+    default:
+      break;
+  }
+  return true;
 }
 
 
@@ -861,36 +916,36 @@ static inline __device__ void coordsFromDWFaceIndex(int &cb_idx, Int &X, Int &Y,
   //printf("Global sid %d (%d, %d, %d, %d)\n", cb_int, x, y, z, t);
 }
 
-template <int dim, int nLayers, int face_num>
+  template <int dim, int nLayers, int face_num>
 static inline __device__ int indexFromDW4DFaceIndex(int face_idx, const int &face_volume,
-						  const int &parity)
+    const int &parity)
 {
   // dimensions of the face (FIXME: optimize using constant cache)
   //H.J. Kim.: note that in the case of DW fermions one is dealing with 4d faces
-  
+
   // intrinsic parity of the face depends on offset of first element, used for MPI DW as well
   int face_X = X1, face_Y = X2, face_Z = X3, face_T = X4;
   int face_parity;  
-  
+
   switch (dim) {
-  case 0:
-    face_X = nLayers;
-    face_parity = (parity + face_num * (X1 - nLayers)) & 1;
-    break;
-  case 1:
-    face_Y = nLayers;
-    face_parity = (parity + face_num * (X2 - nLayers)) & 1;
-    break;
-  case 2:
-    face_Z = nLayers;
-    face_parity = (parity + face_num * (X3 - nLayers)) & 1;
-    break;
-  case 3:
-    face_T = nLayers;    
-    face_parity = (parity + face_num * (X4 - nLayers)) & 1;
-    break;
+    case 0:
+      face_X = nLayers;
+      face_parity = (parity + face_num * (X1 - nLayers)) & 1;
+      break;
+    case 1:
+      face_Y = nLayers;
+      face_parity = (parity + face_num * (X2 - nLayers)) & 1;
+      break;
+    case 2:
+      face_Z = nLayers;
+      face_parity = (parity + face_num * (X3 - nLayers)) & 1;
+      break;
+    case 3:
+      face_T = nLayers;    
+      face_parity = (parity + face_num * (X4 - nLayers)) & 1;
+      break;
   }
-  
+
   int face_XYZT = face_X * face_Y * face_Z * face_T;  
   int face_XYZ = face_X * face_Y * face_Z;
   int face_XY = face_X * face_Y;
@@ -914,16 +969,16 @@ static inline __device__ int indexFromDW4DFaceIndex(int face_idx, const int &fac
     int t = aux3 - s * face_T;
     face_idx += (face_parity + t + z + y) & 1;
   } else if (!(face_Y & 1)) { // face_Y even
-  //  int s = face_idx / face_XYZT;    
+    //  int s = face_idx / face_XYZT;    
     int t = (face_idx / face_XYZ) % face_T;
     int z = (face_idx / face_XY) % face_Z;
     face_idx += (face_parity + t + z) & 1;
   } else if (!(face_Z & 1)) { // face_Z even
-  //  int s = face_idx / face_XYZT;        
+    //  int s = face_idx / face_XYZT;        
     int t = (face_idx / face_XYZ) % face_T;
     face_idx += (face_parity + t) & 1;
   } else if(!(face_T)){
-  //  int s = face_idx / face_XYZT;        
+    //  int s = face_idx / face_XYZT;        
     face_idx += face_parity;
   }else{    
     face_idx += face_parity;
@@ -935,26 +990,26 @@ static inline __device__ int indexFromDW4DFaceIndex(int face_idx, const int &fac
   int gap, aux;
 
   switch (dim) {
-  case 0:
-    gap = X1 - nLayers;
-    aux = face_idx / face_X;
-    idx += (aux + face_num) * gap;
-    break;
-  case 1:
-    gap = X2 - nLayers;
-    aux = face_idx / face_XY;
-    idx += (aux + face_num) * gap * face_X;
-    break;
-  case 2:
-    gap = X3 - nLayers;
-    aux = face_idx / face_XYZ;
-    idx += (aux + face_num) * gap * face_XY;
-    break;
-  case 3:
-    gap = X4 - nLayers;
-    aux = face_idx / face_XYZT;
-    idx += (aux + face_num) * gap * face_XYZ;
-    break;
+    case 0:
+      gap = X1 - nLayers;
+      aux = face_idx / face_X;
+      idx += (aux + face_num) * gap;
+      break;
+    case 1:
+      gap = X2 - nLayers;
+      aux = face_idx / face_XY;
+      idx += (aux + face_num) * gap * face_X;
+      break;
+    case 2:
+      gap = X3 - nLayers;
+      aux = face_idx / face_XYZ;
+      idx += (aux + face_num) * gap * face_XY;
+      break;
+    case 3:
+      gap = X4 - nLayers;
+      aux = face_idx / face_XYZT;
+      idx += (aux + face_num) * gap * face_XYZ;
+      break;
   }
 
   // return index into the checkerboard
@@ -963,31 +1018,31 @@ static inline __device__ int indexFromDW4DFaceIndex(int face_idx, const int &fac
 }
 
 // compute full coordinates from an index into the face (used by the exterior Dslash kernels)
-template <int nLayers, typename Int>
+  template <int nLayers, typename Int>
 static inline __device__ void coordsFromDW4DFaceIndex(int &cb_idx, Int &X, Int &Y, Int &Z, Int &T, Int &S, int face_idx,
-						  const int &face_volume, const int &dim, const int &face_num, const int &parity)
+    const int &face_volume, const int &dim, const int &face_num, const int &parity)
 {
   // dimensions of the face (FIXME: optimize using constant cache)
 
   int face_X = X1, face_Y = X2, face_Z = X3, face_T = X4;
   int face_parity;
   switch (dim) {
-  case 0:
-    face_X = nLayers;
-    face_parity = (parity + face_num * (X1 - nLayers)) & 1;
-    break;
-  case 1:
-    face_Y = nLayers;
-    face_parity = (parity + face_num * (X2 - nLayers)) & 1;
-    break;
-  case 2:
-    face_Z = nLayers;
-    face_parity = (parity + face_num * (X3 - nLayers)) & 1;
-    break;
-  case 3:
-    face_T = nLayers;    
-    face_parity = (parity + face_num * (X4 - nLayers)) & 1;
-    break;
+    case 0:
+      face_X = nLayers;
+      face_parity = (parity + face_num * (X1 - nLayers)) & 1;
+      break;
+    case 1:
+      face_Y = nLayers;
+      face_parity = (parity + face_num * (X2 - nLayers)) & 1;
+      break;
+    case 2:
+      face_Z = nLayers;
+      face_parity = (parity + face_num * (X3 - nLayers)) & 1;
+      break;
+    case 3:
+      face_T = nLayers;    
+      face_parity = (parity + face_num * (X4 - nLayers)) & 1;
+      break;
   }
   int face_XYZT = face_X * face_Y * face_Z * face_T;  
   int face_XYZ  = face_X * face_Y * face_Z;
@@ -1043,18 +1098,18 @@ static inline __device__ void coordsFromDW4DFaceIndex(int &cb_idx, Int &X, Int &
 
   // need to convert to global coords, not face coords
   switch(dim) {
-  case 0:
-    x += face_num * (X1-nLayers);
-    break;
-  case 1:
-    y += face_num * (X2-nLayers);
-    break;
-  case 2:
-    z += face_num * (X3-nLayers);
-    break;
-  case 3:
-    t += face_num * (X4-nLayers);
-    break;
+    case 0:
+      x += face_num * (X1-nLayers);
+      break;
+    case 1:
+      y += face_num * (X2-nLayers);
+      break;
+    case 2:
+      z += face_num * (X3-nLayers);
+      break;
+    case 3:
+      t += face_num * (X4-nLayers);
+      break;
   }
 
   // compute index into the checkerboard
@@ -1798,21 +1853,21 @@ __global__ void packTwistedFaceWilsonKernel(Float a, Float b, PackParam<FloatN> 
 #define WRITE_HALF_SPINOR WRITE_HALF_SPINOR_DOUBLE2
 #define SPINOR_DOUBLE
 
-	#if (defined DIRECT_ACCESS_CLOVER) || (defined FERMI_NO_DBLE_TEX)
-		#define TMCLOVERTEX (param.clover)
-		#define TM_INV_CLOVERTEX (param.cloverInv)
-		#define ASSN_CLOVER PACK_CLOVER_DOUBLE
-	#else
-		#ifdef USE_TEXTURE_OBJECTS
-			#define TMCLOVERTEX (param.cloverTex)
-			#define TM_INV_CLOVERTEX (param.cloverInvTex)
-		#else
-			#define TMCLOVERTEX cloverTexDouble
-			#define TM_INV_CLOVERTEX cloverInvTexDouble
-		#endif
-		#define ASSN_CLOVER PACK_CLOVER_DOUBLE_TEX
-	#endif
-	#define CLOVER_DOUBLE
+#if (defined DIRECT_ACCESS_CLOVER) || (defined FERMI_NO_DBLE_TEX)
+#define TMCLOVERTEX (param.clover)
+#define TM_INV_CLOVERTEX (param.cloverInv)
+#define ASSN_CLOVER PACK_CLOVER_DOUBLE
+#else
+#ifdef USE_TEXTURE_OBJECTS
+#define TMCLOVERTEX (param.cloverTex)
+#define TM_INV_CLOVERTEX (param.cloverInvTex)
+#else
+#define TMCLOVERTEX cloverTexDouble
+#define TM_INV_CLOVERTEX cloverInvTexDouble
+#endif
+#define ASSN_CLOVER PACK_CLOVER_DOUBLE_TEX
+#endif
+#define CLOVER_DOUBLE
 
   template <int dim, int dagger, int face_num>
 static inline __device__ void packCloverTwistedFaceWilsonCore(double2 *out, float *outNorm, const double2 *in, 
@@ -1859,20 +1914,20 @@ static inline __device__ void packCloverTwistedFaceWilsonCore(double2 *out, floa
 #endif
 #define WRITE_HALF_SPINOR WRITE_HALF_SPINOR_FLOAT4
 
-	#ifdef DIRECT_ACCESS_CLOVER
-		#define TMCLOVERTEX (param.clover)
-		#define TM_INV_CLOVERTEX (param.cloverInv)
-		#define ASSN_CLOVER PACK_CLOVER_SINGLE
-	#else
-		#ifdef USE_TEXTURE_OBJECTS
-			#define TMCLOVERTEX (param.cloverTex)
-			#define TM_INV_CLOVERTEX (param.cloverInvTex)
-		#else
-			#define TMCLOVERTEX cloverTexSingle
-			#define TM_INV_CLOVERTEX cloverInvTexSingle
-		#endif
-		#define ASSN_CLOVER PACK_CLOVER_SINGLE_TEX
-	#endif
+#ifdef DIRECT_ACCESS_CLOVER
+#define TMCLOVERTEX (param.clover)
+#define TM_INV_CLOVERTEX (param.cloverInv)
+#define ASSN_CLOVER PACK_CLOVER_SINGLE
+#else
+#ifdef USE_TEXTURE_OBJECTS
+#define TMCLOVERTEX (param.cloverTex)
+#define TM_INV_CLOVERTEX (param.cloverInvTex)
+#else
+#define TMCLOVERTEX cloverTexSingle
+#define TM_INV_CLOVERTEX cloverInvTexSingle
+#endif
+#define ASSN_CLOVER PACK_CLOVER_SINGLE_TEX
+#endif
 
   template <int dim, int dagger, int face_num>
 static inline __device__ void packCloverTwistedFaceWilsonCore(float4 *out, float *outNorm, const float4 *in, const float *inNorm, float a,
@@ -1914,26 +1969,26 @@ static inline __device__ void packCloverTwistedFaceWilsonCore(float4 *out, float
 #endif
 #define WRITE_HALF_SPINOR WRITE_HALF_SPINOR_SHORT4
 
-	#ifdef DIRECT_ACCESS_CLOVER
-		#define TMCLOVERTEX (param.clover)
-		#define TMCLOVERTEXNORM (param.cloverNorm)
-		#define TM_INV_CLOVERTEX (param.cloverInv)
-		#define TM_INV_CLOVERTEXNORM (param.cloverInvNorm)
-		#define ASSN_CLOVER PACK_CLOVER_HALF
-	#else
-		#ifdef USE_TEXTURE_OBJECTS
-			#define TMCLOVERTEX (param.cloverTex)
-			#define TMCLOVERTEXNORM (param.cloverNormTex)
-			#define TM_INV_CLOVERTEX (param.cloverInvTex)
-			#define TM_INV_CLOVERTEXNORM (param.cloverInvNormTex)
-		#else
-			#define TMCLOVERTEX cloverTexHalf
-			#define TMCLOVERTEXNORM cloverTexNorm
-			#define TM_INV_CLOVERTEX cloverInvTexHalf
-			#define TM_INV_CLOVERTEXNORM cloverInvTexNorm
-		#endif
-		#define ASSN_CLOVER PACK_CLOVER_HALF_TEX
-	#endif
+#ifdef DIRECT_ACCESS_CLOVER
+#define TMCLOVERTEX (param.clover)
+#define TMCLOVERTEXNORM (param.cloverNorm)
+#define TM_INV_CLOVERTEX (param.cloverInv)
+#define TM_INV_CLOVERTEXNORM (param.cloverInvNorm)
+#define ASSN_CLOVER PACK_CLOVER_HALF
+#else
+#ifdef USE_TEXTURE_OBJECTS
+#define TMCLOVERTEX (param.cloverTex)
+#define TMCLOVERTEXNORM (param.cloverNormTex)
+#define TM_INV_CLOVERTEX (param.cloverInvTex)
+#define TM_INV_CLOVERTEXNORM (param.cloverInvNormTex)
+#else
+#define TMCLOVERTEX cloverTexHalf
+#define TMCLOVERTEXNORM cloverTexNorm
+#define TM_INV_CLOVERTEX cloverInvTexHalf
+#define TM_INV_CLOVERTEXNORM cloverInvTexNorm
+#endif
+#define ASSN_CLOVER PACK_CLOVER_HALF_TEX
+#endif
 
   template <int dim, int dagger, int face_num>
 static inline __device__ void packCloverTwistedFaceWilsonCore(short4 *out, float *outNorm, const short4 *in, const float *inNorm, float a,
@@ -2078,12 +2133,12 @@ class PackFace : public Tunable {
           param.cloverNorm = (float*)clov->evenNorm;
           param.cloverInv = (FloatN*)clovInv->even;
           param.cloverInvNorm = (float*)clovInv->evenNorm;
-	} else {
+        } else {
           param.clover = (FloatN*)clov->odd;
           param.cloverNorm = (float*)clov->oddNorm;
           param.cloverInv = (FloatN*)clovInv->odd;
           param.cloverInvNorm = (float*)clovInv->oddNorm;
-	}	
+        }	
       }
 
 #ifdef USE_TEXTURE_OBJECTS
@@ -2095,12 +2150,12 @@ class PackFace : public Tunable {
           param.cloverNormTex = clov->evenNormTex;
           param.cloverInvTex = clovInv->evenTex;
           param.cloverInvNormTex = clovInv->evenNormTex;
-	} else {
+        } else {
           param.cloverTex = clov->oddTex;
           param.cloverNormTex = clov->oddNormTex;
           param.cloverInvTex = clovInv->oddTex;
           param.cloverInvNormTex = clovInv->oddNormTex;
-	}
+        }
       }
 #endif
 
@@ -2633,50 +2688,50 @@ class PackFaceStaggered : public PackFace<FloatN, Float> {
         PackExtendedParam<FloatN> extendedParam(param);
         if(!unpack){
           for(int d=0; d<QUDA_MAX_DIM; ++d) extendedParam.R[d] = R[d];
-	  switch(PackFace<FloatN,Float>::nFace){
-     	    case 1:
-	      packFaceExtendedStaggeredKernel<FloatN,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(extendedParam);
-	      break;
+          switch(PackFace<FloatN,Float>::nFace){
+            case 1:
+              packFaceExtendedStaggeredKernel<FloatN,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(extendedParam);
+              break;
 
-	    case 2:
-	      packFaceExtendedStaggeredKernel<FloatN,2><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(extendedParam);
-	      break;
-	
-	    case 3:
-	      packFaceExtendedStaggeredKernel<FloatN,3><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(extendedParam);
-	      break;
+            case 2:
+              packFaceExtendedStaggeredKernel<FloatN,2><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(extendedParam);
+              break;
 
-	    case 4:
-	      packFaceExtendedStaggeredKernel<FloatN,4><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(extendedParam);
-	      break;
+            case 3:
+              packFaceExtendedStaggeredKernel<FloatN,3><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(extendedParam);
+              break;
 
-	    default: 
+            case 4:
+              packFaceExtendedStaggeredKernel<FloatN,4><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(extendedParam);
+              break;
+
+            default: 
               errorQuda("Unsupported boundary width");
-	      break;
-	  }
+              break;
+          }
         }else{ // extended field unpack
-	  switch(PackFace<FloatN,Float>::nFace){
-	    case 1:
+          switch(PackFace<FloatN,Float>::nFace){
+            case 1:
               unpackFaceExtendedStaggeredKernel<FloatN,1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(extendedParam);
-	      break;
+              break;
 
-	    case 2:
+            case 2:
               unpackFaceExtendedStaggeredKernel<FloatN,2><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(extendedParam);
-	      break;
+              break;
 
-	    case 3:
+            case 3:
               unpackFaceExtendedStaggeredKernel<FloatN,3><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(extendedParam);
-	      break;
+              break;
 
-	    case 4:
+            case 4:
               unpackFaceExtendedStaggeredKernel<FloatN,4><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(extendedParam);
-	      break;
+              break;
 
-	    default:
-	      errorQuda("Unsupported boundary width");
-	      break;
-	  }
-	}
+            default:
+              errorQuda("Unsupported boundary width");
+              break;
+          }
+        }
       }
 #else
       errorQuda("Staggered face packing kernel is not built");
@@ -2809,11 +2864,11 @@ __global__ void packFaceDWKernel(PackParam<FloatN> param)
 }
 
 
-template <int dagger, typename FloatN>
+  template <int dagger, typename FloatN>
 __global__ void packFaceDW4DKernel(PackParam<FloatN> param)
 {
   const int nFace = 1; // 1 face for Wilson
-  
+
   int face_idx = blockIdx.x*blockDim.x + threadIdx.x;
   if (face_idx >= param.threads) return;
 
@@ -2824,7 +2879,7 @@ __global__ void packFaceDW4DKernel(PackParam<FloatN> param)
   // FIXME these ghostFace constants do not incude the Ls dimension
   const int face_num = (face_idx >= nFace*Ls*ghostFace[dim]) ? 1 : 0; 
   face_idx -= face_num*nFace*Ls*ghostFace[dim];
-  
+
   // compute where the output is located
   // compute an index into the local volume from the index into the face
   // read spinor, spin-project, and write half spinor to face
@@ -2832,41 +2887,41 @@ __global__ void packFaceDW4DKernel(PackParam<FloatN> param)
     if (face_num == 0) {
       const int idx = indexFromDW4DFaceIndex<0,nFace,0>(face_idx,Ls*ghostFace[0],param.parity);
       packFaceWilsonCore<0,dagger,0>(param.out[0], param.outNorm[0], param.in, 
-				     param.inNorm, idx, face_idx, Ls*ghostFace[0], param);
+          param.inNorm, idx, face_idx, Ls*ghostFace[0], param);
     } else {
       const int idx = indexFromDW4DFaceIndex<0,nFace,1>(face_idx,Ls*ghostFace[0],param.parity);
       packFaceWilsonCore<0,dagger,1>(param.out[1], param.outNorm[1], param.in, 
-				     param.inNorm, idx, face_idx, Ls*ghostFace[0], param);
+          param.inNorm, idx, face_idx, Ls*ghostFace[0], param);
     }
   } else if (dim == 1) {
     if (face_num == 0) {
       const int idx = indexFromDW4DFaceIndex<1,nFace,0>(face_idx,Ls*ghostFace[1],param.parity);
       packFaceWilsonCore<1, dagger,0>(param.out[2], param.outNorm[2], param.in, 
-				      param.inNorm, idx, face_idx, Ls*ghostFace[1], param);
+          param.inNorm, idx, face_idx, Ls*ghostFace[1], param);
     } else {
       const int idx = indexFromDW4DFaceIndex<1,nFace,1>(face_idx,Ls*ghostFace[1],param.parity);
       packFaceWilsonCore<1, dagger,1>(param.out[3], param.outNorm[3], param.in, 
-				      param.inNorm, idx, face_idx, Ls*ghostFace[1], param);
+          param.inNorm, idx, face_idx, Ls*ghostFace[1], param);
     }
   } else if (dim == 2) {
     if (face_num == 0) {
       const int idx = indexFromDW4DFaceIndex<2,nFace,0>(face_idx,Ls*ghostFace[2],param.parity);
       packFaceWilsonCore<2, dagger,0>(param.out[4], param.outNorm[4], param.in, 
-				      param.inNorm, idx, face_idx, Ls*ghostFace[2], param);
+          param.inNorm, idx, face_idx, Ls*ghostFace[2], param);
     } else {
       const int idx = indexFromDW4DFaceIndex<2,nFace,1>(face_idx,Ls*ghostFace[2],param.parity);
       packFaceWilsonCore<2, dagger,1>(param.out[5], param.outNorm[5], param.in, 
-				      param.inNorm, idx, face_idx, Ls*ghostFace[2], param);
+          param.inNorm, idx, face_idx, Ls*ghostFace[2], param);
     }
   } else {
     if (face_num == 0) {
       const int idx = indexFromDW4DFaceIndex<3,nFace,0>(face_idx,Ls*ghostFace[3],param.parity);
       packFaceWilsonCore<3, dagger,0>(param.out[6], param.outNorm[6], param.in, 
-				      param.inNorm, idx, face_idx, Ls*ghostFace[3], param);
+          param.inNorm, idx, face_idx, Ls*ghostFace[3], param);
     } else {
       const int idx = indexFromDW4DFaceIndex<3,nFace,1>(face_idx,Ls*ghostFace[3],param.parity);
       packFaceWilsonCore<3, dagger,1>(param.out[7], param.outNorm[7], param.in, 
-				      param.inNorm, idx, face_idx, Ls*ghostFace[3], param);
+          param.inNorm, idx, face_idx, Ls*ghostFace[3], param);
     }
   }
 }
@@ -2911,36 +2966,36 @@ class PackFaceDW : public PackFace<FloatN, Float> {
 template <typename FloatN, typename Float>
 class PackFaceDW4D : public PackFace<FloatN, Float> {
 
- private:
+  private:
 
-  int inputPerSite() const { return 24; } // input is full spinor
-  int outputPerSite() const { return 12; } // output is spin projected
+    int inputPerSite() const { return 24; } // input is full spinor
+    int outputPerSite() const { return 12; } // output is spin projected
 
- public:
-  PackFaceDW4D(FloatN *faces, const cudaColorSpinorField *in, 
-	     const int dagger, const int parity)
-    : PackFace<FloatN, Float>(faces, in, dagger, parity, 1) { }
-  virtual ~PackFaceDW4D() { }
-  
-  void apply(const cudaStream_t &stream) {
-    TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
-    
+  public:
+    PackFaceDW4D(FloatN *faces, const cudaColorSpinorField *in, 
+        const int dagger, const int parity)
+      : PackFace<FloatN, Float>(faces, in, dagger, parity, 1) { }
+    virtual ~PackFaceDW4D() { }
+
+    void apply(const cudaStream_t &stream) {
+      TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
+
 #ifdef GPU_DOMAIN_WALL_DIRAC
-    PackParam<FloatN> param = this->prepareParam();
-    if (this->dagger) {
-      packFaceDW4DKernel<1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param);
-    } else {
-      packFaceDW4DKernel<0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param);
-    }
+      PackParam<FloatN> param = this->prepareParam();
+      if (this->dagger) {
+        packFaceDW4DKernel<1><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param);
+      } else {
+        packFaceDW4DKernel<0><<<tp.grid, tp.block, tp.shared_bytes, stream>>>(param);
+      }
 #else
-    errorQuda("4D preconditioned DW face packing kernel is not built");
+      errorQuda("4D preconditioned DW face packing kernel is not built");
 #endif  
-  }
+    }
 
-  void apply_twisted(Float a, Float b, const cudaStream_t &stream) {}
-  void apply_twisted_clover(Float a, const cudaStream_t &stream) {}
+    void apply_twisted(Float a, Float b, const cudaStream_t &stream) {}
+    void apply_twisted_clover(Float a, const cudaStream_t &stream) {}
 
-  long long flops() const { return outputPerSite()*this->threads(); }
+    long long flops() const { return outputPerSite()*this->threads(); }
 };
 
 void packFaceDW(void *ghost_buf, cudaColorSpinorField &in, const int dagger,  
@@ -3123,7 +3178,7 @@ void packFaceNdegTM(void *ghost_buf, cudaColorSpinorField &in, const int dagger,
 
 void packFace(void *ghost_buf, cudaColorSpinorField &in, FullClover &clover, FullClover &clovInv,
     const int nFace, const int dagger, const int parity, 
-     const int dim, const int face_num, const cudaStream_t &stream, 
+    const int dim, const int face_num, const cudaStream_t &stream, 
     const double a)
 {
   int nDimPack = 0;
