@@ -77,6 +77,8 @@ namespace quda {
     float fat_link_max;
 #endif 
 #ifdef MULTI_GPU
+    int threadDimMapLower[QUDA_MAX_DIM];
+    int threadDimMapUpper[QUDA_MAX_DIM];
     int exteriorVolume[QUDA_MAX_DIM];
 #endif
 
@@ -1775,6 +1777,7 @@ namespace quda {
         profile.Stop(QUDA_PROFILE_TOTAL);
       }
 
+#ifdef MULTI_GPU
 #ifdef PTHREADS
 #include <pthread.h>
 
@@ -1813,6 +1816,19 @@ namespace quda {
         return NULL;
       }
 #endif
+  
+      void setThreadDimMap(DslashParam& param, DslashCuda &dslash, const int* faceVolumeCB){
+        int prev = -1;
+        for(int i=0; i<4; ++i){
+          param.threadDimMapLower[i] = 0;
+          param.threadDimMapUpper[i] = 0;
+          if (!dslashParam.commDim[i]) continue;
+          param.threadDimMapLower[i] = (prev >= 0 ? param.threadDimMapUpper[prev] : 0);
+          param.threadDimMapUpper[i] = param.threadDimMapLower[i] + dslash.Nface()*faceVolumeCB[i];
+          prev=i;
+        }
+      }
+#endif // MULTI_GPU
 
       void dslashCuda2(DslashCuda &dslash, const size_t regSize, const int parity, const int dagger, 
           const int volume, const int *faceVolumeCB, TimeProfile &profile) {
@@ -1899,6 +1915,11 @@ namespace quda {
           PROFILE(cudaEventRecord(packEnd[0], streams[packIndex]), 
               profile, QUDA_PROFILE_EVENT_RECORD);
         }
+
+          
+        setThreadDimMap(dslashParam,dslash,faceVolumeCB);
+
+
 #ifndef GPU_COMMS
         for(int i = 3; i >=0; i--){
           if (!dslashParam.commDim[i]) continue;
@@ -2003,8 +2024,7 @@ namespace quda {
        dslashParam.threads = 0;
        for(int i=0; i<4; ++i){
          if(!dslashParam.commDim[i]) continue;
-         dslashParam.exteriorVolume[i] = dslash.Nface()*faceVolumeCB[i];
-         dslashParam.threads = std::max(dslashParam.threads,dslashParam.exteriorVolume[i]);
+         dslashParam.threads = dslashParam.threadDimMapUpper[i];
         }
         cudaDeviceSynchronize(); // wait for all streams to complete before issuing the exterior dslash
         PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
