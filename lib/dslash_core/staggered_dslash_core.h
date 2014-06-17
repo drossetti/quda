@@ -447,7 +447,6 @@ int sign = 1;
 #if (DD_IMPROVED==1)
 #ifdef MULTI_GPU
   if ( (kernel_type == INTERIOR_KERNEL && ( (!param.ghostDim[0]) || y[0] < (X[0]-3)) ) || 
-    //   ((kernel_type != INTERIOR_KERNEL) && (dim==0) && y[0] >= (X[0]-3)))
        ((kernel_type != INTERIOR_KERNEL) && isActive(dim,0,+3,y,param.commDim,X) && y[0] >= (X[0]-3)))
 #endif
   {

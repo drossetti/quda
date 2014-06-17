@@ -395,6 +395,8 @@ static inline __device__ bool inBoundary(const int dim, const int offset, const 
   return false;
 }
 
+
+
 static inline __device__ bool isActive(const int threadDim, int offsetDim, int offset, const int y[],  const int partitioned[], const int X[])
 {
 
@@ -436,6 +438,12 @@ static inline __device__ bool isActive(const int threadDim, int offsetDim, int o
   return true;
 }
 
+static inline __device__ bool isActive(const int threadDim, int offsetDim, int offset, int x1, int x2, int x3, int x4,
+                                       const int partitioned[], const int X[])
+{
+  int y[4] = {x1, x2, x3, x4};
+  return isActive(threadDim, offsetDim, offset, y, partitioned, X);
+}
 
 // compute full coordinates from an index into the face (used by the exterior Dslash kernels)
   template <int nLayers, typename Int>

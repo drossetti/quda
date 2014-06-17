@@ -430,8 +430,11 @@ if (kernel_type == INTERIOR_KERNEL) {
   sid = blockIdx.x*blockDim.x + threadIdx.x;
   if (sid >= param.threads) return;
 
-  const int dim = static_cast<int>(kernel_type);
-  const int face_volume = (param.threads >> 1);           // volume of one face
+
+  const int dim = dimFromFaceIndex(sid, param); // sid is also modified
+  
+
+  const int face_volume = ((param.threadDimMapUpper[dim] - param.threadDimMapLower[dim]) >> 1);   // volume of one face
   const int face_num = (sid >= face_volume);              // is this thread updating face 0 or 1
   face_idx = sid - face_num*face_volume;        // index into the respective face
 
@@ -465,7 +468,7 @@ if (kernel_type == INTERIOR_KERNEL) {
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1<X1m1)) ||
-     (kernel_type == EXTERIOR_KERNEL_X && x1==X1m1) )
+     (kernel_type == EXTERIOR_KERNEL && isActive(dim,0,+1,x1,x2,x3,x4,param.commDim,param.X) && x1==X1m1) )
 #endif
 {
   // Projector P0-
@@ -656,7 +659,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1<X1m1)) ||
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1>0)) ||
-     (kernel_type == EXTERIOR_KERNEL_X && x1==0) )
+     (kernel_type == EXTERIOR_KERNEL && isActive(dim,0,-1,x1,x2,x3,x4,param.commDim,param.X) && x1==0) )
 #endif
 {
   // Projector P0+
@@ -851,7 +854,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1>0)) ||
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2<X2m1)) ||
-     (kernel_type == EXTERIOR_KERNEL_Y && x2==X2m1) )
+     (kernel_type == EXTERIOR_KERNEL && isActive(dim,1,+1,x1,x2,x3,x4,param.commDim,param.X) && x2==X2m1) )
 #endif
 {
   // Projector P1-
@@ -1042,7 +1045,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2<X2m1)) ||
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2>0)) ||
-     (kernel_type == EXTERIOR_KERNEL_Y && x2==0) )
+     (kernel_type == EXTERIOR_KERNEL && isActive(dim,1,-1,x1,x2,x3,x4,param.commDim,param.X) && x2==0) )
 #endif
 {
   // Projector P1+
@@ -1237,7 +1240,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2>0)) ||
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3<X3m1)) ||
-     (kernel_type == EXTERIOR_KERNEL_Z && x3==X3m1) )
+     (kernel_type == EXTERIOR_KERNEL && isActive(dim,2,+1,x1,x2,x3,x4,param.commDim,param.X) && x3==X3m1) )
 #endif
 {
   // Projector P2-
@@ -1428,7 +1431,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3<X3m1)) ||
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3>0)) ||
-     (kernel_type == EXTERIOR_KERNEL_Z && x3==0) )
+     (kernel_type == EXTERIOR_KERNEL && isActive(dim,2,-1,x1,x2,x3,x4,param.commDim,param.X) && x3==0) )
 #endif
 {
   // Projector P2+
@@ -1623,7 +1626,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3>0)) ||
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4<X4m1)) ||
-     (kernel_type == EXTERIOR_KERNEL_T && x4==X4m1) )
+     (kernel_type == EXTERIOR_KERNEL && isActive(dim,3,+1,x1,x2,x3,x4,param.commDim,param.X) && x4==X4m1) )
 #endif
 {
   // Projector P3-
@@ -1877,7 +1880,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4<X4m1)) ||
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4>0)) ||
-     (kernel_type == EXTERIOR_KERNEL_T && x4==0) )
+     (kernel_type == EXTERIOR_KERNEL && isActive(dim,3,-1,x1,x2,x3,x4,param.commDim,param.X) && x4==0) )
 #endif
 {
   // Projector P3+

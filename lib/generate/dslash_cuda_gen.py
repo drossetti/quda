@@ -425,8 +425,11 @@ if (kernel_type == INTERIOR_KERNEL) {
   sid = blockIdx.x*blockDim.x + threadIdx.x;
   if (sid >= param.threads) return;
 
-  const int dim = static_cast<int>(kernel_type);
-  const int face_volume = (param.threads >> 1);           // volume of one face
+
+  const int dim = dimFromFaceIndex(sid, param); // sid is also modified
+  
+
+  const int face_volume = ((param.threadDimMapUpper[dim] - param.threadDimMapLower[dim]) >> 1);   // volume of one face
   const int face_num = (sid >= face_volume);              // is this thread updating face 0 or 1
   face_idx = sid - face_num*face_volume;        // index into the respective face
 
@@ -487,6 +490,7 @@ def gen(dir, pack_only=False):
 #    interior = ["x1<X1m1", "x1>0", "x2<X2m1", "x2>0", "x3<X3m1", "x3>0", "x4<X4m1", "x4>0"]
     boundary = ["x1==X1m1", "x1==0", "x2==X2m1", "x2==0", "x3==X3m1", "x3==0", "x4==X4m1", "x4==0"]
     interior = ["x1<X1m1", "x1>0", "x2<X2m1", "x2>0", "x3<X3m1", "x3>0", "x4<X4m1", "x4>0"]
+    offset = ["+1", "-1", "+1", "-1", "+1", "-1", "+1", "-1"]
     dim = ["X", "Y", "Z", "T"]
 
     # index of neighboring site when not on boundary
@@ -499,7 +503,8 @@ def gen(dir, pack_only=False):
     cond = ""
     cond += "#ifdef MULTI_GPU\n"
     cond += "if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim["+`dir/2`+"] || "+interior[dir]+")) ||\n"
-    cond += "     (kernel_type == EXTERIOR_KERNEL_"+dim[dir/2]+" && "+boundary[dir]+") )\n"
+    cond += "     (kernel_type == EXTERIOR_KERNEL && isActive(dim," + `dir/2` + "," + offset[dir] + ",x1,x2,x3,x4,param.commDim,param.X) && " +boundary[dir]+") )\n"
+   # cond += "     (kernel_type == EXTERIOR_KERNEL_"+dim[dir/2]+" && "+boundary[dir]+") )\n"
     cond += "#endif\n"
 
     str = ""
