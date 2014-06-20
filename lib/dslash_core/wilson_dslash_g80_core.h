@@ -469,7 +469,7 @@ if (kernel_type == INTERIOR_KERNEL) {
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1<X1m1)) ||
-     (kernel_type == EXTERIOR_KERNEL &&  (dim == 0) && x1==X1m1) )
+     (kernel_type != INTERIOR_KERNEL && isActive(dim,0,+1,x1,x2,x3,x4,param.commDim,param.X) && x1==X1m1) )
 #endif
 {
   // Projector P0-
@@ -660,7 +660,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1<X1m1)) ||
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1>0)) ||
-     (kernel_type == EXTERIOR_KERNEL &&  (dim == 0) && x1==0) )
+     (kernel_type != INTERIOR_KERNEL && isActive(dim,0,-1,x1,x2,x3,x4,param.commDim,param.X) && x1==0) )
 #endif
 {
   // Projector P0+
@@ -855,7 +855,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1>0)) ||
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2<X2m1)) ||
-     (kernel_type == EXTERIOR_KERNEL &&  (dim == 1) && x2==X2m1) )
+     (kernel_type != INTERIOR_KERNEL && isActive(dim,1,+1,x1,x2,x3,x4,param.commDim,param.X) && x2==X2m1) )
 #endif
 {
   // Projector P1-
@@ -1046,7 +1046,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2<X2m1)) ||
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2>0)) ||
-     (kernel_type == EXTERIOR_KERNEL &&  (dim == 1) && x2==0) )
+     (kernel_type != INTERIOR_KERNEL && isActive(dim,1,-1,x1,x2,x3,x4,param.commDim,param.X) && x2==0) )
 #endif
 {
   // Projector P1+
@@ -1241,7 +1241,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2>0)) ||
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3<X3m1)) ||
-     (kernel_type == EXTERIOR_KERNEL &&  (dim == 2) && x3==X3m1) )
+     (kernel_type != INTERIOR_KERNEL && isActive(dim,2,+1,x1,x2,x3,x4,param.commDim,param.X) && x3==X3m1) )
 #endif
 {
   // Projector P2-
@@ -1432,7 +1432,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3<X3m1)) ||
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3>0)) ||
-     (kernel_type == EXTERIOR_KERNEL &&  (dim == 2) && x3==0) )
+     (kernel_type != INTERIOR_KERNEL && isActive(dim,2,-1,x1,x2,x3,x4,param.commDim,param.X) && x3==0) )
 #endif
 {
   // Projector P2+
@@ -1627,7 +1627,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3>0)) ||
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4<X4m1)) ||
-     (kernel_type == EXTERIOR_KERNEL &&  (dim == 3) && x4==X4m1) )
+     (kernel_type != INTERIOR_KERNEL && isActive(dim,3,+1,x1,x2,x3,x4,param.commDim,param.X) && x4==X4m1) )
 #endif
 {
   // Projector P3-
@@ -1881,7 +1881,7 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4<X4m1)) ||
 
 #ifdef MULTI_GPU
 if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4>0)) ||
-     (kernel_type == EXTERIOR_KERNEL &&  (dim == 3) && x4==0) )
+     (kernel_type != INTERIOR_KERNEL && isActive(dim,3,-1,x1,x2,x3,x4,param.commDim,param.X) && x4==0) )
 #endif
 {
   // Projector P3+

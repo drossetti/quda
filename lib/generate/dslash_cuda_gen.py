@@ -504,8 +504,8 @@ def gen(dir, pack_only=False):
     cond = ""
     cond += "#ifdef MULTI_GPU\n"
     cond += "if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim["+`dir/2`+"] || "+interior[dir]+")) ||\n"
-    #cond += "     (kernel_type != INTERIOR_KERNEL && isActive(dim," + `dir/2` + "," + offset[dir] + ",x1,x2,x3,x4,param.commDim,param.X) && " +boundary[dir]+") )\n"
-    cond += "     (kernel_type == EXTERIOR_KERNEL &&  (dim == " + `dir/2` + ") && " +boundary[dir]+") )\n"
+    cond += "     (kernel_type != INTERIOR_KERNEL && isActive(dim," + `dir/2` + "," + offset[dir] + ",x1,x2,x3,x4,param.commDim,param.X) && " +boundary[dir]+") )\n"
+  #  cond += "     (kernel_type == EXTERIOR_KERNEL &&  (dim == " + `dir/2` + ") && " +boundary[dir]+") )\n"
    # cond += "     (kernel_type != INTERIOR_KERNEL_"+dim[dir/2]+" && "+boundary[dir]+") )\n"
     cond += "#endif\n"
 
