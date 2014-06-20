@@ -386,12 +386,11 @@ static inline __device__ void coordsFromFaceIndexStaggered(int x[], int idx, con
 }
 
 
-static inline __device__ bool inBoundary(const int dim, const int offset, const int coord[], const int X[]){
-  if(offset > 0){
-    if(coord[dim] >= (X[dim] - offset)) return true;
-  }else{
-    if((coord[dim] + offset) < 0) return true;
-  }
+static inline __device__ bool inBoundary(const int dim, const int width, const int coord[], const int X[]){
+
+
+  if((coord[dim] >= (X[dim] - width)) || (coord[dim] < width)) return true;
+
   return false;
 }
 
@@ -409,6 +408,7 @@ static inline __device__ bool isActive(const int threadDim, int offsetDim, int o
   if(threadDim < offsetDim) return false;
 
 
+  int width = (offset > 0) ? offset : -offset;
 
   switch(threadDim){
     case 3: // threadDim = T
@@ -416,20 +416,20 @@ static inline __device__ bool isActive(const int threadDim, int offsetDim, int o
 
     case 2: // threadDim = Z
       if(!partitioned[3]) break;
-      if(partitioned[3] && inBoundary(3, offset, y, X)) return false;
+      if(partitioned[3] && inBoundary(3, width, y, X)) return false;
       break;
 
     case 1: // threadDim = Y
       if((!partitioned[3]) && (!partitioned[2])) break;
-      if(partitioned[3] && inBoundary(3, offset, y, X)) return false;
-      if(partitioned[2] && inBoundary(2, offset, y, X)) return false;
+      if(partitioned[3] && inBoundary(3, width, y, X)) return false;
+      if(partitioned[2] && inBoundary(2, width, y, X)) return false;
       break;
 
     case 0: // threadDim = X
       if((!partitioned[3]) && (!partitioned[2]) && (!partitioned[1])) break;
-      if(partitioned[3] && inBoundary(3, offset, y, X)) return false;
-      if(partitioned[2] && inBoundary(2, offset, y, X)) return false;
-      if(partitioned[1] && inBoundary(1, offset, y, X)) return false;
+      if(partitioned[3] && inBoundary(3, width, y, X)) return false;
+      if(partitioned[2] && inBoundary(2, width, y, X)) return false;
+      if(partitioned[1] && inBoundary(1, width, y, X)) return false;
       break;
 
     default:

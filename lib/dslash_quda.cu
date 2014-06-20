@@ -1819,6 +1819,7 @@ namespace quda {
   
       void setThreadDimMap(DslashParam& param, DslashCuda &dslash, const int* faceVolumeCB){
         int prev = -1;
+
         for(int i=0; i<4; ++i){
           param.threadDimMapLower[i] = 0;
           param.threadDimMapUpper[i] = 0;
