@@ -398,6 +398,8 @@ if (kernel_type == INTERIOR_KERNEL) {
             prolog_str += (
 """
 #ifdef MULTI_GPU
+int dim;
+int face_num;
 int face_idx;
 if (kernel_type == INTERIOR_KERNEL) {
 #endif
@@ -425,12 +427,11 @@ if (kernel_type == INTERIOR_KERNEL) {
   sid = blockIdx.x*blockDim.x + threadIdx.x;
   if (sid >= param.threads) return;
 
-
-  const int dim = dimFromFaceIndex(sid, param); // sid is also modified
+  dim = dimFromFaceIndex(sid, param); // sid is also modified
   
 
   const int face_volume = ((param.threadDimMapUpper[dim] - param.threadDimMapLower[dim]) >> 1);   // volume of one face
-  const int face_num = (sid >= face_volume);              // is this thread updating face 0 or 1
+  face_num = (sid >= face_volume);              // is this thread updating face 0 or 1
   face_idx = sid - face_num*face_volume;        // index into the respective face
 
   // ghostOffset is scaled to include body (includes stride) and number of FloatN arrays (SPINOR_HOP)
@@ -438,7 +439,7 @@ if (kernel_type == INTERIOR_KERNEL) {
   //sp_idx = face_idx + param.ghostOffset[dim];
 
 #if (DD_PREC==2) // half precision
-  sp_norm_idx = sid + param.ghostNormOffset[static_cast<int>(kernel_type)];
+  sp_norm_idx = sid + param.ghostNormOffset[dim];
 #endif
 
   coordsFromFaceIndex<1>(X, sid, x1, x2, x3, x4, face_idx, face_volume, dim, face_num, param.parity);
@@ -503,8 +504,9 @@ def gen(dir, pack_only=False):
     cond = ""
     cond += "#ifdef MULTI_GPU\n"
     cond += "if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim["+`dir/2`+"] || "+interior[dir]+")) ||\n"
-    cond += "     (kernel_type == EXTERIOR_KERNEL && isActive(dim," + `dir/2` + "," + offset[dir] + ",x1,x2,x3,x4,param.commDim,param.X) && " +boundary[dir]+") )\n"
-   # cond += "     (kernel_type == EXTERIOR_KERNEL_"+dim[dir/2]+" && "+boundary[dir]+") )\n"
+    #cond += "     (kernel_type != INTERIOR_KERNEL && isActive(dim," + `dir/2` + "," + offset[dir] + ",x1,x2,x3,x4,param.commDim,param.X) && " +boundary[dir]+") )\n"
+    cond += "     (kernel_type == EXTERIOR_KERNEL &&  (dim == " + `dir/2` + ") && " +boundary[dir]+") )\n"
+   # cond += "     (kernel_type != INTERIOR_KERNEL_"+dim[dir/2]+" && "+boundary[dir]+") )\n"
     cond += "#endif\n"
 
     str = ""
@@ -517,7 +519,7 @@ def gen(dir, pack_only=False):
 
     str += "#ifdef MULTI_GPU\n"
     str += "const int sp_idx = (kernel_type == INTERIOR_KERNEL) ? ("+boundary[dir]+" ? "+sp_idx_wrap[dir]+" : "+sp_idx[dir]+") >> 1 :\n"
-    str += "  face_idx + param.ghostOffset[static_cast<int>(kernel_type)];\n"
+    str += "  face_idx + param.ghostOffset[" + `dir/2` + "];\n"
     str += "#else\n"
     str += "const int sp_idx = ("+boundary[dir]+" ? "+sp_idx_wrap[dir]+" : "+sp_idx[dir]+") >> 1;\n"
     str += "#endif\n"
@@ -560,7 +562,7 @@ def gen(dir, pack_only=False):
     load_spinor += "\n"
 
     load_half = ""
-    load_half += "const int sp_stride_pad = ghostFace[static_cast<int>(kernel_type)];\n"
+    load_half += "const int sp_stride_pad = ghostFace[" + `dir/2` + "];\n"
     #load_half += "#if (DD_PREC==2) // half precision\n"
     #load_half += "const int sp_norm_idx = sid + param.ghostNormOffset[static_cast<int>(kernel_type)];\n"
     #load_half += "#endif\n"

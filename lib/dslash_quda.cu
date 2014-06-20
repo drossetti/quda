@@ -352,7 +352,10 @@ namespace quda {
     case EXTERIOR_KERNEL_T:						\
                                                                         MORE_GENERIC_DSLASH(FUNC, DAG, X, EXTERIOR_KERNEL_T, gridDim, blockDim, shared, stream, param, __VA_ARGS__) \
     break;								\
-  }
+    case EXTERIOR_KERNEL:						\
+                                                                        MORE_GENERIC_DSLASH(FUNC, DAG, X, EXTERIOR_KERNEL, gridDim, blockDim, shared, stream, param, __VA_ARGS__) \
+    break;								\
+}
 
 #define GENERIC_STAGGERED_DSLASH(FUNC, DAG, X, gridDim, blockDim, shared, stream, param,  ...) \
   switch(param.kernel_type) {						\
