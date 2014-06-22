@@ -401,6 +401,8 @@ if (kernel_type == INTERIOR_KERNEL) {
 int dim;
 int face_num;
 int face_idx;
+int Y[4] = {X1,X2,X3,X4};
+bool active = false;
 if (kernel_type == INTERIOR_KERNEL) {
 #endif
 
@@ -518,6 +520,10 @@ def gen(dir, pack_only=False):
     str += "\n"
 
     str += "#ifdef MULTI_GPU\n"
+    str += "if(kernel_type == EXTERIOR_KERNEL){\n";
+    str +=  " faceIndexFromCoords<1>(face_idx,x1,x2,x3,x4," + `dir/2` + ",Y);\n"
+    str +=  " active = true;\n"
+    str +=  "}\n"
     str += "const int sp_idx = (kernel_type == INTERIOR_KERNEL) ? ("+boundary[dir]+" ? "+sp_idx_wrap[dir]+" : "+sp_idx[dir]+") >> 1 :\n"
     str += "  face_idx + param.ghostOffset[" + `dir/2` + "];\n"
     str += "#else\n"
@@ -1001,6 +1007,9 @@ def epilog():
             str += "#if defined MULTI_GPU && (defined DSLASH_XPAY || defined DSLASH_CLOVER)\n"        
         str += (
 """
+
+if((kernel_type == EXTERIOR_KERNEL) && !active) return;
+
 int incomplete = 0; // Have all 8 contributions been computed for this site?
 
 switch(kernel_type) { // intentional fall-through

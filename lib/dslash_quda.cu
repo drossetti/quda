@@ -2175,11 +2175,13 @@ namespace quda {
 #ifdef GPU_WILSON_DIRAC
         int Npad = (in->Ncolor()*in->Nspin()*2)/in->FieldOrder(); // SPINOR_HOP in old code
         for(int i=0;i<4;i++){
+          dslashParam.X[i] = in->X()[i];
           dslashParam.ghostDim[i] = commDimPartitioned(i); // determines whether to use regular or ghost indexing at boundary
           dslashParam.ghostOffset[i] = Npad*(in->GhostOffset(i) + in->Stride());
           dslashParam.ghostNormOffset[i] = in->GhostNormOffset(i) + in->Stride();
           dslashParam.commDim[i] = (!commOverride[i]) ? 0 : commDimPartitioned(i); // switch off comms if override = 0
         }
+        dslashParam.X[0] *= 2;
 
         void *gauge0, *gauge1;
         bindGaugeTex(gauge, parity, &gauge0, &gauge1);
@@ -2227,11 +2229,13 @@ namespace quda {
 #ifdef GPU_CLOVER_DIRAC
         int Npad = (in->Ncolor()*in->Nspin()*2)/in->FieldOrder(); // SPINOR_HOP in old code
         for(int i=0;i<4;i++){
+          dslashParam.X[i] = in->X()[i];
           dslashParam.ghostDim[i] = commDimPartitioned(i); // determines whether to use regular or ghost indexing at boundary
           dslashParam.ghostOffset[i] = Npad*(in->GhostOffset(i) + in->Stride());
           dslashParam.ghostNormOffset[i] = in->GhostNormOffset(i) + in->Stride();
           dslashParam.commDim[i] = (!commOverride[i]) ? 0 : commDimPartitioned(i); // switch off comms if override = 0
         }
+        dlashParam.X[0] *= 2;
 
         void *cloverP, *cloverNormP;
         QudaPrecision clover_prec = bindCloverTex(cloverInv, parity, &cloverP, &cloverNormP);
