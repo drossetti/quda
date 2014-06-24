@@ -1991,14 +1991,10 @@ if((kernel_type == EXTERIOR_KERNEL) && !active) return;
 
 int incomplete = 0; // Have all 8 contributions been computed for this site?
 
-switch(kernel_type) { // intentional fall-through
-case INTERIOR_KERNEL:
+if(kernel_type == INTERIOR_KERNEL) {
   incomplete = incomplete || (param.commDim[3] && (x4==0 || x4==X4m1));
-case EXTERIOR_KERNEL_T:
   incomplete = incomplete || (param.commDim[2] && (x3==0 || x3==X3m1));
-case EXTERIOR_KERNEL_Z:
   incomplete = incomplete || (param.commDim[1] && (x2==0 || x2==X2m1));
-case EXTERIOR_KERNEL_Y:
   incomplete = incomplete || (param.commDim[0] && (x1==0 || x1==X1m1));
 }
 

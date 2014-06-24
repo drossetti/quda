@@ -1861,7 +1861,6 @@ namespace quda {
                 // and launch the interior dslash kernel
 
         const int packIndex = Nstream-2;
-        //const int packIndex = Nstream-1;
         pthread_t receiveThread, interiorThread;
         ReceiveParam receiveParam;
         receiveParam.profile = &profile;
