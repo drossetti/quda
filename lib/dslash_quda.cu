@@ -79,7 +79,6 @@ namespace quda {
 #ifdef MULTI_GPU
     int threadDimMapLower[QUDA_MAX_DIM];
     int threadDimMapUpper[QUDA_MAX_DIM];
-    int exteriorVolume[QUDA_MAX_DIM];
 #endif
 
 #ifdef USE_TEXTURE_OBJECTS
@@ -1843,7 +1842,6 @@ namespace quda {
         dslashParam.kernel_type = INTERIOR_KERNEL;
         dslashParam.threads = volume;
 
-        for(int i=0; i<QUDA_MAX_DIM; ++i) dslashParam.exteriorVolume[i] = 0;
 
 #ifdef MULTI_GPU
         // Record the start of the dslash if doing communication in T and not kernel packing
