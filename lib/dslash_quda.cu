@@ -2021,7 +2021,6 @@ namespace quda {
 #ifdef PTHREADS
        if(pthread_join(interiorThread, NULL)) errorQuda("pthread_join failed");
 #endif
-
         
        dslashParam.kernel_type = EXTERIOR_KERNEL;
        dslashParam.threads = 0;
@@ -2029,7 +2028,14 @@ namespace quda {
          if(!dslashParam.commDim[i]) continue;
          dslashParam.threads = dslashParam.threadDimMapUpper[i];
         }
-        cudaDeviceSynchronize(); // wait for all streams to complete before issuing the exterior dslash
+       
+     
+        PROFILE(cudaEventRecord(scatterEnd[0], streams[scatterIdx]), 
+          profile, QUDA_PROFILE_EVENT_RECORD);
+
+        PROFILE(cudaStreamWaitEvent(streams[Nstream-1], scatterEnd[0], 0), 
+          profile, QUDA_PROFILE_STREAM_WAIT_EVENT);
+
         PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
     
         it = (it^1);
