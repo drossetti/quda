@@ -469,6 +469,8 @@ namespace quda {
     int commsQuery(int nFace, int dir, int dagger=0); 
     void scatter(int nFace, int dagger, int dir);
 
+    void scatter(int nFace, int dagger, int dir, cudaStream_t *stream_p);
+
     void scatterExtended(int nFace, int parity, int dagger, int dir);
 
 

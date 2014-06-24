@@ -1329,19 +1329,27 @@ namespace quda {
     return 0;
   }
 
-  void cudaColorSpinorField::scatter(int nFace, int dagger, int dir)
+
+
+  void cudaColorSpinorField::scatter(int nFace, int dagger, int dir, cudaStream_t* stream_p)
   {
     int dim = dir/2;
     if(!commDimPartitioned(dim)) return;
     
     // both scattering occurances now go through the same stream
     if (dir%2==0) {// receive from forwards
-      unpackGhost(from_fwd_face[dim], nFace, dim, QUDA_FORWARDS, dagger, &stream[2*dim/*+0*/]);
+      unpackGhost(from_fwd_face[dim], nFace, dim, QUDA_FORWARDS, dagger, stream_p);
     } else { // receive from backwards
-      unpackGhost(from_back_face[dim], nFace, dim, QUDA_BACKWARDS, dagger, &stream[2*dim/*+1*/]);
+      unpackGhost(from_back_face[dim], nFace, dim, QUDA_BACKWARDS, dagger, stream_p);
     }
   }
 
+
+  void cudaColorSpinorField::scatter(int nFace, int dagger, int dir)
+  {
+    const int dim = dir/2;
+    scatter(nFace, dagger, dir, &stream[2*dim]);
+  }
   
   void cudaColorSpinorField::scatterExtended(int nFace, int parity, int dagger, int dir)
   {

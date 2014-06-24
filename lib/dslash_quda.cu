@@ -1844,8 +1844,9 @@ namespace quda {
 
 
 #ifdef MULTI_GPU
-        // Record the start of the dslash if doing communication in T and not kernel packing
+        int scatterIdx = 0;
 #ifndef PTHREADS
+        // Record the start of the dslash if doing communication in T and not kernel packing
         if (dslashParam.commDim[3] && !(getKernelPackT() || getTwistPack())) 
 #endif
         {
@@ -1924,7 +1925,8 @@ namespace quda {
 #ifndef GPU_COMMS
         for(int i = 3; i >=0; i--){
           if (!dslashParam.commDim[i]) continue;
-
+          
+          if(!scatterIdx) scatterIdx = 2*i+1;
           for (int dir=1; dir>=0; dir--) {
             cudaEvent_t &event = (i!=3 || getKernelPackT() || getTwistPack()) ? packEnd[0] : dslashStart;
 
@@ -2004,7 +2006,7 @@ namespace quda {
                   // Scatter into the end zone
                   // Both directions use the same stream
 #ifndef GPU_COMMS
-                  PROFILE(inSpinor->scatter(dslash.Nface()/2, dagger, 2*i+dir), 
+                  PROFILE(inSpinor->scatter(dslash.Nface()/2, dagger, 2*i+dir, &(streams[scatterIdx])), 
                       profile, QUDA_PROFILE_SCATTER);
 #endif
 
