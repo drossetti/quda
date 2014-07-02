@@ -117,6 +117,8 @@ void init()
   inv_param.dagger = dagger;
   inv_param.matpc_type = QUDA_MATPC_EVEN_EVEN;
 
+  if (dslash_type != QUDA_ASQTAD_DSLASH && dslash_type != QUDA_STAGGERED_DSLASH)
+    dslash_type = QUDA_STAGGERED_DSLASH;
   inv_param.dslash_type = dslash_type;
 
 
