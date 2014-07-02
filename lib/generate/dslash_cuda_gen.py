@@ -402,7 +402,6 @@ int dim;
 int face_num;
 int face_idx;
 int Y[4] = {X1,X2,X3,X4};
-bool active = false;
 if (kernel_type == INTERIOR_KERNEL) {
 #endif
 
@@ -445,6 +444,16 @@ if (kernel_type == INTERIOR_KERNEL) {
 #endif
 
   coordsFromFaceIndex<1>(X, sid, x1, x2, x3, x4, face_idx, face_volume, dim, face_num, param.parity);
+  
+  {
+    bool active = false;
+    for(int dir=0; dir<4; ++dir){
+     active = active  || isActive(dim,dir,+1,x1,x2,x3,x4,param.commDim,param.X);
+    }
+    if(!active) return;
+  }
+
+
 
   READ_INTERMEDIATE_SPINOR(INTERTEX, sp_stride, sid, sid);
 
@@ -522,7 +531,6 @@ def gen(dir, pack_only=False):
     str += "#ifdef MULTI_GPU\n"
     str += "if(kernel_type == EXTERIOR_KERNEL){\n";
     str +=  " faceIndexFromCoords<1>(face_idx,x1,x2,x3,x4," + `dir/2` + ",Y);\n"
-    str +=  " active = true;\n"
     str +=  "}\n"
     str += "const int sp_idx = (kernel_type == INTERIOR_KERNEL) ? ("+boundary[dir]+" ? "+sp_idx_wrap[dir]+" : "+sp_idx[dir]+") >> 1 :\n"
     str += "  face_idx + param.ghostOffset[" + `dir/2` + "];\n"
@@ -1008,7 +1016,6 @@ def epilog():
         str += (
 """
 
-if((kernel_type == EXTERIOR_KERNEL) && !active) return;
 
 int incomplete = 0; // Have all 8 contributions been computed for this site?
 

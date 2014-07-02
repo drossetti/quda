@@ -394,7 +394,6 @@ int dim;
 int face_num;
 int face_idx;
 int Y[4] = {X1,X2,X3,X4};
-bool active = false;
 if (kernel_type == INTERIOR_KERNEL) {
 #endif
 
@@ -887,6 +886,16 @@ if (kernel_type == INTERIOR_KERNEL) {
 #endif
 
   coordsFromFaceIndex<1>(X, sid, x1, x2, x3, x4, face_idx, face_volume, dim, face_num, param.parity);
+  
+  {
+    bool active = false;
+    for(int dir=0; dir<4; ++dir){
+     active = active  || isActive(dim,dir,+1,x1,x2,x3,x4,param.commDim,param.X);
+    }
+    if(!active) return;
+  }
+
+
 
   READ_INTERMEDIATE_SPINOR(INTERTEX, sp_stride, sid, sid);
 
@@ -920,7 +929,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1<X1m1)) ||
 #ifdef MULTI_GPU
   if(kernel_type == EXTERIOR_KERNEL){
    faceIndexFromCoords<1>(face_idx,x1,x2,x3,x4,0,Y);
-   active = true;
   }
   const int sp_idx = (kernel_type == INTERIOR_KERNEL) ? (x1==X1m1 ? X-X1m1 : X+1) >> 1 :
     face_idx + param.ghostOffset[0];
@@ -1115,7 +1123,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[0] || x1>0)) ||
 #ifdef MULTI_GPU
   if(kernel_type == EXTERIOR_KERNEL){
    faceIndexFromCoords<1>(face_idx,x1,x2,x3,x4,0,Y);
-   active = true;
   }
   const int sp_idx = (kernel_type == INTERIOR_KERNEL) ? (x1==0 ? X+X1m1 : X-1) >> 1 :
     face_idx + param.ghostOffset[0];
@@ -1314,7 +1321,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2<X2m1)) ||
 #ifdef MULTI_GPU
   if(kernel_type == EXTERIOR_KERNEL){
    faceIndexFromCoords<1>(face_idx,x1,x2,x3,x4,1,Y);
-   active = true;
   }
   const int sp_idx = (kernel_type == INTERIOR_KERNEL) ? (x2==X2m1 ? X-X2X1mX1 : X+X1) >> 1 :
     face_idx + param.ghostOffset[1];
@@ -1509,7 +1515,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[1] || x2>0)) ||
 #ifdef MULTI_GPU
   if(kernel_type == EXTERIOR_KERNEL){
    faceIndexFromCoords<1>(face_idx,x1,x2,x3,x4,1,Y);
-   active = true;
   }
   const int sp_idx = (kernel_type == INTERIOR_KERNEL) ? (x2==0 ? X+X2X1mX1 : X-X1) >> 1 :
     face_idx + param.ghostOffset[1];
@@ -1708,7 +1713,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3<X3m1)) ||
 #ifdef MULTI_GPU
   if(kernel_type == EXTERIOR_KERNEL){
    faceIndexFromCoords<1>(face_idx,x1,x2,x3,x4,2,Y);
-   active = true;
   }
   const int sp_idx = (kernel_type == INTERIOR_KERNEL) ? (x3==X3m1 ? X-X3X2X1mX2X1 : X+X2X1) >> 1 :
     face_idx + param.ghostOffset[2];
@@ -1903,7 +1907,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[2] || x3>0)) ||
 #ifdef MULTI_GPU
   if(kernel_type == EXTERIOR_KERNEL){
    faceIndexFromCoords<1>(face_idx,x1,x2,x3,x4,2,Y);
-   active = true;
   }
   const int sp_idx = (kernel_type == INTERIOR_KERNEL) ? (x3==0 ? X+X3X2X1mX2X1 : X-X2X1) >> 1 :
     face_idx + param.ghostOffset[2];
@@ -2102,7 +2105,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4<X4m1)) ||
 #ifdef MULTI_GPU
   if(kernel_type == EXTERIOR_KERNEL){
    faceIndexFromCoords<1>(face_idx,x1,x2,x3,x4,3,Y);
-   active = true;
   }
   const int sp_idx = (kernel_type == INTERIOR_KERNEL) ? (x4==X4m1 ? X-X4X3X2X1mX3X2X1 : X+X3X2X1) >> 1 :
     face_idx + param.ghostOffset[3];
@@ -2360,7 +2362,6 @@ if ( (kernel_type == INTERIOR_KERNEL && (!param.ghostDim[3] || x4>0)) ||
 #ifdef MULTI_GPU
   if(kernel_type == EXTERIOR_KERNEL){
    faceIndexFromCoords<1>(face_idx,x1,x2,x3,x4,3,Y);
-   active = true;
   }
   const int sp_idx = (kernel_type == INTERIOR_KERNEL) ? (x4==0 ? X+X4X3X2X1mX3X2X1 : X-X3X2X1) >> 1 :
     face_idx + param.ghostOffset[3];
