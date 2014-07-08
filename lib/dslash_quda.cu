@@ -2014,9 +2014,8 @@ namespace quda {
               }
 
             } // dir=0,1
-                  
           }
-        }
+        } // while(completeSum < commDimTotal)
 
 #ifdef PTHREADS
        if(pthread_join(interiorThread, NULL)) errorQuda("pthread_join failed");
@@ -2038,9 +2037,7 @@ namespace quda {
 
        PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
  
-
- 
-        it = (it^1);
+       inSpinor->switchBufferPinned(); // Use a different pinned memory buffer for the next application
 #endif // MULTI_GPU
         profile.Stop(QUDA_PROFILE_TOTAL);
       }
@@ -2214,8 +2211,7 @@ namespace quda {
           dslash = new WilsonDslashCuda<short4, short4>(out, (short4*)gauge0, (short4*)gauge1,
               gauge.Reconstruct(), in, x, k, dagger);
         }
-        dslashCuda(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
-        //dslashCuda2(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
+        dslashCuda2(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
 
         delete dslash;
         unbindGaugeTex(gauge);
