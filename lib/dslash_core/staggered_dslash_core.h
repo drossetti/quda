@@ -420,8 +420,7 @@ int sign = 1;
 
 #ifdef MULTI_GPU
   if ( (kernel_type == INTERIOR_KERNEL && ( (!param.ghostDim[0]) || y[0] < (X[0]-1)) ) || 
-     //  ((kernel_type != INTERIOR_KERNEL) && (dim==0) && y[0] >= (X[0]-1) ))
-       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,0,+1,y,param.commDim,X) && y[0] >= (X[0]-1) ))
+       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,0,NFACE,y,param.commDim,X) && y[0] >= (X[0]-1) ))
 #endif
   {
     int sp_idx_1st_nbr = ((y[0]==(X[0]-1)) ? full_idx-(X[0]-1) : full_idx+1) >> 1;
@@ -457,7 +456,7 @@ int sign = 1;
 #if (DD_IMPROVED==1)
 #ifdef MULTI_GPU
   if ( (kernel_type == INTERIOR_KERNEL && ( (!param.ghostDim[0]) || y[0] < (X[0]-3)) ) || 
-       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,0,+3,y,param.commDim,X) && y[0] >= (X[0]-3)))
+       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,0,NFACE,y,param.commDim,X) && y[0] >= (X[0]-3)))
 #endif
   {
     int sp_idx_3rd_nbr = ((y[0] >= (X[0]-3)) ? full_idx-(X[0]-3) : full_idx+3) >> 1;
@@ -509,8 +508,7 @@ int sign = 1;
 #ifdef MULTI_GPU
   int space_con = ((y[3]*X[2] + y[2])*X[1] + y[1]) >>1;
   if ( (kernel_type == INTERIOR_KERNEL && ( (!param.ghostDim[0]) || y[0] >= 1)) || 
-     //  ((kernel_type != INTERIOR_KERNEL) && (dim==0) && y[0] < 1))
-       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,0,-1,y,param.commDim,X) && y[0] < 1))
+       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,0,NFACE,y,param.commDim,X) && y[0] < 1))
 #endif
   {
     int sp_idx_1st_nbr = ((y[0]==0) ? full_idx+(X[0]-1) : full_idx-1) >> 1;
@@ -552,8 +550,7 @@ int sign = 1;
 
 #ifdef MULTI_GPU    
   if ( (kernel_type == INTERIOR_KERNEL && ( (!param.ghostDim[0]) || y[0] >= 3)) || 
-     //  ((kernel_type != INTERIOR_KERNEL) && (dim==0) && y[0] < 3))
-       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,0,-3,y,param.commDim,X) && y[0] < 3))
+       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,0,NFACE,y,param.commDim,X) && y[0] < 3))
 #endif
   {
     int sp_idx_3rd_nbr = ((y[0]<3) ? full_idx+(X[0]-3): full_idx-3)>>1; 
@@ -611,7 +608,7 @@ int sign = 1;
 #ifdef MULTI_GPU
   int space_con = ((y[3]*X[2]+y[2])*X[0]+y[0])/2;
   if ( (kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[1]) || y[1] < (X[1]-1))) || 
-       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,1,+1,y,param.commDim,X) && y[1] >= (X[1]-1)))
+       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,1,NFACE,y,param.commDim,X) && y[1] >= (X[1]-1)))
 #endif
   {
     int sp_idx_1st_nbr = ((y[1]==(X[1]-1)) ? full_idx-(X1X0-X[0]) : full_idx+X[0]) >> 1;
@@ -647,7 +644,7 @@ int sign = 1;
 
 #ifdef MULTI_GPU
   if ( (kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[1]) || y[1] < (X[1]-3))) || 
-       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,1,+3,y,param.commDim,X) && y[1] >= (X[1]-3)))    
+       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,1,NFACE,y,param.commDim,X) && y[1] >= (X[1]-3)))    
 #endif
   {
     int sp_idx_3rd_nbr = ((y[1] >= (X[1]-3) ) ? full_idx-(X[1]-3)*X[0] : full_idx+3*X[0]) >> 1;    
@@ -696,7 +693,7 @@ int sign = 1;
 #ifdef MULTI_GPU
   int space_con = (y[3]*X[2]*X[0] + y[2]*X[0] + y[0]) >>1;    
   if ( (kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[1]) || y[1] >= 1)) || 
-       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,1,-1,y,param.commDim,X) && y[1] < 1))
+       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,1,NFACE,y,param.commDim,X) && y[1] < 1))
 #endif
   {
     int sp_idx_1st_nbr = ((y[1]==0)    ? full_idx+(X1X0-X[0]) : full_idx-X[0]) >> 1;
@@ -738,7 +735,7 @@ int sign = 1;
 
 #ifdef MULTI_GPU
   if ( (kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[1]) || y[1] >= 3)) || 
-       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,1,-3,y,param.commDim,X) && y[1] < 3))
+       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,1,NFACE,y,param.commDim,X) && y[1] < 3))
 #endif
   {
     int sp_idx_3rd_nbr = ((y[1] < 3) ? full_idx + (X[1]-3)*X[0]: full_idx -3*X[0] )>> 1; 
@@ -795,8 +792,7 @@ int sign = 1;
 #ifdef MULTI_GPU
   int space_con = ((y[3]*X[1]+y[1])*X[0]+y[0])/2;
   if ( (kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[2]) || y[2] < (X[2]-1))) || 
-     //  ((kernel_type != INTERIOR_KERNEL) && (dim==2) && y[2] >= (X[2]-1)))
-      ((kernel_type != INTERIOR_KERNEL) && isActive(dim,2,+1,y,param.commDim,X) && y[2] >= (X[2]-1)))
+      ((kernel_type != INTERIOR_KERNEL) && isActive(dim,2,NFACE,y,param.commDim,X) && y[2] >= (X[2]-1)))
 #endif
   {
     int sp_idx_1st_nbr = ((y[2]==(X[2]-1)) ? full_idx-(X[2]-1)*X1X0 : full_idx+X1X0) >> 1;
@@ -832,8 +828,7 @@ int sign = 1;
 
 #ifdef MULTI_GPU
   if ( (kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[2]) || y[2] < (X[2]-3))) || 
-    //   ((kernel_type != INTERIOR_KERNEL) && (dim==2)  && y[2] >= (X[2]-3)))
-       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,2,+3,y,param.commDim,X)  && y[2] >= (X[2]-3)))
+       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,2,NFACE,y,param.commDim,X)  && y[2] >= (X[2]-3)))
 #endif
   {
     int sp_idx_3rd_nbr = ((y[2]>= (X[2]-3))? full_idx -(X[2]-3)*X1X0: full_idx + 3*X1X0)>> 1;    
@@ -884,8 +879,7 @@ int sign = 1;
 #ifdef MULTI_GPU
   int space_con = ((y[3]*X[1] + y[1])*X[0] + y[0]) >>1;    
   if ( (kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[2]) || y[2] >= 1)) || 
-    //   ((kernel_type != INTERIOR_KERNEL) && (dim==2) && y[2] < 1))
-       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,2,-1,y,param.commDim,X) && y[2] < 1))
+       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,2,NFACE,y,param.commDim,X) && y[2] < 1))
 #endif
   {
     int sp_idx_1st_nbr = ((y[2]==0)    ? full_idx+(X[2]-1)*X1X0 : full_idx-X1X0) >> 1;
@@ -927,8 +921,7 @@ int sign = 1;
 
 #ifdef MULTI_GPU
   if ( (kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[2]) || y[2] >= 3)) || 
-    //   ((kernel_type != INTERIOR_KERNEL) && (dim == 2) && y[2] < 3))
-       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,2,-3,y,param.commDim,X) && y[2] < 3))
+       ((kernel_type != INTERIOR_KERNEL) && isActive(dim,2,NFACE,y,param.commDim,X) && y[2] < 3))
 #endif
   {
     int sp_idx_3rd_nbr = ((y[2] <3) ? full_idx + (X[2]-3)*X1X0: full_idx - 3*X1X0)>>1;
@@ -984,8 +977,7 @@ int sign = 1;
 #ifdef MULTI_GPU
   int space_con = (y[2]*X1X0+y[1]*X[0]+y[0])/2;
   if ( (kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[3]) || y[3] < (X[3]-1))) || 
-  //  ((kernel_type != INTERIOR_KERNEL) && (y[3] >= (X[3]-1)) && (dim==3) ))
-    ((kernel_type != INTERIOR_KERNEL) && (y[3] >= (X[3]-1)) && isActive(dim,3,+1,y,param.commDim,X)))
+    ((kernel_type != INTERIOR_KERNEL) && (y[3] >= (X[3]-1)) && isActive(dim,3,NFACE,y,param.commDim,X)))
 #endif
   {    
     int sp_idx_1st_nbr = ((y[3]==(X[3]-1)) ? full_idx-(X[3]-1)*X2X1X0 : full_idx+X2X1X0) >> 1;
@@ -1022,8 +1014,7 @@ int sign = 1;
 
 #ifdef MULTI_GPU
   if ( (kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[3]) || y[3] < (X[3]-3))) || 
-   //   ((kernel_type != INTERIOR_KERNEL) && (dim==3) &&  y[3] >= (X[3]-3)))
-      ((kernel_type != INTERIOR_KERNEL) && isActive(dim,3,+3,y,param.commDim,X) &&  y[3] >= (X[3]-3)))
+      ((kernel_type != INTERIOR_KERNEL) && isActive(dim,3,NFACE,y,param.commDim,X) &&  y[3] >= (X[3]-3)))
 #endif
   {
     int sp_idx_3rd_nbr = ((y[3]>=(X[3]-3))? full_idx -(X[3]-3)*X2X1X0 : full_idx + 3*X2X1X0)>> 1;     
@@ -1073,8 +1064,7 @@ int sign = 1;
 #ifdef MULTI_GPU
   int space_con = (y[2]*X1X0+y[1]*X[0]+y[0])/2;
   if ((kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[3]) || y[3] >= 1)) || 
-   //  ((kernel_type != INTERIOR_KERNEL) && (y[3] < 1) && (dim==3) ) )
-    ((kernel_type != INTERIOR_KERNEL) && (y[3] < 1) && isActive(dim,3,-1,y,param.commDim,X) ) )
+    ((kernel_type != INTERIOR_KERNEL) && (y[3] < 1) && isActive(dim,3,NFACE,y,param.commDim,X) ) )
 #endif
   {
     int sp_idx_1st_nbr = ((y[3]==0)    ? full_idx+(X[3]-1)*X2X1X0 : full_idx-X2X1X0) >> 1;
@@ -1115,8 +1105,7 @@ int sign = 1;
 
 #ifdef MULTI_GPU
   if ( (kernel_type == INTERIOR_KERNEL && ((!param.ghostDim[3]) || y[3] >= 3)) || 
-      // ((kernel_type != INTERIOR_KERNEL) && (y[3]<3) && (dim==3)))
-      ((kernel_type != INTERIOR_KERNEL) && (y[3]<3) && isActive(dim,3,-3,y,param.commDim,X)))
+      ((kernel_type != INTERIOR_KERNEL) && (y[3]<3) && isActive(dim,3,NFACE,y,param.commDim,X)))
 #endif
   {
     int sp_idx_3rd_nbr = ((y[3]<3) ? full_idx + (X[3]-3)*X2X1X0: full_idx - 3*X2X1X0) >> 1;

@@ -1,8 +1,6 @@
 #include <cstdlib>
 #include <cstdio>
 #include <string>
-#include <iostream>
-
 #include <color_spinor_field.h>
 #include <clover_field.h>
 
@@ -1641,6 +1639,21 @@ namespace quda {
 #endif
       }
 
+#ifdef MULTI_GPU
+      void setThreadDimMap(DslashParam& param, DslashCuda &dslash, const int* faceVolumeCB){
+        int prev = -1;
+
+        for(int i=0; i<4; ++i){
+          param.threadDimMapLower[i] = 0;
+          param.threadDimMapUpper[i] = 0;
+          if (!dslashParam.commDim[i]) continue;
+          param.threadDimMapLower[i] = (prev >= 0 ? param.threadDimMapUpper[prev] : 0);
+          param.threadDimMapUpper[i] = param.threadDimMapLower[i] + dslash.Nface()*faceVolumeCB[i];
+          prev=i;
+        }
+      }
+#endif
+
 #define PROFILE(f, profile, idx)		\
       profile.Start(idx);				\
       f;						\
@@ -1655,6 +1668,8 @@ namespace quda {
         dslashParam.threads = volume;
 
 #ifdef MULTI_GPU
+	int scatterIdx = 0;
+
         initDslashCommsPattern();
         // Record the start of the dslash
         PROFILE(cudaEventRecord(dslashStart, streams[Nstream-1]), 
@@ -1688,9 +1703,12 @@ namespace quda {
           PROFILE(cudaEventRecord(packEnd[0], streams[Nstream-1]), 
               profile, QUDA_PROFILE_EVENT_RECORD);
         }
+        setThreadDimMap(dslashParam,dslash,faceVolumeCB);
 
         for(int i = 3; i >=0; i--){
           if (!dslashParam.commDim[i]) continue;
+        
+	  if(!scatterIdx) scatterIdx = 2*i+1;
 
           for (int dir=1; dir>=0; dir--) {
             cudaEvent_t &event = (i!=3 || getKernelPackT() || getTwistPack()) ? packEnd[0] : dslashStart;
@@ -1744,35 +1762,29 @@ namespace quda {
 
                   // Scatter into the end zone
                   // Both directions use the same stream
-                  PROFILE(face[it]->scatter(*inSpinor, dagger, 2*i+dir), 
+                  PROFILE(face[it]->scatter(*inSpinor, dagger, 2*i+dir, scatterIdx), 
                       profile, QUDA_PROFILE_SCATTER);
                 }
               }
-
             }
-
-            // enqueue the boundary dslash kernel as soon as the scatters have been enqueued
-            if (!dslashCompleted[2*i] && commsCompleted[2*i] && commsCompleted[2*i+1] ) {
-              // Record the end of the scattering
-              PROFILE(cudaEventRecord(scatterEnd[2*i], streams[2*i]), 
-                  profile, QUDA_PROFILE_EVENT_RECORD);
-
-              dslashParam.kernel_type = static_cast<KernelType>(i);
-              dslashParam.threads = dslash.Nface()*faceVolumeCB[i]; // updating 2 or 6 faces
-
-              // wait for scattering to finish and then launch dslash
-              PROFILE(cudaStreamWaitEvent(streams[Nstream-1], scatterEnd[2*i], 0), 
-                  profile, QUDA_PROFILE_STREAM_WAIT_EVENT);
-
-              // all faces use this stream
-              PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
-
-              dslashCompleted[2*i] = 1;
-            }
-
           }
+        } // while(completeSum < commDimTotal)
 
+
+        dslashParam.kernel_type = EXTERIOR_KERNEL;
+        dslashParam.threads = 0;
+        for(int i=0; i<4; ++i){
+          if(!dslashParam.commDim[i]) continue;
+          dslashParam.threads = dslashParam.threadDimMapUpper[i];
         }
+       
+        PROFILE(cudaEventRecord(scatterEnd[0], streams[scatterIdx]), 
+          profile, QUDA_PROFILE_EVENT_RECORD);
+
+        PROFILE(cudaStreamWaitEvent(streams[Nstream-1], scatterEnd[0], 0), 
+          profile, QUDA_PROFILE_STREAM_WAIT_EVENT);
+
+        PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
         it = (it^1);
 #endif // MULTI_GPU
 
@@ -1818,19 +1830,6 @@ namespace quda {
         return NULL;
       }
 #endif
-  
-      void setThreadDimMap(DslashParam& param, DslashCuda &dslash, const int* faceVolumeCB){
-        int prev = -1;
-
-        for(int i=0; i<4; ++i){
-          param.threadDimMapLower[i] = 0;
-          param.threadDimMapUpper[i] = 0;
-          if (!dslashParam.commDim[i]) continue;
-          param.threadDimMapLower[i] = (prev >= 0 ? param.threadDimMapUpper[prev] : 0);
-          param.threadDimMapUpper[i] = param.threadDimMapLower[i] + dslash.Nface()*faceVolumeCB[i];
-          prev=i;
-        }
-      }
 #endif // MULTI_GPU
 
       void dslashCuda2(DslashCuda &dslash, const size_t regSize, const int parity, const int dagger, 
@@ -1858,6 +1857,7 @@ namespace quda {
         inSpinor->createComms(dslash.Nface()/2);	
         initDslashCommsPattern();
         inSpinor->streamInit(streams);
+	cudaEventSynchronize(dslashStart);
 #ifdef PTHREADS // create two new threads to issue MPI receives 
                 // and launch the interior dslash kernel
 
@@ -2021,23 +2021,25 @@ namespace quda {
 #ifdef PTHREADS
        if(pthread_join(interiorThread, NULL)) errorQuda("pthread_join failed");
 #endif
+
         
        dslashParam.kernel_type = EXTERIOR_KERNEL;
        dslashParam.threads = 0;
        for(int i=0; i<4; ++i){
          if(!dslashParam.commDim[i]) continue;
          dslashParam.threads = dslashParam.threadDimMapUpper[i];
-        }
+       }
        
-     
-        PROFILE(cudaEventRecord(scatterEnd[0], streams[scatterIdx]), 
+       PROFILE(cudaEventRecord(scatterEnd[0], streams[scatterIdx]), 
           profile, QUDA_PROFILE_EVENT_RECORD);
 
-        PROFILE(cudaStreamWaitEvent(streams[Nstream-1], scatterEnd[0], 0), 
-          profile, QUDA_PROFILE_STREAM_WAIT_EVENT);
+       PROFILE(cudaStreamWaitEvent(streams[Nstream-1], scatterEnd[0], 0), 
+         profile, QUDA_PROFILE_STREAM_WAIT_EVENT);
 
-        PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
-    
+       PROFILE(dslash.apply(streams[Nstream-1]), profile, QUDA_PROFILE_DSLASH_KERNEL);
+ 
+
+ 
         it = (it^1);
 #endif // MULTI_GPU
         profile.Stop(QUDA_PROFILE_TOTAL);
@@ -2212,7 +2214,8 @@ namespace quda {
           dslash = new WilsonDslashCuda<short4, short4>(out, (short4*)gauge0, (short4*)gauge1,
               gauge.Reconstruct(), in, x, k, dagger);
         }
-        dslashCuda2(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
+        dslashCuda(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
+        //dslashCuda2(*dslash, regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
 
         delete dslash;
         unbindGaugeTex(gauge);

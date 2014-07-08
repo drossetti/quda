@@ -181,11 +181,9 @@ unitarize_link_test()
   act_path_coeff[5] = -0.123113;
 
 
-  printfQuda("Calling computeKSLinkQuda\n");
 
   computeKSLinkQuda(fatlink, NULL, NULL, inlink, act_path_coeff, &qudaGaugeParam,
 		    QUDA_COMPUTE_FAT_STANDARD);
-  printfQuda("Call to computeKSLinkQuda complete\n");
 
 
   void* fatlink_2d[4];
@@ -198,14 +196,9 @@ unitarize_link_test()
   gParam.gauge  = fatlink_2d;
   cpuGaugeField *cpuOutLink  = new cpuGaugeField(gParam);
 
-  printfQuda("About to call cudaFatLink->loadCPUField\n");
-  printfQuda("cudaFatLink->Order() = %d\n", cudaFatLink->Order());
-  printfQuda("cpuOutLink->Order() = %d\n", cpuOutLink->Order());
-  fflush(stdout);
   
 
   cudaFatLink->loadCPUField(*cpuOutLink, QUDA_CPU_FIELD_LOCATION);
-  printfQuda("Call to cudFatLink->loadCPUField complete\n"); 
  
 
 
@@ -226,15 +219,11 @@ unitarize_link_test()
 
   struct timeval t0, t1;
 
-  printfQuda("About to call unitarizeLinksCuda\n");
-  fflush(stdout);
   gettimeofday(&t0,NULL);
   unitarizeLinksCuda(qudaGaugeParam,*cudaFatLink, cudaULink, num_failures_dev);
   cudaDeviceSynchronize();
   gettimeofday(&t1,NULL);
  
-  printfQuda("Call to unitarizeLinksCuda complete\n");
-  fflush(stdout); 
 
   int num_failures=0;
   cudaMemcpy(&num_failures, num_failures_dev, sizeof(int), cudaMemcpyDeviceToHost);
@@ -254,7 +243,6 @@ unitarize_link_test()
 #endif
   endQuda();
 
-  printfQuda("Unitarization time: %g ms\n", TDIFF(t0,t1)*1000); 
   return num_failures;
 }
 
