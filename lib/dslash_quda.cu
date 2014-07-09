@@ -1858,7 +1858,6 @@ namespace quda {
         inSpinor->createComms(dslash.Nface()/2);	
         initDslashCommsPattern();
         inSpinor->streamInit(streams);
-	cudaEventSynchronize(dslashStart);
 #ifdef PTHREADS // create two new threads to issue MPI receives 
                 // and launch the interior dslash kernel
 
