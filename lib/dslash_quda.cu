@@ -530,7 +530,7 @@ namespace quda {
     unsigned int sharedBytesPerBlock(const TuneParam &param) const { return 0; }
     bool tuneGridDim() const { return false; } // Don't tune the grid dimensions.
     unsigned int minThreads() const { return dslashConstants.VolumeCB(); }
-    char aux[6][256];
+    char aux[7][256];
 
     void fillAux(KernelType kernel_type, const char *kernel_str) {
       strcpy(aux[kernel_type],kernel_str);
@@ -580,6 +580,7 @@ namespace quda {
       fillAux(EXTERIOR_KERNEL_Y, "type=exterior_y");
       fillAux(EXTERIOR_KERNEL_Z, "type=exterior_z");
       fillAux(EXTERIOR_KERNEL_T, "type=exterior_t");
+      fillAux(EXTERIOR_KERNEL, "type=exterior");
 #else
       fillAux(INTERIOR_KERNEL, "type=single-GPU");
 #endif // MULTI_GPU
