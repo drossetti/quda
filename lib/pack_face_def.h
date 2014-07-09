@@ -385,8 +385,8 @@ static inline __device__ void coordsFromFaceIndexStaggered(int x[], int idx, con
   return;
 }
 
-
-static inline __device__ bool inBoundary(const int dim, const int width, const int coord[], const int X[]){
+template <int dim>
+static inline __device__ bool inBoundary(const int width, const int coord[], const int X[]){
   return ((coord[dim] >= X[dim] - width) || (coord[dim] < width));
 }
 
@@ -412,20 +412,20 @@ static inline __device__ bool isActive(const int threadDim, int offsetDim, int o
 
     case 2: // threadDim = Z
       if(!partitioned[3]) break;
-      if(partitioned[3] && inBoundary(3, width, y, X)) return false;
+      if(partitioned[3] && inBoundary<3>(width, y, X)) return false;
       break;
 
     case 1: // threadDim = Y
       if((!partitioned[3]) && (!partitioned[2])) break;
-      if(partitioned[3] && inBoundary(3, width, y, X)) return false;
-      if(partitioned[2] && inBoundary(2, width, y, X)) return false;
+      if(partitioned[3] && inBoundary<3>(width, y, X)) return false;
+      if(partitioned[2] && inBoundary<2>(width, y, X)) return false;
       break;
 
     case 0: // threadDim = X
       if((!partitioned[3]) && (!partitioned[2]) && (!partitioned[1])) break;
-      if(partitioned[3] && inBoundary(3, width, y, X)) return false;
-      if(partitioned[2] && inBoundary(2, width, y, X)) return false;
-      if(partitioned[1] && inBoundary(1, width, y, X)) return false;
+      if(partitioned[3] && inBoundary<3>(width, y, X)) return false;
+      if(partitioned[2] && inBoundary<2>(width, y, X)) return false;
+      if(partitioned[1] && inBoundary<1>(width, y, X)) return false;
       break;
 
     default:
@@ -1308,7 +1308,7 @@ struct PackExtendedParam : public PackParam<Float>
  * face_idx so that is relative to a given dimension.
  */
 template <typename Param>
-__device__ inline int dimFromFaceIndex (int &face_idx, const Param param) {
+__device__ inline int dimFromFaceIndex (int &face_idx, const Param &param) {
   if (face_idx < param.threadDimMapUpper[0]) {
     return 0;
   } else if (face_idx < param.threadDimMapUpper[1]) {
