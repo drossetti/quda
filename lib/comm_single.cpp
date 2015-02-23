@@ -37,6 +37,10 @@ void comm_start(MsgHandle *mh) {}
 
 void comm_wait(MsgHandle *mh) {}
 
+void comm_start_on_stream(MsgHandle *mh, cudaStream_t stream) {}
+
+void comm_wait_on_stream(MsgHandle *mh, cudaStream_t stream) {}
+
 int comm_query(MsgHandle *mh) { return 1; }
 
 void comm_allreduce(double* data) {}

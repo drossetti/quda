@@ -167,6 +167,18 @@ void comm_wait(MsgHandle *mh)
 }
 
 
+void comm_start_on_stream(MsgHandle *mh, cudaStream_t stream)
+{
+  errorQuda("unsupported function %s\n", __FUNCTION__);
+}
+
+
+void comm_wait_on_stream(MsgHandle *mh, cudaStream_t stream)
+{
+  errorQuda("unsupported function %s\n", __FUNCTION__);
+}
+
+
 int comm_query(MsgHandle *mh) 
 {
   return (QMP_is_complete(mh->handle) == QMP_TRUE);

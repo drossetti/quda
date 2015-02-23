@@ -183,6 +183,18 @@ void comm_start(MsgHandle *mh)
 }
 
 
+void comm_start_on_stream(MsgHandle *mh, cudaStream_t stream)
+{
+  errorQuda("unsupported function %s\n", __FUNCTION__);
+}
+
+
+void comm_wait_on_stream(MsgHandle *mh, cudaStream_t stream)
+{
+  errorQuda("unsupported function %s\n", __FUNCTION__);
+}
+
+
 void comm_wait(MsgHandle *mh)
 {
   MPI_CHECK( MPI_Wait(&(mh->request), MPI_STATUS_IGNORE) );
