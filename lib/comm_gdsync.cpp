@@ -308,6 +308,7 @@ void comm_gdsync_start(MsgHandle *mh, cudaStream_t stream)
     mp_isend_on_stream(mh->buffer, mh->size, mh->peer, mh->mem_reg, &mh->req, stream);
     break;
   case TYPE_RECV:
+    assert(!stream);
     mp_irecv(mh->buffer, mh->size, mh->peer, mh->mem_reg, &mh->req);
     break;
   case TYPE_STRIDED_SEND:
@@ -344,7 +345,7 @@ void comm_gdsync_start(MsgHandle *mh, cudaStream_t stream)
 void comm_start(MsgHandle *mh)
 {
   if (mh->gdsync) {
-    comm_gdsync_start(mh);
+    comm_gdsync_start(mh, 0);
   } else {
     MPI_CHECK( MPI_Start(&(mh->request)) );
   }
@@ -360,10 +361,6 @@ void comm_start_on_stream(MsgHandle *mh, cudaStream_t stream)
   }
 }
 
-
-void comm_gdsync_wait_on_stream(MsgHandle *mh, cudaStream_t stream)
-{
-}
 
 void comm_wait_on_stream(MsgHandle *mh, cudaStream_t stream)
 {
