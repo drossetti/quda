@@ -595,6 +595,7 @@ FERMI_DBLE_TEX
 BLAS_TEX
 QIO_HOME
 QMP_HOME
+GDSYNC_HOME
 MPI_HOME
 FEF90
 FECXX
@@ -607,6 +608,7 @@ BUILD_QDPJIT_INTERFACE
 BUILD_CPS_INTERFACE
 BUILD_MILC_INTERFACE
 BUILD_QDP_INTERFACE
+GDSYNC_COMMS
 GPU_COMMS
 GPU_DIRECT
 POSIX_THREADS
@@ -726,6 +728,7 @@ enable_gpu_direct
 enable_gpu_comms
 enable_device_pack
 with_mpi
+with_gdsync_comms
 enable_pthreads
 with_qmp
 with_qio
@@ -1426,6 +1429,8 @@ Optional Packages:
                           /usr/local/cuda)
   --with-python=path      Set python executable used for 'make gen'
   --with-mpi=MPIDIR       Specify MPI installation directory
+  --with-gdsync-comms     Enable GPUDirect Sync communication (experimental,
+                          default: disabled)
   --with-qmp=QMPDIR       Specify QMP installation directory
   --with-qio=QIODIR       Specify QIO installation directory
   --with-qdp=QDPDIR       Specify QDP++ installation directory
@@ -3727,6 +3732,17 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 esac
 
 
+
+# Check whether --with-gdsync-comms was given.
+if test "${with_gdsync_comms+set}" = set; then :
+  withval=$with_gdsync_comms;  gdsync_home=${withval}; gdsync_comms="yes"
+else
+   gdsync_home=""; gdsync_comms="no"
+
+fi
+
+
+
 # Check whether --enable-pthreads was given.
 if test "${enable_pthreads+set}" = set; then :
   enableval=$enable_pthreads;  posix_threads=${enableval}
@@ -4132,6 +4148,18 @@ yes|no);;
   ;;
 esac
 
+case ${gdsync_comms} in
+yes|no);;
+*)
+  as_fn_error $? " invalid value for --enable-gdsync-comms " "$LINENO" 5
+  ;;
+esac
+if test "X${gdsync_comms}X" = "XyesX";
+then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling GPUDirect Sync communications" >&5
+$as_echo "$as_me: Enabling GPUDirect Sync communications" >&6;}
+fi
+
 case ${build_qdpjit} in
 yes|no);;
 *)
@@ -4345,6 +4373,11 @@ $as_echo "$as_me: Setting GPU_COMMS= ${gpu_comms}" >&6;}
 GPU_COMMS=${gpu_comms}
 
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: Setting GDSYNC_COMMS= ${gdsync_comms}" >&5
+$as_echo "$as_me: Setting GDSYNC_COMMS= ${gdsync_comms}" >&6;}
+GDSYNC_COMMS=${gdsync_comms}
+
+
 { $as_echo "$as_me:${as_lineno-$LINENO}: Setting BUILD_QDP_INTERFACE= ${build_qdp_interface}" >&5
 $as_echo "$as_me: Setting BUILD_QDP_INTERFACE= ${build_qdp_interface}" >&6;}
 BUILD_QDP_INTERFACE=${build_qdp_interface}
@@ -4403,6 +4436,11 @@ FEF90=${F90}
 { $as_echo "$as_me:${as_lineno-$LINENO}: Setting MPI_HOME=${mpi_home}" >&5
 $as_echo "$as_me: Setting MPI_HOME=${mpi_home}" >&6;}
 MPI_HOME=${mpi_home}
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: Setting GDSYNC_HOME=${gdsync_home}" >&5
+$as_echo "$as_me: Setting GDSYNC_HOME=${gdsync_home}" >&6;}
+GDSYNC_HOME=${gdsync_home}
 
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: Setting QMP_HOME=${qmp_home}" >&5

@@ -471,6 +471,11 @@ namespace quda {
 
     void recvStart(int nFace, int dir, int dagger=0);
     void sendStart(int nFace, int dir, int dagger=0);
+#ifdef GDSYNC_COMMS
+    void recvWaitOnStream(int nFace, int dir, int dagger, cudaStream_t the_stream);
+    void sendStartOnStream(int nFace, int dir, int dagger, cudaStream_t the_stream);
+    void sendWaitOnStream(int nFace, int dir, int dagger, cudaStream_t the_stream);
+#endif
     void commsStart(int nFace, int dir, int dagger=0);
     int commsQuery(int nFace, int dir, int dagger=0); 
     void scatter(int nFace, int dagger, int dir, cudaStream_t *stream_p);

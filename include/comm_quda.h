@@ -134,11 +134,14 @@ extern "C" {
   void comm_barrier(void);
   void comm_abort(int status);
 
+#ifdef GDSYNC_COMMS
   /* GDSync related */
   typedef struct CUstream_st *cudaStream_t; //fwd decl
   void comm_start_on_stream(MsgHandle *mh, cudaStream_t stream);
   void comm_wait_on_stream(MsgHandle *mh, cudaStream_t stream);
   void comm_enable_gdsync(bool enabled);
+	bool comm_gdsync_enabled();
+#endif //GDSYNC_COMMS
 
 #ifdef __cplusplus
 }

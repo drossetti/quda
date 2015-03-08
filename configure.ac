@@ -221,6 +221,14 @@ AS_CASE([$build_mpi],
 	[no], [AC_PROG_CC(gcc cc) AC_PROG_CXX(g++ CC cxx)])
 
 
+dnl enable support for GPUDirect Sync-style communication
+AC_ARG_WITH(gdsync-comms,
+  AC_HELP_STRING([--with-gdsync-comms], [ Enable GPUDirect Sync communication (experimental, default: disabled) ]),
+  [ gdsync_home=${withval}; gdsync_comms="yes" ],
+  [ gdsync_home=""; gdsync_comms="no" ]
+)
+
+
 AC_ARG_ENABLE(pthreads,
   AC_HELP_STRING([--enable-pthreads], [ Enable pthreads in the multi-GPU dslash build (default: disabled)]),
   [ posix_threads=${enableval}],
@@ -543,6 +551,18 @@ yes|no);;
   ;;
 esac
 
+dnl Enables support for GPUDirect Sync-style communication
+case ${gdsync_comms} in
+yes|no);;
+*) 
+  AC_MSG_ERROR([ invalid value for --enable-gdsync-comms ])
+  ;;
+esac
+if test "X${gdsync_comms}X" = "XyesX";
+then 
+  AC_MSG_NOTICE([Enabling GPUDirect Sync communications])
+fi
+
 dnl QDP-JIT support
 case ${build_qdpjit} in
 yes|no);;
@@ -707,6 +727,9 @@ AC_SUBST( GPU_DIRECT, [${gpu_direct}])
 AC_MSG_NOTICE([Setting GPU_COMMS= ${gpu_comms}])
 AC_SUBST( GPU_COMMS, [${gpu_comms}])
 
+AC_MSG_NOTICE([Setting GDSYNC_COMMS= ${gdsync_comms}])
+AC_SUBST( GDSYNC_COMMS, [${gdsync_comms}])
+
 AC_MSG_NOTICE([Setting BUILD_QDP_INTERFACE= ${build_qdp_interface}])
 AC_SUBST( BUILD_QDP_INTERFACE, [${build_qdp_interface}])
 
@@ -742,6 +765,9 @@ AC_SUBST( FEF90, [${F90}])
 
 AC_MSG_NOTICE([Setting MPI_HOME=${mpi_home}])
 AC_SUBST( MPI_HOME, [${mpi_home}] )
+
+AC_MSG_NOTICE([Setting GDSYNC_HOME=${gdsync_home}])
+AC_SUBST( GDSYNC_HOME, [${gdsync_home}] )
 
 AC_MSG_NOTICE([Setting QMP_HOME=${qmp_home}])
 AC_SUBST( QMP_HOME, [${qmp_home}] )

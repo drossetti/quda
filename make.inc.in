@@ -47,6 +47,7 @@ BUILD_MAGMA = @BUILD_MAGMA@ 	# build magma interface
 # GPUdirect options
 GPU_DIRECT = @GPU_DIRECT@          # set to 'yes' to allow GPU and NIC to shared pinned buffers
 GPU_COMMS = @GPU_COMMS@            # set to 'yes' to allow GPU and NIC to communicate using RDMA
+GDSYNC_COMMS = @GDSYNC_COMMS@      # set to 'yes' to allow GPU to orchestrate NIC through GPUDirect Sync
 
 # Interface options
 BUILD_QDP_INTERFACE = @BUILD_QDP_INTERFACE@                     # build qdp interface
@@ -71,6 +72,7 @@ FECXX = @FECXX@			# front-end CXX
 FEF90 = @FEF90@			# front-end F90
 
 MPI_HOME=@MPI_HOME@
+GDSYNC_HOME=@GDSYNC_HOME@
 QMP_HOME=@QMP_HOME@
 QIO_HOME=@QIO_HOME@
 
@@ -127,7 +129,11 @@ ifeq ($(strip $(BUILD_MPI)), yes)
   MPI_LIBS =
   INC += -DMPI_COMMS $(MPI_CFLAGS) -I$(MPI_HOME)/include
   LIB += $(MPI_LDFLAGS) $(MPI_LIBS)
-  COMM_OBJS = comm_mpi.o
+  ifeq ($(strip $(GDSYNC_COMMS)), yes)
+       COMM_OBJS = comm_gdsync.o
+  else
+       COMM_OBJS = comm_mpi.o
+  endif
 endif
 
 ifeq ($(strip $(BUILD_QIO)), yes)
@@ -285,6 +291,13 @@ endif
 ifeq ($(strip $(GPU_COMMS)), yes)
   NVCCOPT += -DGPU_COMMS
   COPT += -DGPU_COMMS
+endif
+
+# GDSYNC is a super-set of RDMA
+ifeq ($(strip $(GDSYNC_COMMS)), yes)
+  NVCCOPT += -DGDSYNC_COMMS -I$(GDSYNC_HOME)/include
+  COPT += -DGDSYNC_COMMS -I$(GDSYNC_HOME)/include
+  LIB += -L$(GDSYNC_HOME)/lib -lmp -lgdsync -lgdrapi -libverbs
 endif
 
 ifeq ($(strip $(BUILD_QDP_INTERFACE)), yes)

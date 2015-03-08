@@ -940,10 +940,6 @@ namespace quda {
 #endif	
         } // loop over b
 
-#ifdef USE_GDSYNC
-        comm_enable_gdsync(true);
-#endif
-
         for (int i=0; i<nDimComms; i++) {
           if (!commDimPartitioned(i)) continue;
 #ifdef GPU_COMMS
@@ -1054,11 +1050,6 @@ namespace quda {
 	    mh_recv_fwd[b][j][i] = comm_declare_receive_relative(from_fwd_face[b][i], i, +1, nbytes_Nface);
 	    mh_recv_back[b][j][i] = comm_declare_receive_relative(from_back_face[b][i], i, -1, nbytes_Nface);
 	  }
-	 
-#ifdef USE_GDSYNC
-    comm_enable_gdsync(false);
-#endif
-
 
 	} // loop over dimension
       }
@@ -1240,6 +1231,7 @@ namespace quda {
 #endif
   }
 
+#ifdef GDSYNC_COMMS
   void cudaColorSpinorField::recvWaitOnStream(int nFace, int dir, int dagger, cudaStream_t the_stream) {
     int dim = dir/2;
     if(!commDimPartitioned(dim)) return;
@@ -1263,6 +1255,7 @@ namespace quda {
     }
 #endif
   }
+#endif
 
   void cudaColorSpinorField::sendStart(int nFace, int dir, int dagger) {
     int dim = dir / 2;

@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <mpi.h>
 #include <quda_internal.h>
 #include <comm_quda.h>
 
+#include <mp.h>
 
 #define MPI_CHECK(mpi_call) do {                    \
   int status = mpi_call;                            \
@@ -33,6 +35,7 @@ struct MsgHandle_s {
   int nblocks;
   size_t stride;
   mp_request_t req;
+	mp_reg_t *mem_reg;
 };
 
 static int rank = -1;
@@ -43,6 +46,19 @@ static int peer_count = 0;
 static int peers[QUDA_MAX_DIM];
 static int cart_coords[QUDA_MAX_DIM];
 static int cart_rank;
+
+static bool gdsync_enabled = false;
+
+void comm_enable_gdsync(bool enabled)
+{
+	gdsync_enabled = enabled;
+}
+
+bool comm_gdsync_enabled()
+{
+	return gdsync_enabled;
+}
+
 
 void comm_init(int ndim, const int *dims, QudaCommsMap rank_from_coords, void *map_data)
 {
@@ -122,7 +138,7 @@ void comm_init(int ndim, const int *dims, QudaCommsMap rank_from_coords, void *m
     peers[2*i+1] = next;
   }
 
-  MPI_Cart_coords(cartcomm, cart_rank, 2, cart_coords);
+  MPI_Cart_coords(cartcomm, cart_rank, npdim, cart_coords);
 
   MPI_Barrier(MPI_COMM_WORLD);
 
@@ -181,7 +197,7 @@ MsgHandle *comm_declare_send_displaced(void *buffer, const int displacement[], s
   MsgHandle *mh = (MsgHandle *)safe_malloc(sizeof(MsgHandle));
   if (comm_gdsync_enabled()) {
     mh->gdsync = true;
-    mh->type = TYPE_SEND;
+    mh->type = MsgHandle_s::TYPE_SEND;
     mh->buffer = buffer;
     mh->nbytes = nbytes;
     mh->rank = rank;
@@ -208,7 +224,7 @@ MsgHandle *comm_declare_receive_displaced(void *buffer, const int displacement[]
   MsgHandle *mh = (MsgHandle *)safe_malloc(sizeof(MsgHandle));
   if (comm_gdsync_enabled()) {
     mh->gdsync = true;
-    mh->type = TYPE_RECV;
+    mh->type = MsgHandle_s::TYPE_RECV;
     mh->buffer = buffer;
     mh->nbytes = nbytes;
     mh->rank = rank;
@@ -236,9 +252,9 @@ MsgHandle *comm_declare_strided_send_displaced(void *buffer, const int displacem
   MsgHandle *mh = (MsgHandle *)safe_malloc(sizeof(MsgHandle));
   if (comm_gdsync_enabled()) {
     mh->gdsync = true;
-    mh->type = TYPE_STRIDED_SEND;
+    mh->type = MsgHandle_s::TYPE_STRIDED_SEND;
     mh->buffer = buffer;
-    mh->size = 0;
+    mh->nbytes = 0;
     mh->blksize = blksize;
     mh->nblocks = nblocks;
     mh->stride = stride;
@@ -272,9 +288,9 @@ MsgHandle *comm_declare_strided_receive_displaced(void *buffer, const int displa
   MsgHandle *mh = (MsgHandle *)safe_malloc(sizeof(MsgHandle));
   if (comm_gdsync_enabled()) {
     mh->gdsync = true;
-    mh->type = TYPE_STRIDED_RECV;
+    mh->type = MsgHandle_s::TYPE_STRIDED_RECV;
     mh->buffer = buffer;
-    mh->size = 0;
+    mh->nbytes = 0;
     mh->blksize = blksize;
     mh->nblocks = nblocks;
     mh->stride = stride;
@@ -301,40 +317,46 @@ void comm_free(MsgHandle *mh)
 
 void comm_gdsync_start(MsgHandle *mh, cudaStream_t stream)
 {
+	int ret = 0;
+
   assert(mh->gdsync);
 
   switch(mh->type) {
-  case TYPE_SEND:
-    mp_isend_on_stream(mh->buffer, mh->size, mh->peer, mh->mem_reg, &mh->req, stream);
+  case MsgHandle_s::TYPE_SEND:
+    ret = mp_isend_on_stream(mh->buffer, mh->nbytes, mh->peer, mh->mem_reg, &mh->req, stream);
+		if (ret)
+			errorQuda("error in isend_on_stream %s\n", __FUNCTION__);
     break;
-  case TYPE_RECV:
+  case MsgHandle_s::TYPE_RECV:
     assert(!stream);
-    mp_irecv(mh->buffer, mh->size, mh->peer, mh->mem_reg, &mh->req);
+    ret = mp_irecv(mh->buffer, mh->nbytes, mh->peer, mh->mem_reg, &mh->req);
+		if (ret)
+			errorQuda("error in irecv %s\n", __FUNCTION__);
     break;
-  case TYPE_STRIDED_SEND:
+  case MsgHandle_s::TYPE_STRIDED_SEND:
     {
       struct iovec v[mh->nblocks];
       for (int i=0; i<mh->nblocks; ++i) {
-        v[i].iov_base = mh->buffer + i*stride;
+        v[i].iov_base = (char*)mh->buffer + i*mh->stride;
         v[i].iov_len = mh->blksize;
       }
       assert(stream);
-      int ret = mp_isendv_on_stream(v, mh->nblocks, mh->peer, mh->mem_reg, &mh->req, stream);
+      ret = mp_isendv_on_stream(v, mh->nblocks, mh->peer, mh->mem_reg, &mh->req, stream);
       if (ret)
-        errorQuda("error in isendv %s\n", __FUNCTION__);
+        errorQuda("error in isendv_on_stream %s\n", __FUNCTION__);
     }
     break;
-  case TYPE_STRIDED_RECV:
+  case MsgHandle_s::TYPE_STRIDED_RECV:
     {
       struct iovec v[mh->nblocks];
       for (int i=0; i<mh->nblocks; ++i) {
-        v[i].iov_base = mh->buffer + i*stride;
+        v[i].iov_base = (char*)mh->buffer + i*mh->stride;
         v[i].iov_len = mh->blksize;
       }
       assert(!stream);
-      int ret = mp_irecvv(v, mh->nblocks, mh->peer, mh->mem_reg, &mh->req);
+      ret = mp_irecvv(v, mh->nblocks, mh->peer, mh->mem_reg, &mh->req);
       if (ret)
-        errorQuda("error in irecv %s\n", __FUNCTION__);
+        errorQuda("error in irecvv %s\n", __FUNCTION__);
     }
     break;
   default:
@@ -445,5 +467,6 @@ void comm_barrier(void)
 
 void comm_abort(int status)
 {
+	errorQuda("calling MPI_Abort at %s\n", __FUNCTION__);
   MPI_Abort(MPI_COMM_WORLD, status) ;
 }

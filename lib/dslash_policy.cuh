@@ -794,16 +794,24 @@ struct DslashFusedGPUComms : DslashPolicyImp {
   }
 };
 
+#ifdef GDSYNC_COMMS
+#if defined(GPU_COMMS) && defined(MULTI_GPU)
+#else 
+    errorQuda("GPU_COMMS && MULTI_GPU must be defined\n");
+#endif // GPU_COMMS
 
 struct DslashGPUSyncComms : DslashPolicyImp {
   void operator()(DslashCuda &dslash, cudaColorSpinorField* inputSpinor, const size_t regSize, const int parity, const int dagger, 
 		  const int volume, const int *faceVolumeCB, TimeProfile &profile) {
 
-#if defined(GPU_COMMS) && defined(MULTI_GPU)
     using namespace dslash;
 
     profile.Start(QUDA_PROFILE_TOTAL);
   
+#ifdef GDSYNC_COMMS
+        comm_enable_gdsync(true);
+#endif
+
     dslashParam.parity = parity;
     dslashParam.kernel_type = INTERIOR_KERNEL;
     dslashParam.threads = volume;
@@ -829,10 +837,10 @@ struct DslashGPUSyncComms : DslashPolicyImp {
     inputSpinor->streamInit(streams);
 
     for(int i=3; i>=0; i--){
-    if(!dslashParam.commDim[i]) continue;
-      for(int dir=1; dir>=0; dir--){
-        PROFILE(inputSpinor->recvStart(dslash.Nface()/2, 2*i+dir, dagger), profile, QUDA_PROFILE_COMMS_START);
-      }
+			if(!dslashParam.commDim[i]) continue;
+			for(int dir=1; dir>=0; dir--){
+				PROFILE(inputSpinor->recvStart(dslash.Nface()/2, 2*i+dir, dagger), profile, QUDA_PROFILE_COMMS_START);
+			}
     }
     bool pack = false;
     for (int i=3; i>=0; i--) 
@@ -841,7 +849,7 @@ struct DslashGPUSyncComms : DslashPolicyImp {
 
     // Initialize pack from source spinor
     PROFILE(inputSpinor->pack(dslash.Nface()/2, 1-parity, dagger, packIndex, false, twist_a, twist_b),
-	    profile, QUDA_PROFILE_PACK_KERNEL);
+						profile, QUDA_PROFILE_PACK_KERNEL);
 
     PROFILE(dslash.apply(streams[interiorIndex]), profile, QUDA_PROFILE_DSLASH_KERNEL);
 
@@ -851,15 +859,15 @@ struct DslashGPUSyncComms : DslashPolicyImp {
         PROFILE(inputSpinor->sendStartOnStream(dslash.Nface()/2, 2*i+dir, dagger, streams[packIndex]), profile, QUDA_PROFILE_COMMS_START);
       }
     }
-
+		
     for (int i=3; i>=0; i--) {
       if (!dslashParam.commDim[i]) continue;
-
+			
       // Note: alternatively, we could use a single call to wait_all_on_stream for both dirs
       for (int dir=1; dir>=0; dir--) {
         PROFILE(inSpinor->recvWaitOnStream(dslash.Nface()/2, 2*i+dir, dagger, streams[i]), profile, QUDA_PROFILE_COMMS_START);        
-      
-      dslashParam.kernel_type = static_cast<KernelType>(i);
+			}
+			dslashParam.kernel_type = static_cast<KernelType>(i);
       dslashParam.threads = dslash.Nface()*faceVolumeCB[i]; // updating 2 or 6 faces
       // all faces use this stream
       PROFILE(dslash.apply(streams[i]), profile, QUDA_PROFILE_DSLASH_KERNEL);
@@ -883,13 +891,15 @@ struct DslashGPUSyncComms : DslashPolicyImp {
     }
     cudaStreamSynchronize(streams[interiorIndex]);
 
+#ifdef GDSYNC_COMMS
+    comm_enable_gdsync(false);
+#endif
+
     inputSpinor->bufferIndex = (1 - inputSpinor->bufferIndex);
     profile.Stop(QUDA_PROFILE_TOTAL);
-#else 
-    errorQuda("GPU_COMMS && MULTI_GPU must be defined\n");
-#endif // GPU_COMMS
   }
 };
+#endif
 
 struct DslashFaceBuffer : DslashPolicyImp {
 

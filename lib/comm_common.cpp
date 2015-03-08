@@ -222,12 +222,6 @@ int comm_coord(int dim)
   return comm_coords(topo)[dim];
 }
 
-static bool gdsync_enabled = false;
-void comm_enable_gdsync(bool enabled)
-{
-	gdsync_enabled = enabled;
-}
-
 /**
  * Send to the "dir" direction in the "dim" dimension
  */
@@ -296,3 +290,4 @@ int comm_dim_partitioned(int dim)
 {
   return (manual_set_partition[dim] || (comm_dim(dim) > 1));
 }
+
