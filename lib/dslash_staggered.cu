@@ -87,7 +87,7 @@ namespace quda {
 			const QudaReconstructType reconstruct, const cudaColorSpinorField *in,
 			const cudaColorSpinorField *x, const double a, const int dagger)
       : DslashCuda(out, in, x, reconstruct, dagger), gauge0(gauge0), gauge1(gauge1), a(a), nSrc(in->X(4))
-    { 
+    {
       bindSpinorTex<sFloat>(in, out, x);
     }
 
@@ -96,10 +96,11 @@ namespace quda {
     void apply(const cudaStream_t &stream)
     {
       TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
+      printfQuda("DslashCuda::apply\n");
       STAGGERED_DSLASH(tp.grid, tp.block, tp.shared_bytes, stream, dslashParam,
-		       (sFloat*)out->V(), (float*)out->Norm(), gauge0, gauge1, 
-		       (sFloat*)in->V(), (float*)in->Norm(), 
-		       (sFloat*)(x ? x->V() : 0), (float*)(x ? x->Norm() : 0), a); 
+		       (sFloat*)out->V(), (float*)out->Norm(), gauge0, gauge1,
+		       (sFloat*)in->V(), (float*)in->Norm(),
+		       (sFloat*)(x ? x->V() : 0), (float*)(x ? x->Norm() : 0), a);
     }
 
     bool advanceBlockDim(TuneParam &param) const
@@ -107,20 +108,22 @@ namespace quda {
       const unsigned int max_shared = deviceProp.sharedMemPerBlock;
       // first try to advance block.y (number of right-hand sides per block)
       if (param.block.y < nSrc && param.block.y < deviceProp.maxThreadsDim[1] &&
-	  sharedBytesPerThread()*param.block.x*param.block.y < max_shared &&
-	  (param.block.x*(param.block.y+1)) <= deviceProp.maxThreadsPerBlock) {
-	param.block.y++;
-	param.grid.y = (nSrc + param.block.y - 1) / param.block.y;
-	return true;
-      } else {
-	param.block.y = 1;
-	param.grid.y = nSrc;
-	bool rtn = DslashCuda::advanceBlockDim(param);
-	param.block.y = 1;
-	param.grid.y = nSrc;
-	return rtn;
+        sharedBytesPerThread()*param.block.x*param.block.y < max_shared &&
+        (param.block.x*(param.block.y+1)) <= deviceProp.maxThreadsPerBlock) {
+          param.block.y++;
+          printfQuda("blocky::advanceBlockDim\n");
+          param.grid.y = (nSrc + param.block.y - 1) / param.block.y;
+          return true;
+        } else {
+          param.block.y = 1;
+          param.grid.y = nSrc;
+          printfQuda("DslashCuda::advanceBlockDim\n");
+          bool rtn = DslashCuda::advanceBlockDim(param);
+          param.block.y = 1;
+          param.grid.y = nSrc;
+          return rtn;
+        }
       }
-    }
 
     void initTuneParam(TuneParam &param) const
     {
@@ -129,16 +132,46 @@ namespace quda {
       param.grid.y = nSrc;
     }
 
+    int blockStep() const {
+      printfQuda("AdvanceBlockStep\n");
+      int div = 8;
+      if (nSrc %div ==0 && deviceProp.warpSize%div )
+      return deviceProp.warpSize/div;
+      div = 4;
+      if (nSrc %div ==0 && deviceProp.warpSize%div )
+      return deviceProp.warpSize/div;
+      div=2;
+      if (nSrc %div ==0 && deviceProp.warpSize%div )
+      return deviceProp.warpSize/div;
+
+      // default choice is 8
+      return deviceProp.warpSize;
+    }
+
+    int blockMin() const {       int div = 8;
+      if (nSrc %div ==0 && deviceProp.warpSize%div )
+      return deviceProp.warpSize/div;
+      div = 4;
+      if (nSrc %div ==0 && deviceProp.warpSize%div )
+      return deviceProp.warpSize/div;
+      div=2;
+      if (nSrc %div ==0 && deviceProp.warpSize%div )
+      return deviceProp.warpSize/div;
+
+      // default choice is 8
+      return deviceProp.warpSize;
+    }
+
     void defaultTuneParam(TuneParam &param) const { initTuneParam(param); }
 
-    int Nface() { return 2; } 
+    int Nface() { return 2; }
   };
 #endif // GPU_STAGGERED_DIRAC
 
 #include <dslash_policy.cuh>
 
-  void staggeredDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge, 
-			   const cudaColorSpinorField *in, const int parity, 
+  void staggeredDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &gauge,
+			   const cudaColorSpinorField *in, const int parity,
 			   const int dagger, const cudaColorSpinorField *x,
 			   const double &k, const int *commOverride, TimeProfile &profile)
   {
@@ -151,7 +184,7 @@ namespace quda {
 
     dslashParam.parity = parity;
     dslashParam.gauge_stride = gauge.Stride();
-    dslashParam.fat_link_max = gauge.LinkMax(); // May need to use this in the preconditioning step 
+    dslashParam.fat_link_max = gauge.LinkMax(); // May need to use this in the preconditioning step
     // in the solver for the improved staggered action
 
     for(int i=0;i<4;i++){
@@ -184,7 +217,7 @@ namespace quda {
     } else if (in->Precision() == QUDA_SINGLE_PRECISION) {
       dslash = new StaggeredDslashCuda<float2, float2>
 	(out, (float2*)gauge0, (float2*)gauge1, gauge.Reconstruct(), in, x, k, dagger);
-    } else if (in->Precision() == QUDA_HALF_PRECISION) {	
+    } else if (in->Precision() == QUDA_HALF_PRECISION) {
       dslash = new StaggeredDslashCuda<short2, short2>
 	(out, (short2*)gauge0, (short2*)gauge1, gauge.Reconstruct(), in, x, k, dagger);
     }

@@ -87,12 +87,12 @@ namespace quda {
   public:
     StaggeredDslashCuda(cudaColorSpinorField *out, const fatGFloat *fat0, const fatGFloat *fat1,
 			const longGFloat *long0, const longGFloat *long1,
-			const phaseFloat *phase0, const phaseFloat *phase1, 
+			const phaseFloat *phase0, const phaseFloat *phase1,
 			const QudaReconstructType reconstruct, const cudaColorSpinorField *in,
 			const cudaColorSpinorField *x, const double a, const int dagger)
-      : DslashCuda(out, in, x, reconstruct, dagger), fat0(fat0), fat1(fat1), long0(long0), 
+      : DslashCuda(out, in, x, reconstruct, dagger), fat0(fat0), fat1(fat1), long0(long0),
 	long1(long1), phase0(phase0), phase1(phase1), a(a), nSrc(in->X(4))
-    { 
+    {
       bindSpinorTex<sFloat>(in, out, x);
     }
 
@@ -102,31 +102,68 @@ namespace quda {
     {
       TuneParam tp = tuneLaunch(*this, getTuning(), getVerbosity());
       IMPROVED_STAGGERED_DSLASH(tp.grid, tp.block, tp.shared_bytes, stream, dslashParam,
-				(sFloat*)out->V(), (float*)out->Norm(), 
-				fat0, fat1, long0, long1, phase0, phase1, 
-				(sFloat*)in->V(), (float*)in->Norm(), 
-				(sFloat*)(x ? x->V() : 0), (float*)(x ? x->Norm() : 0), a); 
+				(sFloat*)out->V(), (float*)out->Norm(),
+				fat0, fat1, long0, long1, phase0, phase1,
+				(sFloat*)in->V(), (float*)in->Norm(),
+				(sFloat*)(x ? x->V() : 0), (float*)(x ? x->Norm() : 0), a);
     }
 
     bool advanceBlockDim(TuneParam &param) const
     {
       const unsigned int max_shared = deviceProp.sharedMemPerBlock;
       // first try to advance block.y (number of right-hand sides per block)
+
       if (param.block.y < nSrc && param.block.y < deviceProp.maxThreadsDim[1] &&
-	  sharedBytesPerThread()*param.block.x*param.block.y < max_shared &&
-	  (param.block.x*(param.block.y+1)) <= deviceProp.maxThreadsPerBlock) {
-	param.block.y++;
-	param.grid.y = (nSrc + param.block.y - 1) / param.block.y;
-	return true;
-      } else {
-	param.block.y = 1;
-	param.grid.y = nSrc;
-	bool rtn = DslashCuda::advanceBlockDim(param);
-	param.block.y = 1;
-	param.grid.y = nSrc;
-	return rtn;
+        sharedBytesPerThread()*param.block.x*param.block.y < max_shared &&
+        (param.block.x*(param.block.y+1)) <= deviceProp.maxThreadsPerBlock) {
+          param.block.y++;
+          param.grid.y = (nSrc + param.block.y - 1) / param.block.y;
+          while(param.block.y * param.grid.y != nSrc){
+            param.block.y++;
+            param.grid.y = (nSrc + param.block.y - 1) / param.block.y;
+          }
+          return true;
+        } else {
+          param.block.y = 1;
+          param.grid.y = nSrc;
+          bool rtn = DslashCuda::advanceBlockDim(param);
+          param.block.y = 1;
+          param.grid.y = nSrc;
+          return rtn;
+        }
       }
+
+    int blockStep() const {
+      int div = 8;
+      // if (nSrc %div ==0 && deviceProp.warpSize%div==0 )
+      // return deviceProp.warpSize/div;
+      div = 4;
+      if (nSrc %div ==0 && deviceProp.warpSize%div==0 )
+      return deviceProp.warpSize/div;
+      div=2;
+      if (nSrc %div ==0 && deviceProp.warpSize%div==0 )
+      return deviceProp.warpSize/div;
+
+
+      return deviceProp.warpSize;
     }
+
+    int blockMin() const {
+      int div = 8;
+      // if (nSrc %div ==0 && deviceProp.warpSize%div==0 )
+      // return deviceProp.warpSize/div;
+      div = 4;
+      if (nSrc %div ==0 && deviceProp.warpSize%div==0 )
+      return deviceProp.warpSize/div;
+      div=2;
+      if (nSrc %div ==0 && deviceProp.warpSize%div==0 )
+      return deviceProp.warpSize/div;
+
+      // default choice is 8
+      return deviceProp.warpSize;
+    }
+
+
 
     void initTuneParam(TuneParam &param) const
     {
@@ -137,17 +174,17 @@ namespace quda {
 
     void defaultTuneParam(TuneParam &param) const { initTuneParam(param); }
 
-    int Nface() { return 6; } 
+    int Nface() { return 6; }
 
     /*
       per direction / dimension flops
       SU(3) matrix-vector flops = (8 Nc - 2) * Nc
       xpay = 2 * 2 * Nc * Ns
-      
-      So for the full dslash we have      
+
+      So for the full dslash we have
       flops = (2 * 2 * Nd * (8*Nc-2) * Nc)  +  ((2 * 2 * Nd - 1) * 2 * Nc * Ns)
       flops_xpay = flops + 2 * 2 * Nc * Ns
-      
+
       For Asqtad this should give 1146 for Nc=3,Ns=2 and 1158 for the axpy equivalent
     */
     virtual long long flops() const {
@@ -183,7 +220,7 @@ namespace quda {
 	  long long ghost_sites = 0;
 	  for (int d=0; d<4; d++) if (dslashParam.commDim[d]) ghost_sites += 2 * in->GhostFace()[d];
 	  flops -= ghost_flops * ghost_sites;
-	  
+
 	  break;
 	}
       }
@@ -226,7 +263,7 @@ namespace quda {
 	  long long ghost_sites = 0;
 	  for (int d=0; d<4; d++) if (dslashParam.commDim[d]) ghost_sites += 2*in->GhostFace()[d];
 	  bytes -= ghost_bytes * ghost_sites;
-	  
+
 	  break;
 	}
       }
@@ -238,13 +275,13 @@ namespace quda {
 
 #include <dslash_policy.cuh>
 
-  void improvedStaggeredDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &fatGauge, 
+  void improvedStaggeredDslashCuda(cudaColorSpinorField *out, const cudaGaugeField &fatGauge,
 				   const cudaGaugeField &longGauge, const cudaColorSpinorField *in,
 				   const int parity, const int dagger, const cudaColorSpinorField *x,
 				   const double &k, const int *commOverride, TimeProfile &profile)
   {
     inSpinor = (cudaColorSpinorField*)in; // EVIL
-    inSpinor->allocateGhostBuffer(3);    
+    inSpinor->allocateGhostBuffer(3);
 
 #ifdef GPU_STAGGERED_DIRAC
 
@@ -254,7 +291,7 @@ namespace quda {
     for(int i=0;i < 4; i++){
       if(commDimPartitioned(i) && (fatGauge.X()[i] < 6)){
 	errorQuda("ERROR: partitioned dimension with local size less than 6 is not supported in staggered dslash\n");
-      }    
+      }
     }
 #endif
 
@@ -279,7 +316,7 @@ namespace quda {
     bindFatGaugeTex(fatGauge, parity, &fatGauge0, &fatGauge1);
     bindLongGaugeTex(longGauge, parity, &longGauge0, &longGauge1);
     void *longPhase0 = (char*)longGauge0 + longGauge.PhaseOffset();
-    void *longPhase1 = (char*)longGauge1 + longGauge.PhaseOffset();   
+    void *longPhase1 = (char*)longGauge1 + longGauge.PhaseOffset();
 
     if (in->Precision() != fatGauge.Precision() || in->Precision() != longGauge.Precision()){
       errorQuda("Mixing gauge and spinor precision not supported"
@@ -294,19 +331,19 @@ namespace quda {
       dslash = new StaggeredDslashCuda<double2, double2, double2, double>
 	(out, (double2*)fatGauge0, (double2*)fatGauge1,
 	 (double2*)longGauge0, (double2*)longGauge1,
-	 (double*)longPhase0, (double*)longPhase1, 
+	 (double*)longPhase0, (double*)longPhase1,
 	 longGauge.Reconstruct(), in, x, k, dagger);
       regSize = sizeof(double);
     } else if (in->Precision() == QUDA_SINGLE_PRECISION) {
       dslash = new StaggeredDslashCuda<float2, float2, float4, float>
 	(out, (float2*)fatGauge0, (float2*)fatGauge1,
-	 (float4*)longGauge0, (float4*)longGauge1, 
+	 (float4*)longGauge0, (float4*)longGauge1,
 	 (float*)longPhase0, (float*)longPhase1,
 	 longGauge.Reconstruct(), in, x, k, dagger);
-    } else if (in->Precision() == QUDA_HALF_PRECISION) {	
+    } else if (in->Precision() == QUDA_HALF_PRECISION) {
       dslash = new StaggeredDslashCuda<short2, short2, short4, short>
 	(out, (short2*)fatGauge0, (short2*)fatGauge1,
-	 (short4*)longGauge0, (short4*)longGauge1, 
+	 (short4*)longGauge0, (short4*)longGauge1,
 	 (short*)longPhase0, (short*)longPhase1,
 	 longGauge.Reconstruct(), in, x, k, dagger);
     }
