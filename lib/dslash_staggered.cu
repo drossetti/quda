@@ -107,17 +107,20 @@ namespace quda {
     {
       const unsigned int max_shared = deviceProp.sharedMemPerBlock;
       // first try to advance block.y (number of right-hand sides per block)
+
       if (param.block.y < nSrc && param.block.y < deviceProp.maxThreadsDim[1] &&
         sharedBytesPerThread()*param.block.x*param.block.y < max_shared &&
         (param.block.x*(param.block.y+1)) <= deviceProp.maxThreadsPerBlock) {
           param.block.y++;
-          printfQuda("blocky::advanceBlockDim\n");
           param.grid.y = (nSrc + param.block.y - 1) / param.block.y;
+          while(param.block.y * param.grid.y != nSrc){
+            param.block.y++;
+            param.grid.y = (nSrc + param.block.y - 1) / param.block.y;
+          }
           return true;
         } else {
           param.block.y = 1;
           param.grid.y = nSrc;
-          printfQuda("DslashCuda::advanceBlockDim\n");
           bool rtn = DslashCuda::advanceBlockDim(param);
           param.block.y = 1;
           param.grid.y = nSrc;
@@ -125,41 +128,43 @@ namespace quda {
         }
       }
 
+    int blockStep() const {
+      int div = 8;
+      // if (nSrc %div ==0 && deviceProp.warpSize%div==0 )
+      // return deviceProp.warpSize/div;
+      div = 4;
+      if (nSrc %div ==0 && deviceProp.warpSize%div==0 )
+      return deviceProp.warpSize/div;
+      div=2;
+      if (nSrc %div ==0 && deviceProp.warpSize%div==0 )
+      return deviceProp.warpSize/div;
+
+
+      return deviceProp.warpSize;
+    }
+
+    int blockMin() const {
+      int div = 8;
+      // if (nSrc %div ==0 && deviceProp.warpSize%div==0 )
+      // return deviceProp.warpSize/div;
+      div = 4;
+      if (nSrc %div ==0 && deviceProp.warpSize%div==0 )
+      return deviceProp.warpSize/div;
+      div=2;
+      if (nSrc %div ==0 && deviceProp.warpSize%div==0 )
+      return deviceProp.warpSize/div;
+
+      // default choice is 8
+      return deviceProp.warpSize;
+    }
+
+
+
     void initTuneParam(TuneParam &param) const
     {
       DslashCuda::initTuneParam(param);
       param.block.y = 1;
       param.grid.y = nSrc;
-    }
-
-    int blockStep() const {
-      printfQuda("AdvanceBlockStep\n");
-      int div = 8;
-      if (nSrc %div ==0 && deviceProp.warpSize%div )
-      return deviceProp.warpSize/div;
-      div = 4;
-      if (nSrc %div ==0 && deviceProp.warpSize%div )
-      return deviceProp.warpSize/div;
-      div=2;
-      if (nSrc %div ==0 && deviceProp.warpSize%div )
-      return deviceProp.warpSize/div;
-
-      // default choice is 8
-      return deviceProp.warpSize;
-    }
-
-    int blockMin() const {       int div = 8;
-      if (nSrc %div ==0 && deviceProp.warpSize%div )
-      return deviceProp.warpSize/div;
-      div = 4;
-      if (nSrc %div ==0 && deviceProp.warpSize%div )
-      return deviceProp.warpSize/div;
-      div=2;
-      if (nSrc %div ==0 && deviceProp.warpSize%div )
-      return deviceProp.warpSize/div;
-
-      // default choice is 8
-      return deviceProp.warpSize;
     }
 
     void defaultTuneParam(TuneParam &param) const { initTuneParam(param); }
