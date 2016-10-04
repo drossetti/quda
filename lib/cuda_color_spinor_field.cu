@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <typeinfo>
+#include <assert.h>
 
 #include <color_spinor_field.h>
 #include <blas_quda.h>
@@ -197,6 +198,7 @@ namespace quda {
 
     if (create != QUDA_REFERENCE_FIELD_CREATE) {
       v = device_malloc(bytes);
+      printf("[%d] allocated v=%p size=%d/0x%x\n", comm_rank(), v, bytes, bytes);
       if (precision == QUDA_HALF_PRECISION) {
 	norm = device_malloc(norm_bytes);
       }
@@ -811,11 +813,14 @@ namespace quda {
 #endif
   }
 
+#define DBG() do { fprintf(stderr,"[%d] %s:%d j=%d i=%d b=%d\n", comm_rank(), __FUNCTION__, __LINE__, j, i, b); fflush(stderr); } while(0)
 
 
   cudaStream_t *stream;
 
   void cudaColorSpinorField::createComms(int nFace) {
+
+		//DBG();
 
     if(bufferMessageHandler != bufferPinnedResizeCount) destroyComms();
 
@@ -907,7 +912,7 @@ namespace quda {
 #endif
 
       }
-
+			//DBG();
       // create a different message handler for each direction and Nface
       for(int b=0; b<2; ++b){
         mh_send_fwd[b] = new MsgHandle**[maxNface];
@@ -941,15 +946,21 @@ namespace quda {
         } // loop over b
 
         for (int i=0; i<nDimComms; i++) {
+					//DBG();
           if (!commDimPartitioned(i)) continue;
 #ifdef GPU_COMMS
           size_t nbytes_Nface = surfaceCB[i]*Ndof*precision*(j+1);
+					size_t nbytes_Nface_max = surfaceCB[i]*Ndof*precision*(maxNface);
           if (i != 3 || getKernelPackT() || getTwistPack()) {
 #else 
             size_t nbytes_Nface = (nbytes[i] / maxNface) * (j+1);
 #endif
             for(int b=0; b<2; ++b){
+							DBG();
+							//assert(cudaSuccess == cudaMemset(my_fwd_face[b][i], 0, nbytes_Nface));
               mh_send_fwd[b][j][2*i+0] = comm_declare_send_relative(my_fwd_face[b][i], i, +1, nbytes_Nface);
+							DBG();
+							//assert(cudaSuccess == cudaMemset(my_back_face[b][i], 0, nbytes_Nface));
               mh_send_back[b][j][2*i+0] = comm_declare_send_relative(my_back_face[b][i], i, -1, nbytes_Nface);
               mh_send_fwd[b][j][2*i+1] = mh_send_fwd[b][j][2*i]; // alias pointers
               mh_send_back[b][j][2*i+1] = mh_send_back[b][j][2*i]; // alias pointers
@@ -958,7 +969,9 @@ namespace quda {
 
             if(precision == QUDA_HALF_PRECISION){
               for(int b=0; b<2; ++b){
+								DBG();
                 mh_send_norm_fwd[b][j][2*i+0] = comm_declare_send_relative(my_fwd_norm_face[b][i], i, +1, surfaceCB[i]*(j+1)*sizeof(float)); 
+								DBG();
                 mh_send_norm_back[b][j][2*i+0] = comm_declare_send_relative(my_back_norm_face[b][i], i, -1, surfaceCB[i]*(j+1)*sizeof(float));
                 mh_send_norm_fwd[b][j][2*i+1] = mh_send_norm_fwd[b][j][2*i];
                 mh_send_norm_back[b][j][2*i+1] = mh_send_norm_back[b][j][2*i]; 	
@@ -1231,6 +1244,25 @@ namespace quda {
 #endif
   }
 
+  void cudaColorSpinorField::sendStart(int nFace, int dir, int dagger) {
+    int dim = dir / 2;
+    if(!commDimPartitioned(dim)) return;
+
+    if (dir%2 == 0) { // sending backwards
+      comm_start(mh_send_back[bufferIndex][nFace-1][2*dim+dagger]);
+    } else { //sending forwards
+      comm_start(mh_send_fwd[bufferIndex][nFace-1][2*dim+dagger]);
+    }
+#ifdef GPU_COMMS
+    if(precision != QUDA_HALF_PRECISION) return;
+    if (dir%2 == 0) { // sending backwards
+      comm_start(mh_send_norm_back[bufferIndex][nFace-1][2*dim+dagger]);
+    } else { //sending forwards
+      comm_start(mh_send_norm_fwd[bufferIndex][nFace-1][2*dim+dagger]);
+    }
+#endif
+  }
+
 #ifdef GDSYNC_COMMS
   void cudaColorSpinorField::recvWaitOnStream(int nFace, int dir, int dagger, cudaStream_t the_stream) {
     int dim = dir/2;
@@ -1252,26 +1284,6 @@ namespace quda {
     } else { //sending forwards
       // Prepost receive
       comm_wait_on_stream(mh_recv_norm_back[bufferIndex][nFace-1][dim], the_stream);
-    }
-#endif
-  }
-#endif
-
-  void cudaColorSpinorField::sendStart(int nFace, int dir, int dagger) {
-    int dim = dir / 2;
-    if(!commDimPartitioned(dim)) return;
-
-    if (dir%2 == 0) { // sending backwards
-      comm_start(mh_send_back[bufferIndex][nFace-1][2*dim+dagger]);
-    } else { //sending forwards
-      comm_start(mh_send_fwd[bufferIndex][nFace-1][2*dim+dagger]);
-    }
-#ifdef GPU_COMMS
-    if(precision != QUDA_HALF_PRECISION) return;
-    if (dir%2 == 0) { // sending backwards
-      comm_start(mh_send_norm_back[bufferIndex][nFace-1][2*dim+dagger]);
-    } else { //sending forwards
-      comm_start(mh_send_norm_fwd[bufferIndex][nFace-1][2*dim+dagger]);
     }
 #endif
   }
@@ -1313,6 +1325,7 @@ namespace quda {
     }
 #endif
   }
+#endif // GDSYNC_COMMS
 
 
 

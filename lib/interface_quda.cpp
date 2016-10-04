@@ -253,6 +253,8 @@ static bool comms_initialized = false;
 
 void initCommsGridQuda(int nDim, const int *dims, QudaCommsMap func, void *fdata)
 {
+  if (getVerbosity() == QUDA_DEBUG_VERBOSE) printfQuda("here %s:%d\n", __FUNCTION__, __LINE__);
+
   if (nDim != 4) {
     errorQuda("Number of communication grid dimensions must be 4");
   }
@@ -291,6 +293,7 @@ void initCommsGridQuda(int nDim, const int *dims, QudaCommsMap func, void *fdata
   }
   comm_init(nDim, dims, func, fdata);
   comms_initialized = true;
+  warningQuda("COMM has been initialized");
 }
 
 

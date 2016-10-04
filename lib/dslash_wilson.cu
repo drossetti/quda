@@ -150,11 +150,13 @@ namespace quda {
 						    gauge.Reconstruct(), in, x, k, dagger);
     }
 
-#ifndef GPU_COMMS
-    DslashPolicyImp* dslashImp = DslashFactory::create(dslashPolicy);
-#else
-    DslashPolicyImp* dslashImp = DslashFactory::create(QUDA_GPU_COMMS_DSLASH);
+    QudaDslashPolicy policy = dslashPolicy;
+#if defined(GDSYNC_COMMS)
+    policy = QUDA_GDSYNC_COMMS_DSLASH;
+#elif defined(GPU_COMMS)
+    policy = QUDA_GPU_COMMS_DSLASH;
 #endif
+    DslashPolicyImp* dslashImp = DslashFactory::create(policy);
 
     (*dslashImp)(*dslash, const_cast<cudaColorSpinorField*>(in), regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
     delete dslashImp;
@@ -167,6 +169,6 @@ namespace quda {
     errorQuda("Wilson dslash has not been built");
 #endif // GPU_WILSON_DIRAC
 
-  }
+  };
 
 }

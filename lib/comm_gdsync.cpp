@@ -19,6 +19,12 @@
   }                                                 \
 } while (0)
 
+#define DBG(FMT, ...)																										\
+	do {																																	\
+		if (true || getVerbosity() == QUDA_DEBUG_VERBOSE)										\
+			fprintf(stderr, "[%d] %s:%d " FMT, rank, __FUNCTION__, __LINE__, __VA_ARGS__); \
+	} while(0)
+
 
 struct MsgHandle_s {
   MPI_Request request;
@@ -35,7 +41,7 @@ struct MsgHandle_s {
   int nblocks;
   size_t stride;
   mp_request_t req;
-	mp_reg_t *mem_reg;
+    mp_reg_t mem_reg;
 };
 
 static int rank = -1;
@@ -64,6 +70,9 @@ void comm_init(int ndim, const int *dims, QudaCommsMap rank_from_coords, void *m
 {
   int initialized;
   MPI_CHECK( MPI_Initialized(&initialized) );
+
+  warningQuda("in gdsync comm_init");
+
 
   if (!initialized) {
     errorQuda("MPI has not been initialized");
@@ -115,15 +124,18 @@ void comm_init(int ndim, const int *dims, QudaCommsMap rank_from_coords, void *m
   for (int i = 0, pi = 0; i < ndim; i++) {
     bool is_partitioned = (dims[i] > 1);
     // let's neglect unpartitioned dims for now
-    if (true || is_partitioned) {
+		DBG("is_partitioned=%d dims[%d]=%d\n", is_partitioned, i, dims[i]);
+    if (is_partitioned) {
       // add 2 peers for every partitioned dimension, even when dims[i] == 2
       peer_count += 2;
-      npdim += 1;
       pdims[pi] = dims[i];
       period[pi] = 1;
+			DBG("dim:%d pdim=%d pdims[]=%d period=%d\n", i, pi, pdims[i], period[pi]);
       pi += 1;
+      npdim += 1;
     }
   }
+
   int reorder = 0;
   MPI_Comm cartcomm;
   MPI_CHECK(MPI_Cart_create(MPI_COMM_WORLD, npdim, pdims, period, reorder, &cartcomm));
@@ -136,12 +148,13 @@ void comm_init(int ndim, const int *dims, QudaCommsMap rank_from_coords, void *m
     assert(next != MPI_UNDEFINED);
     peers[2*i+0] = prev;
     peers[2*i+1] = next;
+		DBG("pdim:%d prev=%d next=%d\n", i, prev, next);
   }
 
   MPI_Cart_coords(cartcomm, cart_rank, npdim, cart_coords);
 
   MPI_Barrier(MPI_COMM_WORLD);
-
+	DBG("peer_count=%d\n", peer_count);
   int ret = SUCCESS;
   ret = mp_init (cartcomm, peers, peer_count); 
   if (ret != SUCCESS) {
@@ -184,6 +197,8 @@ static int comm_peer_from_displacement(const int displacement[])
   return peer;
 }
 
+//#define DBG() do { fprintf(stderr,"%d: %s buffer=%p\n", rank, __FUNCTION__, buffer); } while(0)
+#define BUFDBG() DBG("buffer=%p\n", buffer)
 
 /**
  * Declare a message handle for sending to a node displaced in (x,y,z,t) according to "displacement"
@@ -196,13 +211,14 @@ MsgHandle *comm_declare_send_displaced(void *buffer, const int displacement[], s
   int tag = comm_rank();
   MsgHandle *mh = (MsgHandle *)safe_malloc(sizeof(MsgHandle));
   if (comm_gdsync_enabled()) {
+		BUFDBG();
     mh->gdsync = true;
     mh->type = MsgHandle_s::TYPE_SEND;
     mh->buffer = buffer;
     mh->nbytes = nbytes;
     mh->rank = rank;
     mh->peer = comm_peer_from_displacement(displacement);
-    mh->mem_reg = mp_register(buffer, nbytes);
+    mp_register(buffer, nbytes, &mh->mem_reg);
     assert(mh->mem_reg);
   } else {
     mh->gdsync = false;
@@ -223,13 +239,14 @@ MsgHandle *comm_declare_receive_displaced(void *buffer, const int displacement[]
   int tag = rank;
   MsgHandle *mh = (MsgHandle *)safe_malloc(sizeof(MsgHandle));
   if (comm_gdsync_enabled()) {
+		BUFDBG();
     mh->gdsync = true;
     mh->type = MsgHandle_s::TYPE_RECV;
     mh->buffer = buffer;
     mh->nbytes = nbytes;
     mh->rank = rank;
     mh->peer = comm_peer_from_displacement(displacement);
-    mh->mem_reg = mp_register(buffer, nbytes);
+    mp_register(buffer, nbytes, &mh->mem_reg);
     assert(mh->mem_reg);
   } else {
     mh->gdsync = false;
@@ -251,6 +268,7 @@ MsgHandle *comm_declare_strided_send_displaced(void *buffer, const int displacem
   int tag = comm_rank();
   MsgHandle *mh = (MsgHandle *)safe_malloc(sizeof(MsgHandle));
   if (comm_gdsync_enabled()) {
+		BUFDBG();
     mh->gdsync = true;
     mh->type = MsgHandle_s::TYPE_STRIDED_SEND;
     mh->buffer = buffer;
@@ -261,7 +279,7 @@ MsgHandle *comm_declare_strided_send_displaced(void *buffer, const int displacem
     mh->rank = rank;
     mh->peer = comm_peer_from_displacement(displacement);
     assert(blksize <= stride);
-    mh->mem_reg = mp_register(buffer, stride*nblocks);
+    mp_register(buffer, stride*nblocks, &mh->mem_reg);
     assert(mh->mem_reg);
   } else {
     mh->gdsync = false;
@@ -287,6 +305,7 @@ MsgHandle *comm_declare_strided_receive_displaced(void *buffer, const int displa
   int tag = rank;
   MsgHandle *mh = (MsgHandle *)safe_malloc(sizeof(MsgHandle));
   if (comm_gdsync_enabled()) {
+		BUFDBG();
     mh->gdsync = true;
     mh->type = MsgHandle_s::TYPE_STRIDED_RECV;
     mh->buffer = buffer;
@@ -297,7 +316,7 @@ MsgHandle *comm_declare_strided_receive_displaced(void *buffer, const int displa
     mh->rank = rank;
     mh->peer = comm_peer_from_displacement(displacement);
     assert(blksize <= stride);
-    mh->mem_reg = mp_register(buffer, stride*nblocks);
+    mp_register(buffer, stride*nblocks, &mh->mem_reg);
     assert(mh->mem_reg);
   } else {
     // create a new strided MPI type
@@ -311,6 +330,10 @@ MsgHandle *comm_declare_strided_receive_displaced(void *buffer, const int displa
 
 void comm_free(MsgHandle *mh)
 {
+  if (mh->gdsync) {
+		mp_deregister(&mh->mem_reg);
+	}
+	memset(mh, 0, sizeof(mh));
   host_free(mh);
 }
 
@@ -320,17 +343,19 @@ void comm_gdsync_start(MsgHandle *mh, cudaStream_t stream)
 	int ret = 0;
 
   assert(mh->gdsync);
+	
+	if (getVerbosity() == QUDA_DEBUG_VERBOSE) printfQuda("[%d] here %s:%d\n", comm_rank(), __FUNCTION__, __LINE__);
 
   switch(mh->type) {
   case MsgHandle_s::TYPE_SEND:
-    ret = mp_isend_on_stream(mh->buffer, mh->nbytes, mh->peer, mh->mem_reg, &mh->req, stream);
-		if (ret)
+    ret = mp_isend_on_stream(mh->buffer, mh->nbytes, mh->peer, &mh->mem_reg, &mh->req, stream);
+    if (ret)
 			errorQuda("error in isend_on_stream %s\n", __FUNCTION__);
     break;
   case MsgHandle_s::TYPE_RECV:
     assert(!stream);
-    ret = mp_irecv(mh->buffer, mh->nbytes, mh->peer, mh->mem_reg, &mh->req);
-		if (ret)
+    ret = mp_irecv(mh->buffer, mh->nbytes, mh->peer, &mh->mem_reg, &mh->req);
+    if (ret)
 			errorQuda("error in irecv %s\n", __FUNCTION__);
     break;
   case MsgHandle_s::TYPE_STRIDED_SEND:
@@ -341,7 +366,7 @@ void comm_gdsync_start(MsgHandle *mh, cudaStream_t stream)
         v[i].iov_len = mh->blksize;
       }
       assert(stream);
-      ret = mp_isendv_on_stream(v, mh->nblocks, mh->peer, mh->mem_reg, &mh->req, stream);
+      ret = mp_isendv_on_stream(v, mh->nblocks, mh->peer, &mh->mem_reg, &mh->req, stream);
       if (ret)
         errorQuda("error in isendv_on_stream %s\n", __FUNCTION__);
     }
@@ -354,7 +379,7 @@ void comm_gdsync_start(MsgHandle *mh, cudaStream_t stream)
         v[i].iov_len = mh->blksize;
       }
       assert(!stream);
-      ret = mp_irecvv(v, mh->nblocks, mh->peer, mh->mem_reg, &mh->req);
+      ret = mp_irecvv(v, mh->nblocks, mh->peer, &mh->mem_reg, &mh->req);
       if (ret)
         errorQuda("error in irecvv %s\n", __FUNCTION__);
     }
@@ -386,6 +411,8 @@ void comm_start_on_stream(MsgHandle *mh, cudaStream_t stream)
 
 void comm_wait_on_stream(MsgHandle *mh, cudaStream_t stream)
 {
+	if (getVerbosity() == QUDA_DEBUG_VERBOSE) printfQuda("[%d] here %s:%d\n", comm_rank(), __FUNCTION__, __LINE__);
+
   if (mh->gdsync) {
     int ret = mp_wait_on_stream(&mh->req, stream);
     if (ret != SUCCESS)
@@ -398,6 +425,8 @@ void comm_wait_on_stream(MsgHandle *mh, cudaStream_t stream)
 
 void comm_wait(MsgHandle *mh)
 {
+	if (getVerbosity() == QUDA_DEBUG_VERBOSE) printfQuda("[%d] here %s:%d\n", comm_rank(), __FUNCTION__, __LINE__);
+
   if (mh->gdsync) {
     int ret = mp_wait(&mh->req);
     if (ret != SUCCESS)

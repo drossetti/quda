@@ -47,18 +47,21 @@ extern float fat_link_max;
 
 void initComms(int argc, char **argv, const int *commDims)
 {
+  fprintf(stderr, "in initComms\n"); fflush(stderr);
 #if defined(QMP_COMMS)
   QMP_thread_level_t tl;
+  fprintf(stderr, "before QMP_init\n"); fflush(stderr);
   QMP_init_msg_passing(&argc, &argv, QMP_THREAD_SINGLE, &tl);
 
   // FIXME? - tests crash without this
   QMP_declare_logical_topology(commDims, 4);
 
 #elif defined(MPI_COMMS)
-  MPI_Init(&argc, &argv);
+   MPI_Init(&argc, &argv);
 #endif
   initCommsGridQuda(4, commDims, NULL, NULL);
   initRand();
+  fprintf(stderr, "leaving initComms\n"); fflush(stderr);
 }
 
 

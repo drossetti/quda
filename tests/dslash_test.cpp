@@ -247,7 +247,7 @@ void init(int argc, char **argv) {
 
   }
 
-  setVerbosity(QUDA_VERBOSE);
+  setVerbosity(QUDA_DEBUG_VERBOSE); //QUDA_VERBOSE);
 
   // construct input fields
   for (int dir = 0; dir < 4; dir++) hostGauge[dir] = malloc(V*gaugeSiteSize*gauge_param.cpu_prec);

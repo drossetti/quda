@@ -794,23 +794,24 @@ struct DslashFusedGPUComms : DslashPolicyImp {
   }
 };
 
+
+struct DslashGPUSyncComms : DslashPolicyImp {
+  void operator()(DslashCuda &dslash, cudaColorSpinorField* inputSpinor, const size_t regSize, const int parity, const int dagger, 
+		  const int volume, const int *faceVolumeCB, TimeProfile &profile) {
+
+		if (getVerbosity() == QUDA_DEBUG_VERBOSE) printfQuda("[%c] here %s:%d\n", comm_rank(), __FUNCTION__, __LINE__);
+
 #ifdef GDSYNC_COMMS
 #if defined(GPU_COMMS) && defined(MULTI_GPU)
 #else 
     errorQuda("GPU_COMMS && MULTI_GPU must be defined\n");
 #endif // GPU_COMMS
 
-struct DslashGPUSyncComms : DslashPolicyImp {
-  void operator()(DslashCuda &dslash, cudaColorSpinorField* inputSpinor, const size_t regSize, const int parity, const int dagger, 
-		  const int volume, const int *faceVolumeCB, TimeProfile &profile) {
-
     using namespace dslash;
 
     profile.Start(QUDA_PROFILE_TOTAL);
   
-#ifdef GDSYNC_COMMS
-        comm_enable_gdsync(true);
-#endif
+		comm_enable_gdsync(true);
 
     dslashParam.parity = parity;
     dslashParam.kernel_type = INTERIOR_KERNEL;
@@ -835,6 +836,8 @@ struct DslashGPUSyncComms : DslashPolicyImp {
     inputSpinor->createComms(dslash.Nface()/2);	
     DslashCommsPattern pattern(dslashParam.commDim);
     inputSpinor->streamInit(streams);
+
+		if (getVerbosity() == QUDA_DEBUG_VERBOSE) printfQuda("[%d] here %s:%d\n", comm_rank(), __FUNCTION__, __LINE__);
 
     for(int i=3; i>=0; i--){
 			if(!dslashParam.commDim[i]) continue;
@@ -870,6 +873,7 @@ struct DslashGPUSyncComms : DslashPolicyImp {
 			dslashParam.kernel_type = static_cast<KernelType>(i);
       dslashParam.threads = dslash.Nface()*faceVolumeCB[i]; // updating 2 or 6 faces
       // all faces use this stream
+			// WARNING: this has a race condition for border sites!! need to use a single stream
       PROFILE(dslash.apply(streams[i]), profile, QUDA_PROFILE_DSLASH_KERNEL);
     }
 
@@ -891,15 +895,16 @@ struct DslashGPUSyncComms : DslashPolicyImp {
     }
     cudaStreamSynchronize(streams[interiorIndex]);
 
-#ifdef GDSYNC_COMMS
     comm_enable_gdsync(false);
-#endif
+
+		if (getVerbosity() == QUDA_DEBUG_VERBOSE) printfQuda("here %s:%d\n", __FUNCTION__, __LINE__);
 
     inputSpinor->bufferIndex = (1 - inputSpinor->bufferIndex);
     profile.Stop(QUDA_PROFILE_TOTAL);
+#endif
   }
 };
-#endif
+
 
 struct DslashFaceBuffer : DslashPolicyImp {
 
@@ -1222,6 +1227,9 @@ struct DslashFactory {
       break;
     case QUDA_DSLASH_NC:
       result = new DslashNC;
+      break;
+    case QUDA_GDSYNC_COMMS_DSLASH:
+      result = new DslashGPUSyncComms;
       break;
     default:
       errorQuda("Dslash policy %d not recognized",dslashPolicy);
