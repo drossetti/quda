@@ -319,13 +319,13 @@ if(NOT QUDA_FERMI_DBLE_TEX)
   add_definitions(-DFERMI_NO_DBLE_TEX)
 endif(NOT QUDA_FERMI_DBLE_TEX)
 
-if(GPU_DIRECT)
+if(QUDA_GPU_DIRECT)
   add_definitions(-DGPU_DIRECT)
-endif(GPU_DIRECT)
+endif(QUDA_GPU_DIRECT)
 
-if(GPU_COMMS)
+if(QUDA_GPU_COMMS)
   add_definitions(-DGPU_COMMS)
-endif(GPU_COMMS)
+endif(QUDA_GPU_COMMS)
 
 if(QUDA_INTERFACE_QDP)
   add_definitions(-DBUILD_QDP_INTERFACE)
