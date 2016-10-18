@@ -388,6 +388,10 @@ if(GPU_DIRECT)
   add_definitions(-DGPU_DIRECT)
 endif(GPU_DIRECT)
 
+if(QUDA_GPU_COMMS)
+  add_definitions(-DGPU_COMMS)
+endif(QUDA_GPU_COMMS)
+
 if(QUDA_INTERFACE_QDP)
   add_definitions(-DBUILD_QDP_INTERFACE)
 endif(QUDA_INTERFACE_QDP)
