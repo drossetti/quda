@@ -1796,7 +1796,7 @@ namespace quda {
       } else {
 	comm_wait(mh_recv_back[bufferIndex][nFace-1][dim]);
 #ifdef GPU_COMMS
-	comm_wait(mh_recv_norm_back[bufferIndex][nFace-1][dim]);
+	if (precision == QUDA_HALF_PRECISION) comm_wait(mh_recv_norm_back[bufferIndex][nFace-1][dim]);
 #endif
       }
 
