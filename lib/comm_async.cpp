@@ -168,6 +168,11 @@ int async_init(MPI_Comm comm)
 {
     int i, j;
 
+    if (async_initialized) {
+        async_err("async_init called twice\n");
+        return 1;
+    }
+
     MPI_Comm_size(comm, &async_size);
     MPI_Comm_rank(comm, &async_rank);
 
@@ -189,7 +194,18 @@ int async_init(MPI_Comm comm)
     assert(async_size-1 == n_peers);
     DBG("n_peers=%d\n", n_peers);
 
-    MP_CHECK(mp_init(comm, peers, n_peers, MP_INIT_DEFAULT));
+    int mp_ver = 0;
+    MP_CHECK(mp_query_param(MP_PARAM_VERSION, &mp_ver));
+    if (!MP_API_VERSION_COMPATIBLE(mp_ver)) {
+        async_err("incompatible libmp version\n");
+        return 1;
+    }
+
+    MP_CHECK(mp_init(comm, peers, n_peers
+#if MP_API_MAJOR_VERSION > 1
+                     , MP_INIT_DEFAULT
+#endif
+                     ));
 
     // init ready stuff
     size_t table_size = MAX(sizeof(*ready_table) * async_size, PAGE_SIZE);
