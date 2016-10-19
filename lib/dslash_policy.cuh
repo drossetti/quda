@@ -580,6 +580,107 @@ struct DslashGPUComms : DslashPolicyImp {
   }
 };
 
+struct DslashGPUAsyncComms : DslashPolicyImp {
+  void operator()(DslashCuda &dslash, cudaColorSpinorField* inputSpinor, const size_t regSize, const int parity, const int dagger, 
+		  const int volume, const int *faceVolumeCB, TimeProfile &profile) {
+#ifdef GPU_COMMS
+    using namespace dslash;
+
+    profile.TPSTART(QUDA_PROFILE_TOTAL);
+
+  
+    dslashParam.parity = parity;
+    dslashParam.kernel_type = INTERIOR_KERNEL;
+    dslashParam.threads = volume;
+
+#ifdef MULTI_GPU
+    // Record the start of the dslash if doing communication in T and not kernel packing
+    // if (dslashParam.commDim[3] && !(getKernelPackT() || getTwistPack())) 
+    //   {
+    //           PROFILE(cudaEventRecord(dslashStart, streams[Nstream-1]), 
+    //             profile, QUDA_PROFILE_EVENT_RECORD);
+    //   }
+
+    inputSpinor->allocateGhostBuffer(dslash.Nface()/2);
+    inputSpinor->createComms(dslash.Nface()/2);
+    DslashCommsPattern pattern(dslashParam.commDim);
+    inputSpinor->streamInit(streams);
+
+    const int packIndex = Nstream-1; //8
+    const int exteriorIndex = Nstream-1;
+    const int bulkIndex = Nstream-1;
+
+    for(int i=3; i>=0; i--){
+    if(!dslashParam.commDim[i]) continue;
+      for(int dir=1; dir>=0; dir--){
+          PROFILE(inputSpinor->recvStart(dslash.Nface()/2, 2*i+dir, dagger, &streams[exteriorIndex]), profile, QUDA_PROFILE_COMMS_START);
+      }
+    }
+    // bool pack = false;
+    // for (int i=3; i>=0; i--) 
+    //   if (dslashParam.commDim[i] && (i!=3 || getKernelPackT() || getTwistPack())) 
+    //     { pack = true; break; }
+
+    // Initialize pack from source spinor
+    PROFILE(inputSpinor->pack(dslash.Nface()/2, 1-parity, dagger, packIndex, false, twist_a, twist_b),
+            profile, QUDA_PROFILE_PACK_KERNEL);
+
+    // if (pack) {
+    //   // Record the end of the packing
+    //   PROFILE(cudaEventRecord(packEnd[0], streams[packIndex]), 
+    //           profile, QUDA_PROFILE_EVENT_RECORD);
+    // }
+
+
+    // bool pack_event = false;
+    for (int i=3; i>=0; i--) {
+      if (!dslashParam.commDim[i]) continue;
+
+      // if ((i!=3 || getKernelPackT() || getTwistPack()) && !pack_event) {
+      //   cudaEventSynchronize(packEnd[0]);
+      //   pack_event = true;
+      // } else {
+      //   cudaEventSynchronize(dslashStart);
+      // }
+
+      for (int dir=1; dir>=0; dir--) {	
+        //printfQuda("dim=%d dir=%d\n", i, dir);
+        PROFILE(inputSpinor->sendStart(dslash.Nface()/2, 2*i+dir, dagger, &streams[packIndex]), profile, QUDA_PROFILE_COMMS_START);
+        // PROFILE(inputSpinor->sendStart(dslash.Nface()/2, 2*i+dir, dagger), profile, QUDA_PROFILE_COMMS_START);
+        // inputSpinor->commsQuery(dslash.Nface()/2, 2*i+dir, dagger); // do a comms query to ensure MPI has begun
+      }
+    }
+
+#endif // MULTI_GPU
+
+    PROFILE(dslash.apply(streams[bulkIndex]), profile, QUDA_PROFILE_DSLASH_KERNEL);
+    if (aux_worker) aux_worker->apply(streams[bulkIndex]);
+
+#ifdef MULTI_GPU 
+    // all exterior calculations go on same stream
+    for (int i=3; i>=0; i--) {
+      if (!dslashParam.commDim[i]) continue;
+
+      for (int dir=1; dir>=0; dir--) {
+
+        PROFILE(inputSpinor->commsWait(dslash.Nface()/2, 2*i+dir, dagger, &streams[exteriorIndex]), 
+                profile, QUDA_PROFILE_COMMS_QUERY);
+      } // dir=0,1
+
+      dslashParam.kernel_type = static_cast<KernelType>(i);
+      dslashParam.threads = dslash.Nface()*faceVolumeCB[i]; // updating 2 or 6 faces
+      // all faces use this stream
+      PROFILE(dslash.apply(streams[exteriorIndex]), profile, QUDA_PROFILE_DSLASH_KERNEL);
+    }
+    inputSpinor->bufferIndex = (1 - inputSpinor->bufferIndex);
+#endif // MULTI_GPU
+    profile.TPSTOP(QUDA_PROFILE_TOTAL);
+#else 
+    errorQuda("GPU_COMMS has not been built\n");
+#endif // GPU_COMMS
+  }
+};
+
 
 struct DslashFusedGPUComms : DslashPolicyImp {
   void operator()(DslashCuda &dslash, cudaColorSpinorField* inputSpinor, const size_t regSize, const int parity, const int dagger, 
@@ -1041,6 +1142,9 @@ struct DslashFactory {
       break;
     case QUDA_DSLASH_NC:
       result = new DslashNC;
+      break;
+    case QUDA_GPU_ASYNC_COMMS_DSLASH:
+      result = new DslashGPUAsyncComms;
       break;
     default:
       errorQuda("Dslash policy %d not recognized",dslashPolicy);

@@ -597,8 +597,9 @@ double dslashCUDA(int niter) {
       }
     }
   }
-    
+
   cudaEventRecord(end, 0);
+  // comm_flush();
   cudaEventSynchronize(end);
   float runTime;
   cudaEventElapsedTime(&runTime, start, end);

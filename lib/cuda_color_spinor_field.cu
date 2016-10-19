@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 #include <typeinfo>
 
 #include <color_spinor_field.h>
@@ -1538,20 +1539,23 @@ namespace quda {
     int dim = dir/2;
     if (!commDimPartitioned(dim)) return;
 
+    //fprintf(stderr, "%s dir=%d stream_p=%p\n", __func__, dir, stream_p);
+    cudaStream_t stream = stream_p ? *stream_p : NULL;
+
     if (dir%2 == 0) { // sending backwards
       if (comm_peer2peer_enabled(1,dim)) {
 	// receive from the processor in the +1 direction
 	comm_start(mh_recv_p2p_fwd[dim]);
       } else {
         // Prepost receive
-        comm_start(mh_recv_fwd[bufferIndex][nFace-1][dim]);
+        comm_start_on_stream(mh_recv_fwd[bufferIndex][nFace-1][dim], stream);
       }
     } else { //sending forwards
       // Prepost receive
       if (comm_peer2peer_enabled(0,dim)) {
-	comm_start(mh_recv_p2p_back[dim]);
+        comm_start(mh_recv_p2p_back[dim]);
       } else {
-        comm_start(mh_recv_back[bufferIndex][nFace-1][dim]);
+        comm_start_on_stream(mh_recv_back[bufferIndex][nFace-1][dim], stream);
       }
     }
   }
@@ -1563,13 +1567,16 @@ namespace quda {
     int dir = d%2;
     if (!commDimPartitioned(dim)) return;
 
+    //fprintf(stderr, "%s dir=%d stream_p=%p\n", __func__, dir, stream_p);
+
     int Nvec = (nSpin == 1 || precision == QUDA_DOUBLE_PRECISION) ? 2 : 4;
     int Nint = (nColor * nSpin * 2)/(nSpin == 4 ? 2 : 1); // (spin proj.) degrees of freedom
     int Npad = Nint/Nvec;
 
     if (!comm_peer2peer_enabled(dir,dim)) {
-      if (dir == 0) comm_start(mh_send_back[bufferIndex][nFace-1][2*dim+dagger]);
-      else comm_start(mh_send_fwd[bufferIndex][nFace-1][2*dim+dagger]);
+      cudaStream_t stream = stream_p ? *stream_p : NULL;
+      if (dir == 0) comm_start_on_stream(mh_send_back[bufferIndex][nFace-1][2*dim+dagger], stream);
+      else comm_start_on_stream(mh_send_fwd[bufferIndex][nFace-1][2*dim+dagger], stream);
     } else { // doing peer-to-peer
       cudaStream_t *copy_stream = (stream_p) ? stream_p : stream + d;
 
@@ -1768,15 +1775,18 @@ namespace quda {
     int dim = dir / 2;
     if (!commDimPartitioned(dim)) return;
 
+    //fprintf(stderr, "%s dir=%d stream_p=%p\n", __func__, dir, stream_p);
+    cudaStream_t stream = stream_p ? *stream_p : NULL;
+
     if (dir%2==0) {
 
       if (comm_peer2peer_enabled(1,dim)) {
 	comm_wait(mh_recv_p2p_fwd[dim]);
 	cudaEventSynchronize(ipcRemoteCopyEvent[1][dim]);
       } else {
-	comm_wait(mh_recv_fwd[bufferIndex][nFace-1][dim]);
+        comm_wait_on_stream(mh_recv_fwd[bufferIndex][nFace-1][dim], stream);
 #ifdef GPU_COMMS
-	if (precision == QUDA_HALF_PRECISION) comm_wait(mh_recv_norm_fwd[bufferIndex][nFace-1][dim]);
+        if (precision == QUDA_HALF_PRECISION) comm_wait_on_stream(mh_recv_norm_fwd[bufferIndex][nFace-1][dim], stream);
 #endif
       }
 
@@ -1784,9 +1794,9 @@ namespace quda {
 	comm_wait(mh_send_p2p_back[dim]);
 	cudaEventSynchronize(ipcCopyEvent[0][dim]);
       } else {
-	comm_wait(mh_send_back[bufferIndex][nFace-1][2*dim+dagger]);
+        comm_wait_on_stream(mh_send_back[bufferIndex][nFace-1][2*dim+dagger], stream);
 #ifdef GPU_COMMS
-	if (precision == QUDA_HALF_PRECISION) comm_wait(mh_send_norm_back[bufferIndex][nFace-1][2*dim+dagger]);
+        if (precision == QUDA_HALF_PRECISION) comm_wait_on_stream(mh_send_norm_back[bufferIndex][nFace-1][2*dim+dagger], stream);
 #endif
       }
     } else {
@@ -1794,9 +1804,9 @@ namespace quda {
 	comm_wait(mh_recv_p2p_back[dim]);
 	cudaEventSynchronize(ipcRemoteCopyEvent[0][dim]);
       } else {
-	comm_wait(mh_recv_back[bufferIndex][nFace-1][dim]);
+        comm_wait_on_stream(mh_recv_back[bufferIndex][nFace-1][dim], stream);
 #ifdef GPU_COMMS
-	if (precision == QUDA_HALF_PRECISION) comm_wait(mh_recv_norm_back[bufferIndex][nFace-1][dim]);
+        if (precision == QUDA_HALF_PRECISION) comm_wait_on_stream(mh_recv_norm_back[bufferIndex][nFace-1][dim], stream);
 #endif
       }
 
@@ -1804,9 +1814,9 @@ namespace quda {
 	comm_wait(mh_send_p2p_fwd[dim]);
 	cudaEventSynchronize(ipcCopyEvent[1][dim]);
       } else {
-	comm_wait(mh_send_fwd[bufferIndex][nFace-1][2*dim+dagger]);
+        comm_wait_on_stream(mh_send_fwd[bufferIndex][nFace-1][2*dim+dagger], stream);
 #ifdef GPU_COMMS
-	if (precision == QUDA_HALF_PRECISION) comm_wait(mh_send_norm_fwd[bufferIndex][nFace-1][2*dim+dagger]);
+        if (precision == QUDA_HALF_PRECISION) comm_wait_on_stream(mh_send_norm_fwd[bufferIndex][nFace-1][2*dim+dagger], stream);
 #endif
       }
     }

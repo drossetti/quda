@@ -53,6 +53,7 @@ namespace quda {
 
   // declare the dslash events
 #include <dslash_events.cuh>
+#include <typeinfo>
 
   using namespace wilson;
 
@@ -149,11 +150,23 @@ namespace quda {
     }
 
 #ifndef GPU_COMMS
+    printfQuda("regular DSlash\n");
     DslashPolicyTune dslash_policy(*dslash, const_cast<cudaColorSpinorField*>(in), regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
     dslash_policy.apply(0);
 #else
-    DslashPolicyImp* dslashImp = DslashFactory::create(QUDA_GPU_COMMS_DSLASH);
+    DslashPolicyImp* dslashImp;
+    if (comm_use_async()) {
+        comm_enable_async(true);
+        dslashImp = DslashFactory::create(QUDA_GPU_ASYNC_COMMS_DSLASH);
+    } else {
+        dslashImp = DslashFactory::create(QUDA_GPU_COMMS_DSLASH);
+    }
     (*dslashImp)(*dslash, const_cast<cudaColorSpinorField*>(in), regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
+    if (comm_use_async()) {
+        //comm_flush();
+        comm_progress();
+        comm_enable_async(false);
+    }
     delete dslashImp;
 #endif
 
