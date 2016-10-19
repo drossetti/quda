@@ -136,6 +136,12 @@ set(QUDA_INTERFACE_NVTX OFF CACHE BOOL "add nvtx markup to interface calls for t
 # GPUdirect options
 set(QUDA_GPU_DIRECT ON CACHE BOOL "set to 'yes' to allow GPU and NIC to shared pinned buffers")
 
+# GPUDirect Async options
+set(QUDA_GPU_COMMS OFF CACHE BOOL "set to 'yes' to allow GPU and NIC to communicate using libMP")
+set(QUDA_GPU_ASYNC OFF CACHE BOOL "set to 'yes' to allow GPU and NIC to communicate using libMP in Async mode")
+# Locations for ASYNC
+set(QUDA_GPU_ASYNC_HOME "" CACHE PATH "path to GPUDirect Async includes and libraries")
+
 # Packing option
 set(QUDA_DEVICE_PACK ON CACHE BOOL "set to 'yes' to enable packing and unpacking on the device")
 
@@ -157,6 +163,8 @@ mark_as_advanced(QUDA_MPI_NVTX)
 mark_as_advanced(QUDA_INTERFACE_NVTX)
 
 mark_as_advanced(QUDA_GPU_DIRECT)
+mark_as_advanced(QUDA_GPU_COMMS)
+mark_as_advanced(QUDA_GPU_ASYNC)
 
 mark_as_advanced(QUDA_DEVICE_PACK)
 
@@ -207,6 +215,7 @@ if(QUDA_MPI AND QUDA_QMP)
 endif()
 
 if(QUDA_MPI)
+  message("QUDA_MPI enabled")
   add_definitions(-DMPI_COMMS)
   set(COMM_OBJS comm_mpi.cpp)
   include_directories(SYSTEM ${MPI_CXX_INCLUDE_PATH})
@@ -391,6 +400,17 @@ endif(GPU_DIRECT)
 if(QUDA_GPU_COMMS)
   add_definitions(-DGPU_COMMS)
 endif(QUDA_GPU_COMMS)
+
+if(QUDA_GPU_ASYNC)
+  FIND_LIBRARY(GDSYNC_LIB  gdsync ${QUDA_GPU_ASYNC_HOME}/lib)
+  FIND_LIBRARY(GDRCOPY_LIB gdrapi ${QUDA_GPU_ASYNC_HOME}/lib)
+  FIND_LIBRARY(MP_LIB      mp     ${QUDA_GPU_ASYNC_HOME}/lib)
+  add_definitions(-DGPU_ASYNC)
+  include_directories(SYSTEM ${QUDA_GPU_ASYNC_HOME}/include)
+  LIST(APPEND COMM_OBJS comm_async.cpp)
+  LIST(APPEND QUDA_LIBS ${GDSYNC_LIB} ${GDRCOPY_LIB} ${MP_LIB})
+#  LIST(APPEND QUDA_LIBS -lmp -lgdsync -lgdrapi )
+endif(QUDA_GPU_ASYNC)
 
 if(QUDA_INTERFACE_QDP)
   add_definitions(-DBUILD_QDP_INTERFACE)

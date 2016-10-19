@@ -97,7 +97,8 @@ extern "C" {
     QUDA_FUSED_DSLASH_ASYNC,
     QUDA_ZERO_COPY_DSLASH,
     QUDA_FUSED_ZERO_COPY_DSLASH,
-    QUDA_DSLASH_NC
+    QUDA_DSLASH_NC,
+    QUDA_GPU_ASYNC_COMMS_DSLASH
   } QudaDslashPolicy;
 
   typedef enum QudaInverterType_s {

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 #include <typeinfo>
 
 #include <color_spinor_field.h>
@@ -1136,25 +1137,28 @@ namespace quda {
     int dim = dir/2;
     if (!commDimPartitioned(dim)) return;
 
+    //fprintf(stderr, "%s dir=%d stream_p=%p\n", __func__, dir, stream_p);
+    cudaStream_t stream = stream_p ? *stream_p : NULL;
+
     if (dir%2 == 0) { // sending backwards
       if (comm_peer2peer_enabled(1,dim)) {
-	// receive from the processor in the +1 direction
-	comm_start(mh_recv_p2p_fwd[bufferIndex][dim]);
+        // receive from the processor in the +1 direction
+        comm_start(mh_recv_p2p_fwd[bufferIndex][dim]);
       } else if (gdr) {
         // Prepost receive
-        comm_start(mh_recv_rdma_fwd[bufferIndex][dim]);
+        comm_start_on_stream(mh_recv_rdma_fwd[bufferIndex][dim], stream);
       } else {
         // Prepost receive
-        comm_start(mh_recv_fwd[bufferIndex][dim]);
+        comm_start_on_stream(mh_recv_fwd[bufferIndex][dim], stream);
       }
     } else { //sending forwards
       // Prepost receive
       if (comm_peer2peer_enabled(0,dim)) {
-	comm_start(mh_recv_p2p_back[bufferIndex][dim]);
+        comm_start(mh_recv_p2p_back[bufferIndex][dim]);
       } else if (gdr) {
-        comm_start(mh_recv_rdma_back[bufferIndex][dim]);
+        comm_start_on_stream(mh_recv_rdma_back[bufferIndex][dim], stream);
       } else {
-        comm_start(mh_recv_back[bufferIndex][dim]);
+        comm_start_on_stream(mh_recv_back[bufferIndex][dim], stream);
       }
     }
   }
@@ -1166,17 +1170,21 @@ namespace quda {
     int dir = d%2;
     if (!commDimPartitioned(dim)) return;
 
+    //fprintf(stderr, "%s dir=%d stream_p=%p\n", __func__, dir, stream_p);
+
     int Nvec = (nSpin == 1 || precision == QUDA_DOUBLE_PRECISION) ? 2 : 4;
     int Nint = (nColor * nSpin * 2)/(nSpin == 4 ? 2 : 1); // (spin proj.) degrees of freedom
     int Npad = Nint/Nvec;
 
+    cudaStream_t stream = stream_p ? *stream_p : NULL;
+
     if (!comm_peer2peer_enabled(dir,dim)) {
       if (dir == 0)
-	if (gdr) comm_start(mh_send_rdma_back[bufferIndex][dim]);
-	else comm_start(mh_send_back[bufferIndex][dim]);
+        if (gdr) comm_start_on_stream(mh_send_rdma_back[bufferIndex][dim], stream);
+        else comm_start_on_stream(mh_send_back[bufferIndex][dim], stream);
       else
-	if (gdr) comm_start(mh_send_rdma_fwd[bufferIndex][dim]);
-	else comm_start(mh_send_fwd[bufferIndex][dim]);
+        if (gdr) comm_start_on_stream(mh_send_rdma_fwd[bufferIndex][dim], stream);
+        else comm_start_on_stream(mh_send_fwd[bufferIndex][dim], stream);
     } else { // doing peer-to-peer
       cudaStream_t *copy_stream = (stream_p) ? stream_p : stream + d;
 
@@ -1362,24 +1370,27 @@ namespace quda {
     int dim = dir / 2;
     if (!commDimPartitioned(dim)) return;
 
+    //fprintf(stderr, "%s dir=%d stream_p=%p\n", __func__, dir, stream_p);
+    cudaStream_t stream = stream_p ? *stream_p : NULL;
+
     if (dir%2==0) {
 
       if (comm_peer2peer_enabled(1,dim)) {
 	comm_wait(mh_recv_p2p_fwd[bufferIndex][dim]);
 	cudaEventSynchronize(ipcRemoteCopyEvent[bufferIndex][1][dim]);
       } else if (gdr) {
-	comm_wait(mh_recv_rdma_fwd[bufferIndex][dim]);
+        comm_wait_on_stream(mh_recv_rdma_fwd[bufferIndex][dim], stream);
       } else {
-	comm_wait(mh_recv_fwd[bufferIndex][dim]);
+        comm_wait_on_stream(mh_recv_fwd[bufferIndex][dim], stream);
       }
 
       if (comm_peer2peer_enabled(0,dim)) {
 	comm_wait(mh_send_p2p_back[bufferIndex][dim]);
 	cudaEventSynchronize(ipcCopyEvent[bufferIndex][0][dim]);
       } else if (gdr) {
-	comm_wait(mh_send_rdma_back[bufferIndex][dim]);
+        comm_wait_on_stream(mh_send_rdma_back[bufferIndex][dim], stream);
       } else {
-	comm_wait(mh_send_back[bufferIndex][dim]);
+        comm_wait_on_stream(mh_send_back[bufferIndex][dim], stream);
       }
     } else {
       if (comm_peer2peer_enabled(0,dim)) {
@@ -1388,7 +1399,7 @@ namespace quda {
       } else if (gdr) {
 	comm_wait(mh_recv_rdma_back[bufferIndex][dim]);
       } else {
-	comm_wait(mh_recv_back[bufferIndex][dim]);
+        comm_wait_on_stream(mh_recv_back[bufferIndex][dim], stream);
       }
 
       if (comm_peer2peer_enabled(1,dim)) {
@@ -1397,7 +1408,7 @@ namespace quda {
       } else if (gdr) {
 	comm_wait(mh_send_rdma_fwd[bufferIndex][dim]);
       } else {
-	comm_wait(mh_send_fwd[bufferIndex][dim]);
+        comm_wait_on_stream(mh_send_fwd[bufferIndex][dim], stream);
       }
     }
 

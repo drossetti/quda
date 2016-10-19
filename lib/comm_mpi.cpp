@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <mpi.h>
 #include <csignal>
 #include <quda_internal.h>
 #include <comm_quda.h>
 
+#include "comm_async.h"
 
 #define MPI_CHECK(mpi_call) do {                    \
   int status = mpi_call;                            \
@@ -17,6 +19,14 @@
     errorQuda("(MPI) %s", err_string);              \
   }                                                 \
 } while (0)
+
+
+typedef enum MsgType {
+  MSG_NONE,
+  MSG_RECV,
+  MSG_SEND,
+  MSG_NUM_TYPES
+} MsgType_t;
 
 
 struct MsgHandle_s {
@@ -37,6 +47,18 @@ struct MsgHandle_s {
      determine whether we need to free the datatype or not.
    */
   bool custom;
+
+  /**
+     Async fields
+   */
+  bool     is_async;
+  void    *buffer;
+  size_t   nbytes;
+  int      rank;
+  async_reg_t reg;
+  // req is also buffered and tracked down in async
+  async_request_t req;
+  MsgType_t   type;
 };
 
 static int rank = -1;
@@ -47,6 +69,8 @@ static bool peer2peer_enabled[2][4] = { {false,false,false,false},
 static bool peer2peer_init = false;
 
 static char partition_string[16] = ",comm=";
+
+static bool async_enabled = false;
 
 void comm_init(int ndim, const int *dims, QudaCommsMap rank_from_coords, void *map_data)
 {
@@ -111,6 +135,17 @@ void comm_init(int ndim, const int *dims, QudaCommsMap rank_from_coords, void *m
   comm[3] = (comm_dim_partitioned(3) ? '1' : '0');
   comm[4] = '\0';
   strcat(partition_string, comm);
+
+  {
+    int dev_id = 0;
+    cudaError_t ret = cudaSuccess;
+    ret = cudaGetDevice(&dev_id);
+    printf("dev_id=%d ret=%d\n", dev_id, ret);
+    if (dev_id >= 0) {
+      cudaFree(0);
+      ASYNC_CHECK( async_init(MPI_COMM_WORLD) );
+    }
+  }
 }
 
 void comm_peer2peer_init(const char* hostname_recv_buf)
@@ -230,9 +265,23 @@ MsgHandle *comm_declare_send_displaced(void *buffer, const int displacement[], s
   tag = tag >= 0 ? tag : 2*pow(4*max_displacement,ndim) + tag;
 
   MsgHandle *mh = (MsgHandle *)safe_malloc(sizeof(MsgHandle));
-  MPI_CHECK( MPI_Send_init(buffer, nbytes, MPI_BYTE, rank, tag, MPI_COMM_WORLD, &(mh->request)) );
-  mh->custom = false;
 
+  //printf("%s mh=%p async_enabled=%d\n", __func__, mh, (int)async_enabled);
+
+  //if (async_enabled) {
+    //mh->is_async = true;
+    mh->buffer = buffer;
+    mh->nbytes = nbytes;
+    mh->rank = rank;
+    mh->req  = NULL;
+    mh->reg  = NULL;
+    mh->type = MSG_SEND;
+  //} else {
+    mh->is_async = false;
+    //mh->type = MSG_NONE;
+    MPI_CHECK( MPI_Send_init(buffer, nbytes, MPI_BYTE, rank, tag, MPI_COMM_WORLD, &(mh->request)) );
+    mh->custom = false;
+  //}
   return mh;
 }
 
@@ -253,9 +302,23 @@ MsgHandle *comm_declare_receive_displaced(void *buffer, const int displacement[]
   tag = tag >= 0 ? tag : 2*pow(4*max_displacement,ndim) + tag;
 
   MsgHandle *mh = (MsgHandle *)safe_malloc(sizeof(MsgHandle));
-  MPI_CHECK( MPI_Recv_init(buffer, nbytes, MPI_BYTE, rank, tag, MPI_COMM_WORLD, &(mh->request)) );
-  mh->custom = false;
 
+  //printf("%s mh=%p async_enabled=%d\n", __func__, mh, (int)async_enabled);
+
+  //if (async_enabled) {
+    //mh->is_async = true;
+    mh->buffer = buffer;
+    mh->nbytes = nbytes;
+    mh->rank = rank;
+    mh->req  = NULL;
+    mh->reg  = NULL;
+    mh->type = MSG_RECV;
+  //} else {
+    mh->is_async = false;
+    //mh->type = MSG_NONE;
+    MPI_CHECK( MPI_Recv_init(buffer, nbytes, MPI_BYTE, rank, tag, MPI_COMM_WORLD, &(mh->request)) );
+    mh->custom = false;
+  //}
   return mh;
 }
 
@@ -266,6 +329,8 @@ MsgHandle *comm_declare_receive_displaced(void *buffer, const int displacement[]
 MsgHandle *comm_declare_strided_send_displaced(void *buffer, const int displacement[],
 					       size_t blksize, int nblocks, size_t stride)
 {
+  assert (!async_enabled);
+
   Topology *topo = comm_default_topology();
   int ndim = comm_ndim(topo);
   check_displacement(displacement, ndim);
@@ -282,6 +347,10 @@ MsgHandle *comm_declare_strided_send_displaced(void *buffer, const int displacem
   MPI_CHECK( MPI_Type_vector(nblocks, blksize, stride, MPI_BYTE, &(mh->datatype)) );
   MPI_CHECK( MPI_Type_commit(&(mh->datatype)) );
   mh->custom = true;
+  mh->is_async = false;
+  mh->req  = NULL;
+  mh->reg  = NULL;
+  mh->type = MSG_NONE;
 
   MPI_CHECK( MPI_Send_init(buffer, 1, mh->datatype, rank, tag, MPI_COMM_WORLD, &(mh->request)) );
 
@@ -295,6 +364,8 @@ MsgHandle *comm_declare_strided_send_displaced(void *buffer, const int displacem
 MsgHandle *comm_declare_strided_receive_displaced(void *buffer, const int displacement[],
 						  size_t blksize, int nblocks, size_t stride)
 {
+  assert (!async_enabled);
+
   Topology *topo = comm_default_topology();
   int ndim = comm_ndim(topo);
   check_displacement(displacement,ndim);
@@ -311,6 +382,10 @@ MsgHandle *comm_declare_strided_receive_displaced(void *buffer, const int displa
   MPI_CHECK( MPI_Type_vector(nblocks, blksize, stride, MPI_BYTE, &(mh->datatype)) );
   MPI_CHECK( MPI_Type_commit(&(mh->datatype)) );
   mh->custom = true;
+  mh->is_async = false;
+  mh->req  = NULL;
+  mh->reg  = NULL;
+  mh->type = MSG_NONE;
 
   MPI_CHECK( MPI_Recv_init(buffer, 1, mh->datatype, rank, tag, MPI_COMM_WORLD, &(mh->request)) );
 
@@ -320,29 +395,106 @@ MsgHandle *comm_declare_strided_receive_displaced(void *buffer, const int displa
 
 void comm_free(MsgHandle *mh)
 {
+  if (mh->is_async) {
+    //TODO make sure we don't leak requests
+    //printf("leaking async mh=%p\n", mh);
+  }
+  // MPI req is always created, so let's free it
   MPI_CHECK(MPI_Request_free(&(mh->request)));
   if (mh->custom) MPI_CHECK(MPI_Type_free(&(mh->datatype)));
+
   host_free(mh);
+}
+
+
+static int comm_async_start(MsgHandle *mh, CUstream_st *stream)
+{
+  int ret = 0;
+  async_request_t tmp_req;
+  switch (mh->type) {
+  case MSG_SEND:
+    if (stream) {
+      ASYNC_CHECK( async_wait_ready_on_stream(mh->rank, stream) );
+      ret = async_isend_on_stream(mh->buffer, mh->nbytes, MPI_BYTE, &mh->reg, mh->rank, &mh->req, stream);
+    } else {
+      ret = async_isend(mh->buffer, mh->nbytes, MPI_BYTE, &mh->reg, mh->rank, &mh->req);
+    }
+    break;
+  case MSG_RECV:
+    if (stream) {
+      ret = async_send_ready_on_stream(mh->rank, &tmp_req, stream);
+      if (ret) {
+        errorQuda("error %d in send_ready_on_stream\n", ret);
+        break;
+      }
+    }
+    ret = async_irecv(mh->buffer, mh->nbytes, MPI_BYTE, &mh->reg, mh->rank, &mh->req);
+    break;
+  default:
+    errorQuda("unsupported MsgHandle type %d\n", mh->type);
+    ret = EINVAL;
+  }
+  return ret;
 }
 
 
 void comm_start(MsgHandle *mh)
 {
-  MPI_CHECK( MPI_Start(&(mh->request)) );
+  //fprintf(stderr, "%s\n", __func__);
+  comm_start_on_stream(mh, NULL);
+}
+
+
+void comm_start_on_stream(MsgHandle *mh, CUstream_st *stream)
+{
+  //fprintf(stderr, "%s mh=%p async_enabled=%d type=%d stream=%p\n", __func__, mh, (int)async_enabled, mh->type, stream);
+  if (async_enabled)
+    mh->is_async = true;
+
+  if (mh->is_async) {
+    ASYNC_CHECK( comm_async_start(mh, stream) );
+  } else {
+    MPI_CHECK( MPI_Start(&(mh->request)) );
+  }
+  //fprintf(stderr, "%s mh=%p done\n", __func__, mh);
 }
 
 
 void comm_wait(MsgHandle *mh)
 {
-  MPI_CHECK( MPI_Wait(&(mh->request), MPI_STATUS_IGNORE) );
+  //fprintf(stderr, "%s\n", __func__);
+  comm_wait_on_stream(mh, NULL);
+}
+
+
+void comm_wait_on_stream(MsgHandle *mh, CUstream_st *stream)
+{
+  //fprintf(stderr, "%s mh=%p async_enabled=%d type=%d stream=%p\n", __func__, mh, (int)async_enabled, mh->type, stream);
+
+  if (mh->is_async) {
+    assert(mh->type == MSG_SEND || mh->type == MSG_RECV);
+    if (stream)
+        ASYNC_CHECK( async_wait_all_on_stream(1, &mh->req, stream) );
+    else
+        ASYNC_CHECK( async_wait_all(1, &mh->req) );
+  } else {
+    // ignore stream
+    MPI_CHECK( MPI_Wait(&(mh->request), MPI_STATUS_IGNORE) );
+  }
+  //fprintf(stderr, "%s mh=%p done\n", __func__, mh);
 }
 
 
 int comm_query(MsgHandle *mh)
 {
   int query;
-  MPI_CHECK( MPI_Test(&(mh->request), &query, MPI_STATUS_IGNORE) );
-
+  if (mh->is_async) {
+    // TODO implement completion query
+    // query == 1 -> comm is completed
+    query = 0;
+  } else {
+    MPI_CHECK( MPI_Test(&(mh->request), &query, MPI_STATUS_IGNORE) );
+  }
   return query;
 }
 
@@ -402,4 +554,44 @@ void comm_abort(int status)
 
 const char* comm_dim_partitioned_string() {
   return partition_string;
+}
+
+
+void comm_enable_async(int _async_enabled)
+{
+  async_enabled = !!_async_enabled && async_use_async();
+  //printf("async is %s\n", async_enabled ? "enabled" : "disabled");
+}
+
+
+int comm_use_async()
+{
+  return async_use_async();
+}
+
+
+int comm_flush()
+{
+  int ret = 0;
+  //printfQuda("calling async flush\n");
+  int retcode = async_flush();
+  if (retcode < 0) {
+    errorQuda("error %d in async_flush()\n", retcode);
+    ret = retcode;
+  }
+  // TODO: propagate error from flush
+  return ret;
+}
+
+
+int comm_progress()
+{
+  int ret = 0;
+  //printfQuda("calling async progress\n");
+  int retcode = async_progress();
+  if (retcode < 0) {
+    errorQuda("error %d in async_progress()\n", retcode);
+    ret = retcode;
+  }
+  return ret;
 }
