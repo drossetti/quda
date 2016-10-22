@@ -16,10 +16,10 @@
 extern "C" {
 #endif
 
-    int async_use_comm();
-    int async_use_gdrdma();
-    int async_use_async();
-    int async_use_gpu_comm();
+    int async_use_comm_mp();
+    int async_use_comm_rdma();
+    int async_use_comm_async_kernel();
+    int async_use_comm_async_stream();
 
     typedef struct async_request  *async_request_t;
     typedef struct async_reg      *async_reg_t;
