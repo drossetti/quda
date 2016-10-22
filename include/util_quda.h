@@ -112,6 +112,10 @@ char *getPrintBuffer();
 
 #ifdef HOST_DEBUG
 
+#ifdef GPU_ASYNC
+#warning "checkCudaError has cudaDeviceSynchronize in it"
+#endif
+
 #define checkCudaError() do {  \
   cudaDeviceSynchronize();     \
   checkCudaErrorNoSync();      \
