@@ -203,16 +203,16 @@ extern "C" {
   void comm_broadcast(void *data, size_t nbytes);
   void comm_barrier(void);
   void comm_abort(int status);
-
+  struct CUstream_st;
+  void comm_start_on_stream(MsgHandle *mh, struct CUstream_st *stream);
+  void comm_wait_on_stream(MsgHandle *mh, struct CUstream_st *stream);
+#ifdef GPU_ASYNC
   void comm_enable_async(int boolean);
   int comm_use_async();
   struct CUstream_st;
-  void comm_start_on_stream(MsgHandle *mh, CUstream_st *stream);
-  //void comm_send_on_stream(MsgHandle *mh, CUstream_st *stream);
-  void comm_wait_on_stream(MsgHandle *mh, CUstream_st *stream);
   int comm_flush();
   int comm_progress();
-
+#endif
 #ifdef __cplusplus
 }
 #endif

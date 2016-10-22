@@ -108,56 +108,56 @@ static inline void arch_cpu_relax(void)
         //arch_wait();
 }
 
-int async_use_comm()
+int async_use_comm_mp()
 {
     static int use_comm = -1;
     if (-1 == use_comm) {
-        const char *env = getenv("ASYNC_USE_COMM");
+        const char *env = getenv("QUDA_USE_COMM_MP");
         if (env) {
             use_comm = !!atoi(env);
-            printf("WARNING: %s Comm-based communications\n", (use_comm)?"enabling":"disabling");
+            printf("WARNING: %s libMP communications\n", (use_comm)?"enabling":"disabling");
         } else
             use_comm = 0; // default
     }
     return use_comm;
 }
 
-int async_use_gdrdma()
+int async_use_comm_rdma()
 {
     static int use_gdrdma = -1;
     if (-1 == use_gdrdma) {
-        const char *env = getenv("ASYNC_USE_GDRDMA");
+        const char *env = getenv("QUDA_USE_COMM_RDMA");
         if (env) {
             use_gdrdma = !!atoi(env);
-            printf("WARNING: %s CUDA-aware/RDMA communications\n", (use_gdrdma)?"enabling":"disabling");
+            printf("WARNING: %s RDMA communications\n", (use_gdrdma)?"enabling":"disabling");
         } else
             use_gdrdma = 0; // default
     }
     return use_gdrdma;
 }
 
-int async_use_gpu_comm()
+int async_use_comm_async_kernel()
 {
     static int use_gpu_comm = -1;
     if (-1 == use_gpu_comm) {
-        const char *env = getenv("ASYNC_USE_GPU_COMM");
+        const char *env = getenv("QUDA_USE_COMM_ASYNC_KERNEL");
         if (env) {
             use_gpu_comm = !!atoi(env);
-            printf("WARNING: %s GPU-initiated communications\n", (use_gpu_comm)?"enabling":"disabling");
+            printf("WARNING: %s GPU-initiated kernel-synchronous communications\n", (use_gpu_comm)?"enabling":"disabling");
         } else
             use_gpu_comm = 0; // default
     }
     return use_gpu_comm;
 }
 
-int async_use_async()
+int async_use_comm_async_stream()
 {
     static int use_async = -1;
     if (-1 == use_async) {
-        const char *env = getenv("ASYNC_USE_ASYNC");
+        const char *env = getenv("QUDA_USE_COMM_ASYNC_STREAM");
         if (env) {
             use_async = !!atoi(env);
-            printf("WARNING: %s GPUDirect Async for communications\n", (use_async)?"enabling":"disabling");
+            printf("WARNING: %s GPUDirect Async Stream-synchronous communications\n", (use_async)?"enabling":"disabling");
         } else
             use_async = 0; // default
     }
