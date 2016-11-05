@@ -416,6 +416,11 @@ void comm_free(MsgHandle *mh)
 }
 
 #ifdef GPU_ASYNC
+int comm_use_prepared()
+{
+  return async_use_comm_prepared();
+}
+
 static int comm_async_start(MsgHandle *mh, CUstream_st *stream)
 {
   int ret = 0;
@@ -426,18 +431,46 @@ static int comm_async_start(MsgHandle *mh, CUstream_st *stream)
       ASYNC_CHECK( async_wait_ready_on_stream(mh->rank, stream) );
       ret = async_isend_on_stream(mh->buffer, mh->nbytes, MPI_BYTE, &mh->reg, mh->rank, &mh->req, stream);
     } else {
+      ASYNC_CHECK( async_wait_ready(mh->rank) );
       ret = async_isend(mh->buffer, mh->nbytes, MPI_BYTE, &mh->reg, mh->rank, &mh->req);
     }
     break;
   case MSG_RECV:
+    ret = async_irecv(mh->buffer, mh->nbytes, MPI_BYTE, &mh->reg, mh->rank, &mh->req);
     if (stream) {
       ret = async_send_ready_on_stream(mh->rank, &tmp_req, stream);
-      if (ret) {
+    } else {
+      ret = async_send_ready(mh->rank, &tmp_req);
+    }
+    if (ret) {
+        errorQuda("error %d in send_ready\n", ret);
+        break;
+    }
+    break;
+  default:
+    errorQuda("unsupported MsgHandle type %d\n", mh->type);
+    ret = EINVAL;
+  }
+  return ret;
+}
+
+int comm_prepare_start(MsgHandle *mh)
+{
+  int ret = 0;
+  assert(mh->is_async);
+
+  switch (mh->type) {
+  case MSG_SEND:
+    ASYNC_CHECK( async_prepare_wait_ready(mh->rank) );
+    ret = async_prepare_isend(mh->buffer, mh->nbytes, MPI_BYTE, &mh->reg, mh->rank, &mh->req);
+    break;
+  case MSG_RECV:
+    ret = async_irecv(mh->buffer, mh->nbytes, MPI_BYTE, &mh->reg, mh->rank, &mh->req);
+    if (ret) {
         errorQuda("error %d in send_ready_on_stream\n", ret);
         break;
-      }
     }
-    ret = async_irecv(mh->buffer, mh->nbytes, MPI_BYTE, &mh->reg, mh->rank, &mh->req);
+    ret = async_prepare_send_ready(mh->rank);
     break;
   default:
     errorQuda("unsupported MsgHandle type %d\n", mh->type);
@@ -453,7 +486,6 @@ void comm_start(MsgHandle *mh)
   comm_start_on_stream(mh, NULL);
 }
 
-
 void comm_start_on_stream(MsgHandle *mh, CUstream_st *stream)
 {
   //fprintf(stderr, "%s mh=%p async_enabled=%d type=%d stream=%p\n", __func__, mh, (int)async_enabled, mh->type, stream);
@@ -461,9 +493,12 @@ void comm_start_on_stream(MsgHandle *mh, CUstream_st *stream)
   if (async_enabled)
     mh->is_async = true;
 
+  assert(mh->type == MSG_SEND || mh->type == MSG_RECV);
   if (mh->is_async) {
-
-    ASYNC_CHECK( comm_async_start(mh, stream) );
+    if (comm_use_prepared())
+      ASYNC_CHECK( comm_prepare_start(mh) );
+    else
+      ASYNC_CHECK( comm_async_start(mh, stream) ); 
 #else
   if (0) {
 #endif
@@ -485,12 +520,27 @@ void comm_wait_on_stream(MsgHandle *mh, CUstream_st *stream)
 {
   //fprintf(stderr, "%s mh=%p async_enabled=%d type=%d stream=%p\n", __func__, mh, (int)async_enabled, mh->type, stream);
 #ifdef GPU_ASYNC
+#warning "using GPU_ASYNC"
   if (mh->is_async) {
     assert(mh->type == MSG_SEND || mh->type == MSG_RECV);
-    if (stream)
+    if (comm_use_prepared()) {
+      switch(mh->type) {
+      case MSG_SEND:
+        ASYNC_CHECK( async_prepare_wait_send(&mh->req) );
+        break;
+      case MSG_RECV:
+        ASYNC_CHECK( async_prepare_wait_recv(&mh->req) );
+        break;
+      default:
+        assert(!"invalid type");
+        break;
+      }
+    } else {
+      if (stream)
         ASYNC_CHECK( async_wait_all_on_stream(1, &mh->req, stream) );
-    else
+      else
         ASYNC_CHECK( async_wait_all(1, &mh->req) );
+    }
 #else
   if (0) {
 #endif
@@ -619,5 +669,39 @@ int comm_progress()
   }
   return ret;
 }
+
+
+int comm_prepare_wait(MsgHandle *mh)
+{
+  int ret = 0;
+  assert(comm_use_prepared());
+  assert(mh->is_async);
+  switch(mh->type) {
+  case MSG_SEND:
+    ret = async_prepare_wait_send(&mh->req);
+    break;
+  case MSG_RECV:
+    ret = async_prepare_wait_recv(&mh->req);
+    break;
+  default:
+    errorQuda("unsupported MsgHandle type %d\n", mh->type);
+    ret = EINVAL;
+  }
+  return ret;
+}
+
+
+int comm_flush_prepared(CUstream_st *stream)
+{
+  int ret = 0;
+  //fprintf(stderr, "here\n");
+  if (comm_use_prepared()) {
+    //fprintf(stderr, "there\n");
+    assert(stream);
+    ret = async_submit_prepared(stream);
+  }
+  return ret;
+}
+
 
 #endif // GPU_ASYNC

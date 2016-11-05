@@ -41,12 +41,16 @@ extern "C" {
     int async_wait(async_request_t *creq);
     int async_flush();
     int async_progress();
+    int async_register(void *buf, size_t size, async_reg_t *creg);
 
+    int async_use_comm_prepared();
     int async_prepare_wait_ready(int rank);
     int async_prepare_isend(void *send_buf, size_t size, MPI_Datatype type, async_reg_t *creg,
-                           int dest_rank, async_request_t *creq);
-    int async_prepare_wait_all(int count, async_request_t *creqs);
-    int async_register(void *buf, size_t size, async_reg_t *creg);
+                           int dest_rank, async_request_t *req);
+    int async_prepare_send_ready(int rank);
+    int async_prepare_wait_send(async_request_t *creq);
+    int async_prepare_wait_recv(async_request_t *creq);
+    int async_submit_prepared(async_stream_t stream);
     
 #ifdef __cplusplus
 }

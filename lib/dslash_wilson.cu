@@ -153,7 +153,6 @@ namespace quda {
     }
 
 #ifndef GPU_COMMS
-    printfQuda("regular DSlash\n");
     DslashPolicyTune dslash_policy(*dslash, const_cast<cudaColorSpinorField*>(in), regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
     dslash_policy.apply(0);
 #else

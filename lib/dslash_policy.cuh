@@ -601,6 +601,8 @@ struct DslashGPUAsyncComms : DslashPolicyImp {
           PROFILE(inputSpinor->recvStart(dslash.Nface()/2, 2*i+dir, dagger, &streams[exteriorIndex]), profile, QUDA_PROFILE_COMMS_START);
       }
     }
+    comm_flush_prepared(streams[exteriorIndex]);
+
     // bool pack = false;
     // for (int i=3; i>=0; i--) 
     //   if (dslashParam.commDim[i] && (i!=3 || getKernelPackT() || getTwistPack())) 
@@ -635,7 +637,7 @@ struct DslashGPUAsyncComms : DslashPolicyImp {
         // inputSpinor->commsQuery(dslash.Nface()/2, 2*i+dir, dagger); // do a comms query to ensure MPI has begun
       }
     }
-
+    comm_flush_prepared(streams[packIndex]);
 #endif // MULTI_GPU
 
     PROFILE(dslash.apply(streams[bulkIndex]), profile, QUDA_PROFILE_DSLASH_KERNEL);
@@ -652,11 +654,14 @@ struct DslashGPUAsyncComms : DslashPolicyImp {
                 profile, QUDA_PROFILE_COMMS_QUERY);
       } // dir=0,1
 
+      comm_flush_prepared(streams[exteriorIndex]);
+
       dslashParam.kernel_type = static_cast<KernelType>(i);
       dslashParam.threads = dslash.Nface()*faceVolumeCB[i]; // updating 2 or 6 faces
       // all faces use this stream
       PROFILE(dslash.apply(streams[exteriorIndex]), profile, QUDA_PROFILE_DSLASH_KERNEL);
     }
+
     inputSpinor->bufferIndex = (1 - inputSpinor->bufferIndex);
 #endif // MULTI_GPU
     profile.TPSTOP(QUDA_PROFILE_TOTAL);
@@ -1526,21 +1531,25 @@ struct DslashFactory {
 
     switch(dslashPolicy){
     case QUDA_DSLASH2:
+      { static int c = 1; if (c-- > 0) printfQuda("DSlash2\n"); }
       result = new DslashCuda2;
       break;
     case QUDA_DSLASH_ASYNC:
       result = new DslashAsync;
       break;
     case QUDA_PTHREADS_DSLASH:
+      { static int c = 1; if (c-- > 0) printfQuda("DSlashPthreads\n"); }
       result = new DslashPthreads;
       break;
     case QUDA_FUSED_DSLASH:
+      { static int c = 1; if (c-- > 0) printfQuda("DSlashFusedExterior\n"); }
       result = new DslashFusedExterior;
       break;
     case QUDA_FUSED_DSLASH_ASYNC:
       result = new DslashFusedExteriorAsync;
       break;
     case QUDA_GPU_COMMS_DSLASH:
+      { static int c = 1; if (c-- > 0) printfQuda("GPU Comm DSlash\n"); }
       result = new DslashGPUComms;
       break;
     case QUDA_FUSED_GPU_COMMS_DSLASH:
@@ -1553,9 +1562,11 @@ struct DslashFactory {
       result = new DslashFusedZeroCopy;
       break;
     case QUDA_DSLASH_NC:
+      { static int c = 1; if (c-- > 0) printfQuda("DSlashNC"); }
       result = new DslashNC;
       break;
     case QUDA_GPU_ASYNC_COMMS_DSLASH:
+      { static int c = 1; if (c-- > 0) printfQuda("GPU Async Comm DSlash\n"); }
       result = new DslashGPUAsyncComms;
       break;
     default:
