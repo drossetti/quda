@@ -1547,7 +1547,6 @@ namespace quda {
 	// receive from the processor in the +1 direction
 	comm_start(mh_recv_p2p_fwd[dim]);
       } else {
-        // Prepost receive
         comm_start_on_stream(mh_recv_fwd[bufferIndex][nFace-1][dim], stream);
       }
     } else { //sending forwards
@@ -1576,7 +1575,7 @@ namespace quda {
     if (!comm_peer2peer_enabled(dir,dim)) {
       cudaStream_t stream = stream_p ? *stream_p : NULL;
       if (dir == 0) comm_start_on_stream(mh_send_back[bufferIndex][nFace-1][2*dim+dagger], stream);
-      else comm_start_on_stream(mh_send_fwd[bufferIndex][nFace-1][2*dim+dagger], stream);
+      else          comm_start_on_stream(mh_send_fwd [bufferIndex][nFace-1][2*dim+dagger], stream);
     } else { // doing peer-to-peer
       cudaStream_t *copy_stream = (stream_p) ? stream_p : stream + d;
 

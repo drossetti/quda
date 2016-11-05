@@ -192,15 +192,21 @@ extern "C" {
   void comm_broadcast(void *data, size_t nbytes);
   void comm_barrier(void);
   void comm_abort(int status);
+
   struct CUstream_st;
   void comm_start_on_stream(MsgHandle *mh, struct CUstream_st *stream);
   void comm_wait_on_stream(MsgHandle *mh, struct CUstream_st *stream);
+
 #ifdef GPU_ASYNC
   void comm_enable_async(int boolean);
   int comm_use_async();
   struct CUstream_st;
   int comm_flush();
   int comm_progress();
+  int comm_use_prepared();
+  int comm_prepare_start(MsgHandle *mh);
+  int comm_prepare_wait(MsgHandle *mh);
+  int comm_flush_prepared(CUstream_st *stream);
 #endif
 #ifdef __cplusplus
 }

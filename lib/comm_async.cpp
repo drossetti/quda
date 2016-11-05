@@ -164,6 +164,20 @@ int async_use_comm_async_stream()
     return use_async;
 }
 
+int async_use_comm_prepared()
+{
+    static int use_prepared = -1;
+    if (-1 == use_prepared) {
+        const char *env = getenv("QUDA_USE_COMM_ASYNC_PREPARED");
+        if (env) {
+            use_prepared = !!atoi(env);
+            printf("WARNING: %s GPUDirect Async prepared Stream-synchronous communications\n", (use_prepared)?"enabling":"disabling");
+        } else
+            use_prepared = 0; // default
+    }
+    return use_prepared;
+}
+
 int async_init(MPI_Comm comm)
 {
     int i, j;
@@ -591,3 +605,105 @@ int async_progress()
     return ret;
 }
 
+static struct desc_queue {
+    mp_desc_queue_t mdq;
+    desc_queue() {
+        MP_CHECK(mp_desc_queue_alloc(&mdq));
+    }
+    ~desc_queue() {
+        MP_CHECK(mp_desc_queue_free(&mdq));
+    }
+    mp_desc_queue_t *operator&() {
+        if (!mdq)
+        return &mdq;
+    }
+} dq;
+
+
+int async_prepare_isend(void *send_buf, size_t size, MPI_Datatype type, async_reg_t *creg, int dest_rank, async_request_t *creq)
+{
+    assert(async_initialized);
+    int ret = 0;
+    int retcode;
+    size_t nbytes = size*async_size_of_mpi_type(type);
+    mp_reg_t *reg = (mp_reg_t*)creg;
+    assert(reg);
+    mp_request_t *req = (mp_request_t*)creq;
+    assert(req);
+    int peer = async_mpi_rank_to_peer(dest_rank);
+    DBG("dest_rank=%d peer=%d nbytes=%zd\n", dest_rank, peer, nbytes);
+    if (!size) {
+        ret = -EINVAL;
+        async_err("SIZE==0\n");
+        goto out;
+    }
+    if (!*reg) {
+        DBG("registering buffer %p\n", send_buf);
+        MP_CHECK(mp_register(send_buf, nbytes, reg));
+    }
+    MP_CHECK(mp_send_prepare(send_buf, nbytes, peer, reg, req));
+    MP_CHECK(mp_desc_queue_add_send(&dq, req));
+    async_track_request(req);
+out:
+    return ret;
+}
+
+int async_prepare_wait_ready(int rank)
+{
+    assert(async_initialized);
+    assert(rank < async_size);
+    int ret = 0;
+    int peer = async_mpi_rank_to_peer(rank);
+    DBG("rank=%d\n", rank);
+    MP_CHECK(mp_desc_queue_add_wait_value32(&dq, &ready_table[rank], ready_values[rank], MP_WAIT_GEQ));
+    //async_track_request(req);
+    ready_values[rank]++;
+    return ret;
+}
+
+int async_prepare_send_ready(int rank)
+{
+    assert(async_initialized);
+    assert(rank < async_size);
+    int ret = 0;
+    int peer = async_mpi_rank_to_peer(rank);
+    mp_request_t req;
+    int remote_offset = /*self rank*/async_rank * sizeof(uint32_t);
+    DBG("dest_rank=%d payload=%x offset=%d\n", rank, remote_ready_values[rank], remote_offset);
+    MP_CHECK(mp_put_prepare(&remote_ready_values[rank], sizeof(uint32_t), &remote_ready_values_reg, 
+                            peer, remote_offset, &ready_table_win, &req, MP_PUT_INLINE));
+    MP_CHECK(mp_desc_queue_add_send(&dq, &req));
+    async_track_request(&req);
+    atomic_inc(&remote_ready_values[rank]);
+    return ret;
+}
+
+int async_prepare_wait_send(async_request_t *creq)
+{
+    assert(async_initialized);
+    int ret = 0;
+    mp_request_t *req = (mp_request_t *)creq;
+    MP_CHECK(mp_desc_queue_add_wait_send(&dq, req));
+    //async_track_desc(desc);
+    return ret;
+}
+
+int async_prepare_wait_recv(async_request_t *creq)
+{
+    assert(async_initialized);
+    int ret = 0;
+    mp_request_t *req = (mp_request_t *)creq;
+    MP_CHECK(mp_desc_queue_add_wait_recv(&dq, req));
+    //async_track_desc(desc);
+    return ret;
+}
+
+int async_submit_prepared(async_stream_t stream)
+{
+    //assert(n_descs < MAX_DESCS);
+    //memset(preqs, 0, sizeof(descs[0])*n_descs);
+    //n_preqs = 0;
+
+    // flush and invalidate desc queue
+    MP_CHECK(mp_desc_queue_post_on_stream(stream, &dq, 0));
+}
