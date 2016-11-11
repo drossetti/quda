@@ -1,7 +1,8 @@
 #!/bin/bash
 
-export CC=/opt/gcc/5.3.0/bin/gcc
-export CXX=/opt/gcc/5.3.0/bin/g++
+source ~/work/gcc-5.3.0.sh
+#export CC=/opt/gcc/5.3.0/bin/gcc
+#export CXX=/opt/gcc/5.3.0/bin/g++
 
 #. ~/work/cudagdsync_env.sh
 ##. ~/work/mvapich2gdsync_env.sh
@@ -30,19 +31,6 @@ echo "CUDA=$CUDA"
 
 cd build
 
-# ./configure \
-#     --enable-multi-gpu \
-#     --with-cuda=$CUDA \
-#     --with-gdsync-comms=/usr/local/peersync \
-#     --with-mpi=$MPI_HOME \
-#     --enable-gpu-comms \
-#     --enable-clover-dirac \
-#     --disable-domain-wall-dirac \
-#     --disable-twisted-mass-dirac \
-#     --disable-milc-interface \
-#     --disable-tifr-interface \
-#     --enable-host-debug
-
 CMAKE=/opt/cmake/bin/cmake
 QUDASRC=..
 
@@ -51,9 +39,11 @@ set -x
 #rm -rf build
 #touch CMakeLists.txt
 
+#    -DCMAKE_BUILD_TYPE=HOSTDEBUG \
+
 if true; then
 ${CMAKE} ${QUDASRC} \
-    -DCMAKE_BUILD_TYPE=HOSTDEBUG \
+    -DCMAKE_BUILD_TYPE=RELEASE \
     -DCUDA_USE_STATIC_CUDA_RUNTIME=OFF \
     -DCUDA_VERBOSE_BUILD=OFF \
     -DCMAKE_VERBOSE_MAKEFILE=OFF \
@@ -61,8 +51,8 @@ ${CMAKE} ${QUDASRC} \
     -DQUDA_GPU_ARCH=sm_35 \
     -DQUDA_MPI=ON \
     -DQUDA_MPI_NVTX=ON \
-    -DQUDA_INTERFACE_NVTX=ON \
-    -DQUDA_NVTX=ON \
+    -DQUDA_INTERFACE_NVTX=OFF \
+    -DQUDA_MPI_NVTX=OFF \
     \
     -DQUDA_GPU_COMMS=ON \
     -DQUDA_GPU_ASYNC=ON \
@@ -86,8 +76,7 @@ ${CMAKE} ${QUDASRC} \
 fi
 
 #make clean && \
-
-#make -j6 && \
-#make dslash_test
+make rebuild_cache
+make -j6 dslash_test
 
 cd ..
