@@ -217,6 +217,13 @@ extern "C" {
   int comm_use_prepared();
   int comm_prepare_start(MsgHandle *mh);
   int comm_prepare_wait(MsgHandle *mh);
+    enum comm_wait_flags {
+        COMM_WAIT_GEQ = 0,
+        COMM_WAIT_EQ,
+        COMM_WAIT_AND,
+    };
+    int comm_prepare_wait_value32(unsigned int *pw, unsigned int value, int flags);
+    int comm_prepare_write_value32(unsigned int *pw, unsigned int value);
   int comm_flush_prepared(CUstream_st *stream);
 #endif
 #ifdef __cplusplus

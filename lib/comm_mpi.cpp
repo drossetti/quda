@@ -690,6 +690,15 @@ int comm_prepare_wait(MsgHandle *mh)
   return ret;
 }
 
+int comm_prepare_wait_value32(unsigned int *pw, unsigned int value, int flags)
+{
+  return async_prepare_wait_value32(pw, value, flags);
+}
+
+int comm_prepare_write_value32(unsigned int *pw, unsigned int value)
+{
+  return async_prepare_write_value32(pw, value);
+}
 
 int comm_flush_prepared(CUstream_st *stream)
 {

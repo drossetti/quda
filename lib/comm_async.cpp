@@ -698,6 +698,22 @@ int async_prepare_wait_recv(async_request_t *creq)
     return ret;
 }
 
+int async_prepare_wait_value32(uint32_t *pw, uint32_t value, int flags)
+{
+    assert(async_initialized);
+    int ret = 0;
+    MP_CHECK(mp_desc_queue_add_wait_value32(&dq, pw, value, flags));
+    return ret;
+}
+
+int async_prepare_write_value32(uint32_t *pw, uint32_t value)
+{
+    assert(async_initialized);
+    int ret = 0;
+    MP_CHECK(mp_desc_queue_add_write_value32(&dq, pw, value));
+    return ret;
+}
+
 int async_submit_prepared(async_stream_t stream)
 {
     //assert(n_descs < MAX_DESCS);

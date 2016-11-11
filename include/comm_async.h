@@ -50,6 +50,13 @@ extern "C" {
     int async_prepare_send_ready(int rank);
     int async_prepare_wait_send(async_request_t *creq);
     int async_prepare_wait_recv(async_request_t *creq);
+    enum async_wait_flags {
+        ASYNC_WAIT_GEQ = 0,
+        ASYNC_WAIT_EQ,
+        ASYNC_WAIT_AND,
+    };
+    int async_prepare_wait_value32(uint32_t *pw, uint32_t value, int flags);
+    int async_prepare_write_value32(uint32_t *pw, uint32_t value);
     int async_submit_prepared(async_stream_t stream);
     
 #ifdef __cplusplus
