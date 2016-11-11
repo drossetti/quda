@@ -618,21 +618,20 @@ struct DslashGPUAsyncComms : DslashPolicyImp {
     }
     comm_flush_prepared(streams[exteriorIndex]);
 
-    // bool pack = false;
-    // for (int i=3; i>=0; i--) 
-    //   if (dslashParam.commDim[i] && (i!=3 || getKernelPackT() || getTwistPack())) 
-    //     { pack = true; break; }
+    bool pack = false;
+    for (int i=3; i>=0; i--) 
+      if (dslashParam.commDim[i] && (i!=3 || getKernelPackT() || getTwistPack())) 
+      { pack = true; break; }
 
     // Initialize pack from source spinor
     PROFILE(inputSpinor->pack(dslash.Nface()/2, 1-parity, dagger, packIndex, false, twist_a, twist_b),
             profile, QUDA_PROFILE_PACK_KERNEL);
 
-    // if (pack) {
-    //   // Record the end of the packing
-    //   PROFILE(cudaEventRecord(packEnd[0], streams[packIndex]), 
-    //           profile, QUDA_PROFILE_EVENT_RECORD);
-    // }
-
+    if (pack) {
+      // Record the end of the packing
+      PROFILE(cudaEventRecord(packEnd[0], streams[packIndex]), 
+              profile, QUDA_PROFILE_EVENT_RECORD);
+    }
 
     // bool pack_event = false;
     for (int i=3; i>=0; i--) {
@@ -659,6 +658,35 @@ struct DslashGPUAsyncComms : DslashPolicyImp {
     if (aux_worker) aux_worker->apply(streams[bulkIndex]);
 
 #ifdef MULTI_GPU 
+
+#if 0
+    // setup for exterior kernel 
+    setThreadDimMap(dslashParam,dslash,faceVolumeCB);
+    dslashParam.kernel_type = EXTERIOR_KERNEL_ALL;
+    dslashParam.threads = 0;
+
+    for(int i=0; i<4; ++i){
+      if(!dslashParam.commDim[i]) continue;
+      dslashParam.threads = dslashParam.threadDimMapUpper[i];
+    }
+
+    for (int i=3; i>=0; i--) {
+      if (!dslashParam.commDim[i]) continue;
+
+      for (int dir=1; dir>=0; dir--) {
+
+        PROFILE(inputSpinor->commsWait(dslash.Nface()/2, 2*i+dir, dagger, &streams[exteriorIndex]), 
+                profile, QUDA_PROFILE_COMMS_QUERY);
+      } // dir=0,1
+    }
+    comm_flush_prepared(streams[exteriorIndex]);
+
+    // Launch exterior kernel
+    if (pattern.commDimTotal) {
+      PROFILE(dslash.apply(streams[exteriorIndex]), profile, QUDA_PROFILE_DSLASH_KERNEL);
+    }
+#else
+
     // all exterior calculations go on same stream
     for (int i=3; i>=0; i--) {
       if (!dslashParam.commDim[i]) continue;
@@ -676,6 +704,230 @@ struct DslashGPUAsyncComms : DslashPolicyImp {
       // all faces use this stream
       PROFILE(dslash.apply(streams[exteriorIndex]), profile, QUDA_PROFILE_DSLASH_KERNEL);
     }
+#endif
+
+    inputSpinor->bufferIndex = (1 - inputSpinor->bufferIndex);
+#endif // MULTI_GPU
+    profile.TPSTOP(QUDA_PROFILE_TOTAL);
+#else 
+    errorQuda("GPU_COMMS has not been built\n");
+#endif // GPU_COMMS
+  }
+};
+
+struct DslashGPUAsync2Comms : DslashPolicyImp {
+  void operator()(DslashCuda &dslash, cudaColorSpinorField* inputSpinor, const size_t regSize, const int parity, const int dagger, 
+		  const int volume, const int *faceVolumeCB, TimeProfile &profile) {
+#ifdef GPU_COMMS
+    using namespace dslash;
+
+    profile.TPSTART(QUDA_PROFILE_TOTAL);
+
+  
+    dslashParam.parity = parity;
+    dslashParam.kernel_type = INTERIOR_KERNEL;
+    dslashParam.threads = volume;
+
+
+    if (!comm_use_prepared()) {
+      errorQuda("Async2 requires prepared comms\n");
+    }
+
+//#define DBG(FMT, ...) do { fprintf(getOutputFile(), "%s" FMT, getOutputPrefix(), ##__VA_ARGS__); fflush(getOutputFile()); } while(0)
+//#define DBG(FMT, ...) do { fprintf(stderr, "%s" FMT, getOutputPrefix(), ##__VA_ARGS__); fflush(getOutputFile()); } while(0)
+#define DBG(FMT, ...) do {  } while(0)
+
+#ifdef MULTI_GPU
+    // Record the start of the dslash if doing communication in T and not kernel packing
+    // if (dslashParam.commDim[3] && !(getKernelPackT() || getTwistPack())) 
+    //   {
+    //           PROFILE(cudaEventRecord(dslashStart, streams[Nstream-1]), 
+    //             profile, QUDA_PROFILE_EVENT_RECORD);
+    //   }
+
+    inputSpinor->allocateGhostBuffer(dslash.Nface()/2);
+    inputSpinor->createComms(dslash.Nface()/2);
+    DslashCommsPattern pattern(dslashParam.commDim);
+    inputSpinor->streamInit(streams);
+
+    const int packIndex = Nstream-1; // 8
+    const int exteriorIndex = 0;     // 0...3 (dim)
+    const int bulkIndex = Nstream-2; // 7
+    int n_parallel_dims = 0;
+    int first_parallel_dim = -1;
+
+    static unsigned call_depth = 0;
+    static unsigned dim_value = 0;
+    static unsigned bulk_value = 0;
+    static unsigned exterior_value = 0;
+    static unsigned pack_value = 0;
+    static uint32_t *bulk_sema = NULL;
+    static uint32_t *exterior_sema = NULL;
+    static uint32_t *pack_sema = NULL;
+    static uint32_t *halo_sema = NULL;
+    static uint32_t *dim_sema = NULL;
+
+    static uint32_t *semas = NULL;
+    if (!semas) {
+      // init to zero => on 1st round all semas are good
+      semas = (uint32_t*)calloc(1, 4096);
+      if (!semas)
+        errorQuda("cannot allocate semaphore page");
+      bulk_sema     = semas + 0;
+      exterior_sema = semas + 1;
+      pack_sema     = semas + 2;
+      halo_sema     = semas + 4;
+      dim_sema      = semas + 8; // 8...11
+    }
+
+    DBG("call depth=%d\n", call_depth);
+    ++call_depth;
+
+    for(int i=3; i>=0; i--){
+      if(!dslashParam.commDim[i]) continue;
+
+      if (first_parallel_dim == -1)
+        first_parallel_dim = i;
+
+      ++n_parallel_dims;
+
+      // TODO: wait for step-1 bulk and exterior
+      DBG("wait bulk sema value=%d\n", bulk_value);
+      comm_prepare_wait_value32(bulk_sema, bulk_value, COMM_WAIT_GEQ);
+      DBG("wait pack sema value=%d\n", pack_value);
+      comm_prepare_wait_value32(pack_sema, pack_value, COMM_WAIT_GEQ);
+
+      for(int dir=1; dir>=0; dir--){
+        DBG("recvStart dim=%d dir=%d\n", i, dir);
+        PROFILE(inputSpinor->recvStart(dslash.Nface()/2, 2*i+dir, dagger, &streams[exteriorIndex+i]), profile, QUDA_PROFILE_COMMS_START);
+      }
+      comm_flush_prepared(streams[exteriorIndex+i]);
+    }
+
+    DBG("first_parallel_dim=%d n_parallel_dims=%d\n", first_parallel_dim, n_parallel_dims);
+
+    bool pack = false;
+    for (int i=3; i>=0; i--) 
+      if (dslashParam.commDim[i] && (i!=3 || getKernelPackT() || getTwistPack())) 
+      { pack = true; break; }
+
+    // wait for step-1 exterior
+    // exterior_value is incremented below
+    // cannot simply prepare because of kernel launch
+    comm_prepare_wait_value32(exterior_sema, exterior_value, COMM_WAIT_GEQ);
+    comm_flush_prepared(streams[packIndex]);
+
+    DBG("launching pack kernel\n");
+    // Initialize pack from source spinor
+    PROFILE(inputSpinor->pack(dslash.Nface()/2, 1-parity, dagger, packIndex, false, twist_a, twist_b),
+            profile, QUDA_PROFILE_PACK_KERNEL);
+#if 0
+    if (pack) {
+      // Record the end of the packing
+      PROFILE(cudaEventRecord(packEnd[0], streams[packIndex]), 
+              profile, QUDA_PROFILE_EVENT_RECORD);
+    }
+#endif
+
+    // bool pack_event = false;
+    for (int i=3; i>=0; i--) {
+      if (!dslashParam.commDim[i]) continue;
+      for (int dir=1; dir>=0; dir--) {	
+        DBG("sendStart dim=%d dir=%d\n", i, dir);
+        PROFILE(inputSpinor->sendStart(dslash.Nface()/2, 2*i+dir, dagger, &streams[packIndex]), profile, QUDA_PROFILE_COMMS_START);
+      }
+    }
+
+    ++pack_value;
+    DBG("write pack sema value=%d\n", pack_value);
+    comm_prepare_write_value32(pack_sema, pack_value);
+    
+    comm_flush_prepared(streams[packIndex]);
+#endif // MULTI_GPU
+
+    // bulk compute
+    // wait for step-1 exterior (and bulk)
+    DBG("wait exterior sema value=%d\n", exterior_value);
+    comm_prepare_wait_value32(exterior_sema, exterior_value, COMM_WAIT_GEQ);
+    comm_flush_prepared(streams[bulkIndex]);
+    DBG("launching bulk kernel\n");
+    PROFILE(dslash.apply(streams[bulkIndex]), profile, QUDA_PROFILE_DSLASH_KERNEL);
+    if (aux_worker) aux_worker->apply(streams[bulkIndex]);
+
+    // TODO: can be moved down
+    ++bulk_value;
+    DBG("write bulk sema value=%d\n", bulk_value);
+    comm_prepare_write_value32(bulk_sema, bulk_value);
+    comm_flush_prepared(streams[bulkIndex]);
+
+#ifdef MULTI_GPU 
+
+    // wait for additional serialization lock
+    // because all exterior calculations must be interlocked
+    // as they are running on separate streams
+    for (int i=3; i>=0; i--) {
+      DBG("dim i=%d\n", i);
+      if (!dslashParam.commDim[i]) continue;
+
+      for (int dir=1; dir>=0; dir--) {
+        DBG("commsWait on dim=%d dir=%d\n", i, dir);
+        PROFILE(inputSpinor->commsWait(dslash.Nface()/2, 2*i+dir, dagger, &streams[exteriorIndex+i]), 
+                profile, QUDA_PROFILE_COMMS_QUERY);
+      } // dir=0,1
+
+      // inter-dim locking
+      if (1 && n_parallel_dims > 1) {
+        // wait halo lock
+        DBG("wait halo sema %d\n", 0);
+        comm_prepare_wait_value32(halo_sema, 0, COMM_WAIT_EQ);
+        // take halo lock
+        DBG("write halo sema %d\n", 1);
+        comm_prepare_write_value32(halo_sema, 1);
+      }
+
+      comm_flush_prepared(streams[exteriorIndex+i]);
+
+      // exterior kernels over dimension i
+      dslashParam.kernel_type = static_cast<KernelType>(i);
+      dslashParam.threads = dslash.Nface()*faceVolumeCB[i]; // updating 2 or 6 faces
+      // all faces use that same stream because they share update of some corner lattice sites
+      PROFILE(dslash.apply(streams[exteriorIndex+i]), profile, QUDA_PROFILE_DSLASH_KERNEL);
+
+      if (1 && n_parallel_dims > 1) {
+        // release halo lock
+        DBG("write halo sema %d\n", 0);
+        comm_prepare_write_value32(halo_sema, 0);
+      }
+      // end of inter-dim locking
+
+      // cross-synchronize work on exterior streams
+      if (1 && n_parallel_dims > 1) {
+        if (i != first_parallel_dim) {
+          DBG("write dim sema %d value=%d\n", i, dim_value);
+          comm_prepare_write_value32(dim_sema+i, dim_value);
+        } else {
+          // this stream waits on sema from all other streams
+          for (int dim=3; dim>0; dim--) {
+            if (!dslashParam.commDim[dim]) continue;
+            if (dim != first_parallel_dim) {
+              DBG("wait dim sema %d for value=%d\n", dim, dim_value);
+              comm_prepare_wait_value32(dim_sema+dim, dim_value, COMM_WAIT_GEQ);
+            }
+          }
+        }
+      }
+
+      // unblock step+1 bulk and pack
+      if (i == first_parallel_dim) {
+        ++exterior_value;
+        DBG("write exterior sema value=%d\n", exterior_value);
+        comm_prepare_write_value32(exterior_sema, exterior_value);
+      }
+
+      comm_flush_prepared(streams[exteriorIndex+i]);
+    }
+    ++dim_value;
+    DBG("dim_value=%d\n", dim_value);
 
     inputSpinor->bufferIndex = (1 - inputSpinor->bufferIndex);
 #endif // MULTI_GPU
@@ -1155,8 +1407,14 @@ struct DslashFactory {
       result = new DslashNC;
       break;
     case QUDA_GPU_ASYNC_COMMS_DSLASH:
-      { static int c = 1; if (c-- > 0) printfQuda("GPU Async Comm DSlash\n"); }
-      result = new DslashGPUAsyncComms;
+      if (comm_use_prepared()) {
+        { static int c = 1; if (c-- > 0) printfQuda("GPU Async Comm DSlash 2\n"); }
+        result = new DslashGPUAsync2Comms;
+      }
+      else {
+        { static int c = 1; if (c-- > 0) printfQuda("GPU Async Comm DSlash\n"); }
+        result = new DslashGPUAsyncComms;
+      }
       break;
     default:
       errorQuda("Dslash policy %d not recognized",dslashPolicy);
