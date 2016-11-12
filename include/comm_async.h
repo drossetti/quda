@@ -47,7 +47,7 @@ extern "C" {
     int async_prepare_wait_ready(int rank);
     int async_prepare_isend(void *send_buf, size_t size, MPI_Datatype type, async_reg_t *creg,
                            int dest_rank, async_request_t *req);
-    int async_prepare_send_ready(int rank);
+    int async_prepare_send_ready(int rank, async_request_t *req);
     int async_prepare_wait_send(async_request_t *creq);
     int async_prepare_wait_recv(async_request_t *creq);
     enum async_wait_flags {

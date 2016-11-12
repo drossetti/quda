@@ -393,7 +393,7 @@ void initQudaDevice(int dev) {
     cudaGetDeviceProperties(&deviceProp, i);
     checkCudaErrorNoSync(); // "NoSync" for correctness in HOST_DEBUG mode
     if (getVerbosity() >= QUDA_SUMMARIZE) {
-      printfQuda("Found device %d: %s\n", i, deviceProp.name);
+      fprintf(getOutputFile(),"Found device %d: %s\n", i, deviceProp.name);
     }
   }
 
