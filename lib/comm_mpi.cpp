@@ -58,6 +58,7 @@ struct MsgHandle_s {
   async_reg_t reg;
   // req is also buffered and tracked down in async
   async_request_t req;
+  async_request_t rdy_req;
   MsgType_t   type;
 #endif
 };
@@ -438,9 +439,9 @@ static int comm_async_start(MsgHandle *mh, CUstream_st *stream)
   case MSG_RECV:
     ret = async_irecv(mh->buffer, mh->nbytes, MPI_BYTE, &mh->reg, mh->rank, &mh->req);
     if (stream) {
-      ret = async_send_ready_on_stream(mh->rank, &tmp_req, stream);
+      ret = async_send_ready_on_stream(mh->rank, &mh->rdy_req, stream);
     } else {
-      ret = async_send_ready(mh->rank, &tmp_req);
+      ret = async_send_ready(mh->rank, &mh->rdy_req);
     }
     if (ret) {
         errorQuda("error %d in send_ready\n", ret);
@@ -470,7 +471,7 @@ int comm_prepare_start(MsgHandle *mh)
         errorQuda("error %d in send_ready_on_stream\n", ret);
         break;
     }
-    ret = async_prepare_send_ready(mh->rank);
+    ret = async_prepare_send_ready(mh->rank, &mh->rdy_req);
     break;
   default:
     errorQuda("unsupported MsgHandle type %d\n", mh->type);
@@ -530,16 +531,24 @@ void comm_wait_on_stream(MsgHandle *mh, CUstream_st *stream)
         break;
       case MSG_RECV:
         ASYNC_CHECK( async_prepare_wait_recv(&mh->req) );
+        ASYNC_CHECK( async_prepare_wait_send(&mh->rdy_req) );
         break;
       default:
         assert(!"invalid type");
         break;
       }
     } else {
+      int nreqs = 0;
+      async_request_t reqs[2];
+
+      reqs[nreqs++] = mh->req;
+      if (mh->type == MSG_RECV)
+        reqs[nreqs++] = mh->rdy_req;
+
       if (stream)
-        ASYNC_CHECK( async_wait_all_on_stream(1, &mh->req, stream) );
+        ASYNC_CHECK( async_wait_all_on_stream(nreqs, reqs, stream) );
       else
-        ASYNC_CHECK( async_wait_all(1, &mh->req) );
+        ASYNC_CHECK( async_wait_all(nreqs, reqs) );
     }
 #else
   if (0) {
@@ -650,7 +659,7 @@ int comm_flush()
   //printfQuda("calling async flush\n");
   int retcode = async_flush();
   if (retcode < 0) {
-    errorQuda("error %d in async_flush()\n", retcode);
+    fprintf(stderr, "error %d in async_flush()\n", retcode);
     ret = retcode;
   }
   // TODO: propagate error from flush
@@ -664,7 +673,7 @@ int comm_progress()
   //printfQuda("calling async progress\n");
   int retcode = async_progress();
   if (retcode < 0) {
-    errorQuda("error %d in async_progress()\n", retcode);
+    fprintf(stderr, "error %d in async_progress()\n", retcode);
     ret = retcode;
   }
   return ret;
@@ -684,7 +693,7 @@ int comm_prepare_wait(MsgHandle *mh)
     ret = async_prepare_wait_recv(&mh->req);
     break;
   default:
-    errorQuda("unsupported MsgHandle type %d\n", mh->type);
+    fprintf(stderr, "unsupported MsgHandle type %d\n", mh->type);
     ret = EINVAL;
   }
   return ret;

@@ -17,11 +17,11 @@ int dbg_enabled()
 {
     static int dbg_is_enabled = -1;
     if (-1 == dbg_is_enabled) {        
-        const char *env = getenv("ASYNC_ENABLE_DEBUG");
+        const char *env = getenv("QUDA_ASYNC_ENABLE_DEBUG");
         if (env) {
             int en = atoi(env);
             dbg_is_enabled = !!en;
-            printf("ASYNC_ENABLE_DEBUG=%s\n", env);
+            printf("QUDA_ASYNC_ENABLE_DEBUG=%s\n", env);
         } else
             dbg_is_enabled = 0;
     }
@@ -661,19 +661,19 @@ int async_prepare_wait_ready(int rank)
     return ret;
 }
 
-int async_prepare_send_ready(int rank)
+int async_prepare_send_ready(int rank, async_request_t *creq)
 {
     assert(async_initialized);
     assert(rank < async_size);
     int ret = 0;
     int peer = async_mpi_rank_to_peer(rank);
-    mp_request_t req;
+    mp_request_t *req = (mp_request_t *)creq;
     int remote_offset = /*self rank*/async_rank * sizeof(uint32_t);
     DBG("dest_rank=%d payload=%x offset=%d\n", rank, remote_ready_values[rank], remote_offset);
     MP_CHECK(mp_put_prepare(&remote_ready_values[rank], sizeof(uint32_t), &remote_ready_values_reg, 
-                            peer, remote_offset, &ready_table_win, &req, MP_PUT_INLINE));
-    MP_CHECK(mp_desc_queue_add_send(&dq, &req));
-    async_track_request(&req);
+                            peer, remote_offset, &ready_table_win, req, MP_PUT_INLINE));
+    MP_CHECK(mp_desc_queue_add_send(&dq, req));
+    async_track_request(req);
     atomic_inc(&remote_ready_values[rank]);
     return ret;
 }
