@@ -671,7 +671,11 @@ int async_prepare_send_ready(int rank, async_request_t *creq)
     int remote_offset = /*self rank*/async_rank * sizeof(uint32_t);
     DBG("dest_rank=%d payload=%x offset=%d\n", rank, remote_ready_values[rank], remote_offset);
     MP_CHECK(mp_put_prepare(&remote_ready_values[rank], sizeof(uint32_t), &remote_ready_values_reg, 
-                            peer, remote_offset, &ready_table_win, req, MP_PUT_INLINE));
+                            peer, remote_offset, &ready_table_win, req, MP_PUT_INLINE
+#ifdef USE_NOWAIT // buggy as req is still tracked and cannot complete
+                            | MP_PUT_NOWAIT
+#endif
+));
     MP_CHECK(mp_desc_queue_add_send(&dq, req));
     async_track_request(req);
     atomic_inc(&remote_ready_values[rank]);
