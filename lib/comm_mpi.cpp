@@ -477,7 +477,9 @@ void comm_wait_on_stream(MsgHandle *mh, CUstream_st *stream)
         break;
       case MSG_RECV:
         ASYNC_CHECK( async_prepare_wait_recv(&mh->req) );
+#ifndef USE_NOWAIT
         ASYNC_CHECK( async_prepare_wait_send(&mh->rdy_req) );
+#endif
         break;
       default:
         assert(!"invalid type");
@@ -486,11 +488,11 @@ void comm_wait_on_stream(MsgHandle *mh, CUstream_st *stream)
     } else {
       int nreqs = 0;
       async_request_t reqs[2];
-
       reqs[nreqs++] = mh->req;
+#ifndef USE_NOWAIT
       if (mh->type == MSG_RECV)
         reqs[nreqs++] = mh->rdy_req;
-
+#endif
       if (stream)
         ASYNC_CHECK( async_wait_all_on_stream(nreqs, reqs, stream) );
       else
