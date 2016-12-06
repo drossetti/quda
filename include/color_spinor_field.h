@@ -680,7 +680,8 @@ namespace quda {
     void sendStart(int nFace, int dir, int dagger=0, cudaStream_t *stream_p=NULL);
     void commsStart(int nFace, int dir, int dagger=0, cudaStream_t *stream_p=NULL);
     int commsQuery(int nFace, int dir, int dagger=0, cudaStream_t *stream_p=NULL);
-    void commsWait(int nFace, int dir, int dagger=0, cudaStream_t *stream_p=NULL);
+    enum comm_wait_mask { wait_send=1<<0, wait_recv=1<<1, wait_all=wait_send|wait_recv };
+    void commsWait(int nFace, int dir, int dagger=0, cudaStream_t *stream_p=NULL, unsigned mask = wait_all);
 
     void scatter(int nFace, int dagger, int dir, cudaStream_t *stream_p);
     void scatter(int nFace, int dagger, int dir);
