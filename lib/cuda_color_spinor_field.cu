@@ -1366,7 +1366,7 @@ namespace quda {
     return 0;
   }
 
-  void cudaColorSpinorField::commsWait(int nFace, int dir, int dagger, cudaStream_t *stream_p, bool gdr) {
+void cudaColorSpinorField::commsWait(int nFace, int dir, int dagger, cudaStream_t *stream_p, bool gdr, unsigned mask) {
     int dim = dir / 2;
     if (!commDimPartitioned(dim)) return;
 
@@ -1374,7 +1374,7 @@ namespace quda {
     cudaStream_t stream = stream_p ? *stream_p : NULL;
 
     if (dir%2==0) {
-
+      if (mask & wait_recv) {
       if (comm_peer2peer_enabled(1,dim)) {
 	comm_wait(mh_recv_p2p_fwd[bufferIndex][dim]);
 	cudaEventSynchronize(ipcRemoteCopyEvent[bufferIndex][1][dim]);
@@ -1383,7 +1383,8 @@ namespace quda {
       } else {
         comm_wait_on_stream(mh_recv_fwd[bufferIndex][dim], stream);
       }
-
+      }
+      if (mask & wait_send) {
       if (comm_peer2peer_enabled(0,dim)) {
 	comm_wait(mh_send_p2p_back[bufferIndex][dim]);
 	cudaEventSynchronize(ipcCopyEvent[bufferIndex][0][dim]);
@@ -1392,7 +1393,9 @@ namespace quda {
       } else {
         comm_wait_on_stream(mh_send_back[bufferIndex][dim], stream);
       }
+      }
     } else {
+      if (mask & wait_recv) {
       if (comm_peer2peer_enabled(0,dim)) {
 	comm_wait(mh_recv_p2p_back[bufferIndex][dim]);
 	cudaEventSynchronize(ipcRemoteCopyEvent[bufferIndex][0][dim]);
@@ -1401,7 +1404,8 @@ namespace quda {
       } else {
         comm_wait_on_stream(mh_recv_back[bufferIndex][dim], stream);
       }
-
+      }
+      if (mask & wait_send) {
       if (comm_peer2peer_enabled(1,dim)) {
 	comm_wait(mh_send_p2p_fwd[bufferIndex][dim]);
 	cudaEventSynchronize(ipcCopyEvent[bufferIndex][1][dim]);
@@ -1409,6 +1413,7 @@ namespace quda {
 	comm_wait(mh_send_rdma_fwd[bufferIndex][dim]);
       } else {
         comm_wait_on_stream(mh_send_fwd[bufferIndex][dim], stream);
+      }
       }
     }
 
