@@ -1,8 +1,8 @@
 #!/bin/bash
 
 source ~/work/gcc-5.3.0.sh
-#export CC=/opt/gcc/5.3.0/bin/gcc
-#export CXX=/opt/gcc/5.3.0/bin/g++
+export CC=/opt/gcc/5.3.0/bin/gcc
+export CXX=/opt/gcc/5.3.0/bin/g++
 
 #. ~/work/cudagdsync_env.sh
 ##. ~/work/mvapich2gdsync_env.sh
@@ -46,13 +46,14 @@ ${CMAKE} ${QUDASRC} \
     -DCMAKE_BUILD_TYPE=RELEASE \
     -DCUDA_USE_STATIC_CUDA_RUNTIME=OFF \
     -DCUDA_VERBOSE_BUILD=OFF \
-    -DCMAKE_VERBOSE_MAKEFILE=OFF \
+    -DCMAKE_VERBOSE_MAKEFILE=ON \
     \
     -DQUDA_GPU_ARCH=sm_35 \
     -DQUDA_MPI=ON \
     -DQUDA_MPI_NVTX=ON \
     -DQUDA_INTERFACE_NVTX=OFF \
     -DQUDA_MPI_NVTX=OFF \
+    -DQUDA_NVTX=ON \
     \
     -DQUDA_GPU_COMMS=ON \
     -DQUDA_GPU_ASYNC=ON \
