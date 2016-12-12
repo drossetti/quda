@@ -17,6 +17,26 @@
 #include <domain_wall_dslash_reference.h>
 #include "misc.h"
 
+#include <cuda_profiler_api.h>
+#include "nvToolsExt.h"
+static const uint32_t nvtx_colors[] = { 0x0000ff00, 0x000000ff, 0x00ffff00, 0x00ff00ff, 0x0000ffff, 0x00ff0000, 0x00ffffff };
+static const int nvtx_num_colors = sizeof(nvtx_colors)/sizeof(uint32_t);
+
+#define MY_PUSH_RANGE(name,cid) { \
+    int color_id = cid; \
+    color_id = color_id%nvtx_num_colors;\
+    nvtxEventAttributes_t eventAttrib = {0}; \
+    eventAttrib.version = NVTX_VERSION; \
+    eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE; \
+    eventAttrib.colorType = NVTX_COLOR_ARGB; \
+    eventAttrib.color = nvtx_colors[color_id]; \
+    eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII; \
+    eventAttrib.message.ascii = name; \
+    eventAttrib.category = cid;\
+    nvtxRangePushEx(&eventAttrib); \
+}
+#define MY_POP_RANGE nvtxRangePop();
+
 #include <qio_field.h>
 // google test frame work
 #include <gtest.h>
@@ -460,6 +480,10 @@ double dslashCUDA(int niter) {
   cudaEventRecord(start, 0);
 
   for (int i = 0; i < niter; i++) {
+    //MY_PUSH_RANGE("barrier", 1);
+    //comm_barrier();
+    //MY_POP_RANGE;
+
     if (dslash_type == QUDA_DOMAIN_WALL_4D_DSLASH){
       switch (test_type) {
         case 0:
@@ -596,16 +620,27 @@ double dslashCUDA(int niter) {
           break;
       }
     }
+#if 0
+    MY_PUSH_RANGE("comm_flush", 1);
+    comm_flush();
+    MY_POP_RANGE;
+    MY_PUSH_RANGE("dev sync", 1);
+    cudaDeviceSynchronize();
+    MY_POP_RANGE;
+#endif
   }
 
   cudaEventRecord(end, 0);
-  // comm_flush();
+  fprintf(stderr, "before cudaEventSynchronize()\n");
   cudaEventSynchronize(end);
+  fprintf(stderr, "before comm_flush()\n");
+  comm_flush();
+
   float runTime;
   cudaEventElapsedTime(&runTime, start, end);
   cudaEventDestroy(start);
   cudaEventDestroy(end);
-
+  cudaDeviceSynchronize();
   double secs = runTime / 1000; //stopwatchReadSeconds();
 
   // check for errors
@@ -975,13 +1010,24 @@ int main(int argc, char **argv)
   int attempts = 1;
   dslashRef();
   for (int i=0; i<attempts; i++) {
+    comm_barrier();
+    cudaProfilerStart();
 
     if (tune) { // warm-up run
       dslashCUDA(1);
     }
     printfQuda("Executing %d kernel loops...\n", niter);
     if (!transfer) dirac->Flops();
+
+
+    MY_PUSH_RANGE("usleep 10", 1);
+    comm_barrier();
+    usleep(10);
+    comm_barrier();
+    MY_POP_RANGE;
+
     double secs = dslashCUDA(niter);
+    cudaProfilerStop();
     printfQuda("done.\n\n");
 
     if (!transfer) *spinorOut = *cudaSpinorOut;
