@@ -30,10 +30,11 @@ function run() {
         -x QUDA_RESOURCE_PATH=$QUDA_RESOURCE_PATH \
         -x QUDA_USE_COMM_ASYNC_STREAM=$ASYNC \
         -x QUDA_USE_COMM_ASYNC_PREPARED=$PREPARED \
-        -x QUDA_ASYNC_ENABLE_DEBUG=1 \
+        -x QUDA_ASYNC_ENABLE_DEBUG=0 \
         \
         -x MP_ENABLE_DEBUG=0 \
         -x GDS_ENABLE_DEBUG=0 \
+        -x GDS_ENABLE_DUMP_MEMOPS=0 \
         -x ENABLE_DEBUG_MSG=0 \
         \
         -x MLX5_DEBUG_MASK=0 \
@@ -46,10 +47,10 @@ function run() {
         -x MP_EVENT_ASYNC=0 \
         -x MP_GUARD_PROGRESS=0 \
         \
-        -x GDS_DISABLE_WRITE64=0           \
+        -x GDS_DISABLE_WRITE64=1           \
         -x GDS_SIMULATE_WRITE64=$A         \
         -x GDS_DISABLE_INLINECOPY=$B       \
-        -x GDS_ENABLE_WEAK_CONSISTENCY=$C \
+        -x GDS_DISABLE_WEAK_CONSISTENCY=$C \
         -x GDS_DISABLE_MEMBAR=$D           \
         \
         ../scripts/wrapper.sh  $EXE $PAR ) 
@@ -62,8 +63,8 @@ echo "CWD=$PWD"
 
 #exec &>>run.log
 
-#Ni=50
-Ni=20
+#Ni=4
+Ni=100
 #for L in 8 16 32; do
 for L in 16; do
 
