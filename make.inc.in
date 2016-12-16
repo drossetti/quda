@@ -1,5 +1,7 @@
 ###### Local configuration:
 
+GPU_ASYNC_HOME = @GPU_ASYNC_HOME@
+
 CUDA_INSTALL_PATH = @CUDA_INSTALL_PATH@
 QDP_INSTALL_PATH = @QDP_INSTALL_PATH@
 QDPXX_CXXFLAGS = @QDPXX_CXXFLAGS@
@@ -52,6 +54,7 @@ BUILD_MAGMA_VARS = @BUILD_MAGMA_VARS@ # build magma using env vars MAGMA_INC and
 # GPUdirect options
 GPU_DIRECT = @GPU_DIRECT@          # set to 'yes' to allow GPU and NIC to shared pinned buffers
 GPU_COMMS = @GPU_COMMS@            # set to 'yes' to allow GPU and NIC to communicate using RDMA
+GPU_ASYNC = @GPU_ASYNC@
 
 # Profiling options
 MPI_NVTX = @MPI_NVTX@              # set to 'yes' to add nvtx markup to MPI API calls for the visual profiler
@@ -314,6 +317,14 @@ endif
 ifeq ($(strip $(GPU_COMMS)), yes)
   NVCCOPT += -DGPU_COMMS
   COPT += -DGPU_COMMS
+endif
+
+ifeq ($(strip $(GPU_ASYNC)), yes)
+  NVCCOPT += -DGPU_ASYNC
+  COPT += -DGPU_ASYNC
+  INC += -I$(GPU_ASYNC_HOME)/include
+  LIB += -L$(GPU_ASYNC_HOME)/lib -lmp -lgdsync -lgdrapi -lnvToolsExt
+  COMM_OBJS += comm_async.o
 endif
 
 ifeq ($(strip $(BUILD_QDP_INTERFACE)), yes)
