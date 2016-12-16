@@ -214,6 +214,19 @@ AC_ARG_ENABLE(gpu-direct,
   [ gpu_direct="yes" ]
 )
 
+dnl enable direct cuda-nic communication
+AC_ARG_ENABLE(gpu-comms,
+  AC_HELP_STRING([--enable-gpu-comms], [ Enable direct CUDA-NIC communication (experimental, default: disabled)]),
+  [ gpu_comms=${enableval}],
+  [ gpu_comms="no" ]
+)
+
+AC_ARG_ENABLE(gpu-async,
+  AC_HELP_STRING([--enable-gpu-async], [ Enable GPU Direct Asyn communication (experimental, default: disabled)]),
+  [ gpu_async_home=${enableval}; gpu_async="yes"],
+  [ gpu_async_home=""; gpu_async="no" ]
+)
+
 dnl enable NVTX mark up for the MPI in the visual profiler
 AC_ARG_ENABLE(mpi-nvtx,
   AC_HELP_STRING([--enable-mpi-nvtx], [ Enable NVTX markup for profiling MPI API calls in the visual profiler (default: disabled)]),
@@ -789,6 +802,14 @@ AC_SUBST( POSIX_THREADS, [${posix_threads}])
 
 AC_MSG_NOTICE([Setting GPU_DIRECT= ${gpu_direct}])
 AC_SUBST( GPU_DIRECT, [${gpu_direct}])
+
+AC_MSG_NOTICE([Setting GPU_COMMS= ${gpu_comms}])
+AC_SUBST( GPU_COMMS, [${gpu_comms}])
+
+AC_MSG_NOTICE([Setting GPU_ASYNC= ${gpu_async}])
+AC_SUBST( GPU_ASYNC, [${gpu_async}])
+AC_MSG_NOTICE([Setting GPU_ASYNC_HOME= ${gpu_async_home}])
+AC_SUBST( GPU_ASYNC_HOME, [${gpu_async_home}])
 
 AC_MSG_NOTICE([Setting MPI_NVTXS= ${mpi_nvtx}])
 AC_SUBST( MPI_NVTX, [${mpi_nvtx}])
