@@ -105,9 +105,14 @@ void comm_init(int ndim, const int *dims, QudaCommsMap rank_from_coords, void *m
   MPI_CHECK( MPI_Allgather(hostname, 128, MPI_CHAR, hostname_recv_buf, 128, MPI_CHAR, MPI_COMM_WORLD) );
 
   gpuid = 0;
-  for (int i = 0; i < rank; i++) {
-    if (!strncmp(hostname, &hostname_recv_buf[128*i], 128)) {
-      gpuid++;
+  char *env_use_gpu = getenv("USE_GPU");
+  if (env_use_gpu) {
+    gpuid = atoi(env_use_gpu);
+  } else {
+    for (int i = 0; i < rank; i++) {
+      if (!strncmp(hostname, &hostname_recv_buf[128*i], 128)) {
+	gpuid++;
+      }
     }
   }
 
