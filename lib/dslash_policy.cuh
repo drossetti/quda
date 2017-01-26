@@ -955,6 +955,12 @@ static bool dbg_enabled()
         }                                                               \
     } while(0)
 
+/* fixes:
+   only wait on recv
+   add wait on sends at bottom of pack stream
+
+   data validation errors on 4 nodes
+*/
 
 struct DslashGPUAsync3Comms : DslashPolicyImp {
   void operator()(DslashCuda &dslash, cudaColorSpinorField* inputSpinor, const size_t regSize, const int parity, const int dagger, 
@@ -2096,14 +2102,16 @@ struct DslashFactory {
       result = new DslashNC;
       break;
     case QUDA_GPU_ASYNC_COMMS_DSLASH:
-      if (comm_use_prepared()) {
-        { static int c = 1; if (c-- > 0) printfQuda("GPU Async Comm DSlash3\n"); }
-        result = new DslashGPUAsync3Comms;
-      }
-      else {
-        { static int c = 1; if (c-- > 0) printfQuda("GPU Async Comm DSlash\n"); }
-        result = new DslashGPUAsyncComms;
-      }
+      { static int c = 1; if (c-- > 0) printfQuda("GPU Async Comm DSlash\n"); }
+      result = new DslashGPUAsyncComms;
+      break;
+    case QUDA_GPU_ASYNC_PREPARED_SIMPLE_COMMS_DSLASH:
+      { static int c = 1; if (c-- > 0) printfQuda("GPU Async Comm DSlash2\n"); }
+      result = new DslashGPUAsync2Comms;
+      break;
+    case QUDA_GPU_ASYNC_PREPARED_COMMS_DSLASH:
+      { static int c = 1; if (c-- > 0) printfQuda("GPU Async Comm DSlash3\n"); }
+      result = new DslashGPUAsync3Comms;
       break;
     default:
       errorQuda("Dslash policy %d not recognized",dslashPolicy);
