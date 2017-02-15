@@ -580,6 +580,10 @@ struct DslashGPUComms : DslashPolicyImp {
   }
 };
 
+/*
+  single stream implementation
+  no prepared calls
+ */
 struct DslashGPUAsyncComms : DslashPolicyImp {
   void operator()(DslashCuda &dslash, cudaColorSpinorField* inputSpinor, const size_t regSize, const int parity, const int dagger, 
 		  const int volume, const int *faceVolumeCB, TimeProfile &profile) {
@@ -628,11 +632,11 @@ struct DslashGPUAsyncComms : DslashPolicyImp {
     PROFILE(inputSpinor->pack(dslash.Nface()/2, 1-parity, dagger, packIndex, false, twist_a, twist_b),
             profile, QUDA_PROFILE_PACK_KERNEL);
 
-    if (pack) {
-      // Record the end of the packing
-      PROFILE(cudaEventRecord(packEnd[0], streams[packIndex]), 
-              profile, QUDA_PROFILE_EVENT_RECORD);
-    }
+    //if (pack) {
+    //  // Record the end of the packing
+    //  PROFILE(cudaEventRecord(packEnd[0], streams[packIndex]), 
+    //          profile, QUDA_PROFILE_EVENT_RECORD);
+    //}
 
     // bool pack_event = false;
     for (int i=3; i>=0; i--) {
@@ -720,6 +724,9 @@ struct DslashGPUAsyncComms : DslashPolicyImp {
 
 };
 
+/*
+  bugs here... not used
+ */
 struct DslashGPUAsync2Comms : DslashPolicyImp {
   void operator()(DslashCuda &dslash, cudaColorSpinorField* inputSpinor, const size_t regSize, const int parity, const int dagger, 
 		  const int volume, const int *faceVolumeCB, TimeProfile &profile) {
