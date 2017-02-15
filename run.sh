@@ -7,7 +7,7 @@ export QUDA_RESOURCE_PATH=$PWD/.quda
 echo "cleaning performance cache"
 rm -rf $QUDA_RESOURCE_PATH/*
 
-EXE=build/tests/dslash_test
+EXE=tests/dslash_test
 #EXE=build/tests/dslash_test.plain
 #EXE=build/tests/dslash_test.gpu_comms
 
@@ -31,6 +31,7 @@ function run() {
         -x QUDA_USE_COMM_ASYNC_STREAM=$ASYNC \
         -x QUDA_USE_COMM_ASYNC_PREPARED=$PREPARED \
         -x QUDA_ASYNC_ENABLE_DEBUG=0 \
+	-x QUDA_ENABLE_P2P=0 \
         \
         -x MP_ENABLE_DEBUG=0 \
         -x GDS_ENABLE_DEBUG=0 \
@@ -68,7 +69,7 @@ Ni=100
 #for L in 8 16 32; do
 for L in 16; do
 
-NZ=2
+NZ=1
 NT=2
 ASYNC=1
 PREPARED=1
@@ -77,8 +78,9 @@ echo "-------------------------------------------"
 echo "L=$L NZ=$NZ NT=$NT ASYNC=$ASYNC  PREPARED=$PREPARED EXE=$EXE"
 echo "-------------------------------------------"
 # inlcopy seems to be worse if S==1024, better if S==0
-run 0 0 0 0 $(($NT * $NZ)) $ASYNC $PREPARED \
-    --device 0 \
+#      --device 0 \
+#
+run 0 1 1 1 $(($NT * $NZ)) $ASYNC $PREPARED \
     --niter $Ni --dslash-type wilson \
     --xgridsize 1 --ygridsize 1 --zgridsize $NZ --tgridsize $NT \
     --xdim $L --ydim $L --zdim $(($L / $NZ)) --tdim $(($L / $NT)) \
