@@ -25,6 +25,25 @@
 
 #include <inline_ptx.h>
 
+#include "nvToolsExt.h"
+static const uint32_t nvtx_colors[] = { 0x0000ff00, 0x000000ff, 0x00ffff00, 0x00ff00ff, 0x0000ffff, 0x00ff0000, 0x00ffffff };
+static const int nvtx_num_colors = sizeof(nvtx_colors)/sizeof(uint32_t);
+
+#define MY_PUSH_RANGE(name,cid) { \
+    int color_id = cid; \
+    color_id = color_id%nvtx_num_colors;\
+    nvtxEventAttributes_t eventAttrib = {0}; \
+    eventAttrib.version = NVTX_VERSION; \
+    eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE; \
+    eventAttrib.colorType = NVTX_COLOR_ARGB; \
+    eventAttrib.color = nvtx_colors[color_id]; \
+    eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII; \
+    eventAttrib.message.ascii = name; \
+    eventAttrib.category = cid;\
+    nvtxRangePushEx(&eventAttrib); \
+}
+#define MY_POP_RANGE nvtxRangePop();
+
 namespace quda {
 
   namespace wilson {
@@ -156,14 +175,21 @@ namespace quda {
     DslashPolicyImp* dslashImp;
     if (comm_use_async()) {
         comm_enable_async(true);
-        dslashImp = DslashFactory::create(QUDA_GPU_ASYNC_COMMS_DSLASH);
+	if (comm_use_prepared()) {
+	  dslashImp = DslashFactory::create(QUDA_GPU_ASYNC_PREPARED_COMMS_DSLASH);
+	  //dslashImp = DslashFactory::create(QUDA_GPU_ASYNC_PREPARED_SIMPLE_COMMS_DSLASH);
+	} else {
+	  dslashImp = DslashFactory::create(QUDA_GPU_ASYNC_COMMS_DSLASH);
+	}
     } else {
         dslashImp = DslashFactory::create(QUDA_GPU_COMMS_DSLASH);
     }
+    MY_PUSH_RANGE("dslash_async", 2);
     (*dslashImp)(*dslash, const_cast<cudaColorSpinorField*>(in), regSize, parity, dagger, in->Volume(), in->GhostFace(), profile);
+    MY_POP_RANGE;
     if (comm_use_async()) {
         //comm_flush();
-        comm_progress();
+        PROFILE(comm_progress(), profile, QUDA_PROFILE_COMMS_QUERY);
         comm_enable_async(false);
     }
     delete dslashImp;
