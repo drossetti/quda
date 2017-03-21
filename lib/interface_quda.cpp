@@ -422,6 +422,7 @@ void initQudaDevice(int dev) {
   checkCudaErrorNoSync(); // "NoSync" for correctness in HOST_DEBUG mode
 #endif
 
+  comm_async_init();
 
 #if ((CUDA_VERSION >= 6000) && defined NUMA_NVML)
   char *enable_numa_env = getenv("QUDA_ENABLE_NUMA");
