@@ -134,16 +134,22 @@ void comm_init(int ndim, const int *dims, QudaCommsMap rank_from_coords, void *m
   comm_peer2peer_init(hostname_recv_buf);
 
   host_free(hostname_recv_buf);
+}
+
+void comm_async_init()
+{
 #ifdef GPU_ASYNC
-  {
-    int dev_id = 0;
-    cudaError_t ret = cudaSuccess;
-    ret = cudaGetDevice(&dev_id);
-    printf("dev_id=%d ret=%d\n", dev_id, ret);
-    if (dev_id >= 0) {
-      cudaFree(0);
-      ASYNC_CHECK( async_init(MPI_COMM_WORLD) );
-    }
+  int dev_id = -1;
+  cudaError_t ret = cudaSuccess;
+  ret = cudaGetDevice(&dev_id);
+  printf("[%d] check currently set device: dev_id=%d ret=%d\n", comm_rank(), dev_id, ret);
+  if (ret != cudaSuccess) {
+    printf("CUDA error!!\n");
+    MPI_Abort(MPI_COMM_WORLD, -1);
+  }
+  if (dev_id >= 0) {
+    cudaFree(0);
+    ASYNC_CHECK( async_init(MPI_COMM_WORLD) );
   }
 #endif
 }

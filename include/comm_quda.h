@@ -123,6 +123,7 @@ extern "C" {
   /* implemented in comm_single.cpp, comm_qmp.cpp, and comm_mpi.cpp */
 
   void comm_init(int ndim, const int *dims, QudaCommsMap rank_from_coords, void *map_data);
+  void comm_async_init();
   int comm_rank(void);
   int comm_size(void);
   int comm_gpuid(void);
