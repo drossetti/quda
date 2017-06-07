@@ -49,6 +49,17 @@ do {                                                    \
 } while (0)
 
 
+#define __CUDACHECK(stmt, cond_str)					\
+    do {								\
+        cudaError_t result = (stmt);                                    \
+        if (cudaSuccess != result) {                                    \
+            fprintf(stderr, "[%s:%d] \"%s != cudaSuccess\" error=%d(%s)\n", \
+                       __FILE__, __LINE__, cond_str, result, cudaGetErrorString(result)); \
+        }                                                               \
+    } while (0)
+
+#define CUDACHECK(stmt) __CUDACHECK(stmt, #stmt)
+
 #define async_err(FMT, ARGS...)  do { fprintf(stderr, "ERR [%d] %s() " FMT, async_rank, __FUNCTION__ , ## ARGS); fflush(stderr); } while(0)
 
 
@@ -178,7 +189,7 @@ int async_use_comm_prepared()
     return use_prepared;
 }
 
-int async_init(MPI_Comm comm)
+int async_init(MPI_Comm comm, int gpuid)
 {
     int i, j;
 
@@ -215,9 +226,17 @@ int async_init(MPI_Comm comm)
         return 1;
     }
 
+    //int gpu_id = 0;
+    //CUDACHECK(cudaGetDevice(&gpu_id));
+    //DBG("gpu_id=%d\n", gpu_id);
+
+    cudaSetDevice(gpuid);
+    cudaFree(0);
+
     MP_CHECK(mp_init(comm, peers, n_peers
 #if MP_API_MAJOR_VERSION > 1
                      , MP_INIT_DEFAULT
+                     , gpuid
 #endif
                      ));
 
@@ -614,7 +633,7 @@ static struct desc_queue {
         MP_CHECK(mp_desc_queue_free(&mdq));
     }
     mp_desc_queue_t *operator&() {
-        if (!mdq)
+        assert (!mdq);
         return &mdq;
     }
 } dq;
@@ -726,4 +745,5 @@ int async_submit_prepared(async_stream_t stream)
 
     // flush and invalidate desc queue
     MP_CHECK(mp_desc_queue_post_on_stream(stream, &dq, 0));
+    return 0;
 }

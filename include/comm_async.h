@@ -24,7 +24,7 @@ extern "C" {
     typedef struct async_request  *async_request_t;
     typedef struct async_reg      *async_reg_t;
     typedef struct CUstream_st   *async_stream_t;
-    int async_init(MPI_Comm comm);
+    int async_init(MPI_Comm comm, int gpuid);
     int async_send_ready_on_stream(int rank, async_request_t *creq, async_stream_t stream);
     int async_send_ready(int rank, async_request_t *creq);
     int async_wait_ready_on_stream(int rank, async_stream_t stream);
