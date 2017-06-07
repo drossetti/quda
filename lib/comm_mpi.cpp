@@ -147,14 +147,13 @@ void comm_init(int ndim, const int *dims, QudaCommsMap rank_from_coords, void *m
 
 #ifdef GPU_ASYNC
   {
-    int dev_id = 0;
-    cudaError_t ret = cudaSuccess;
-    ret = cudaGetDevice(&dev_id);
-    printf("dev_id=%d ret=%d\n", dev_id, ret);
-    if (dev_id >= 0) {
-      cudaFree(0);
-      ASYNC_CHECK( async_init(MPI_COMM_WORLD) );
-    }
+    //int dev_id = 0;
+    //cudaError_t ret = cudaSuccess;
+    //ret = cudaGetDevice(&dev_id);
+    printf("rank=%d using dev_id=%d\n", comm_rank(), gpuid);
+    //if (dev_id >= 0) {
+    ASYNC_CHECK( async_init(MPI_COMM_WORLD, gpuid) );
+    //}
   }
 #endif
 }
