@@ -1176,9 +1176,8 @@ namespace quda {
     int Nint = (nColor * nSpin * 2)/(nSpin == 4 ? 2 : 1); // (spin proj.) degrees of freedom
     int Npad = Nint/Nvec;
 
-    cudaStream_t stream = stream_p ? *stream_p : NULL;
-
     if (!comm_peer2peer_enabled(dir,dim)) {
+      cudaStream_t stream = stream_p ? *stream_p : NULL;
       if (dir == 0)
         if (gdr) comm_start_on_stream(mh_send_rdma_back[bufferIndex][dim], stream);
         else comm_start_on_stream(mh_send_back[bufferIndex][dim], stream);
